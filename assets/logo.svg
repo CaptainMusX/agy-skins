@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256" fill="none">
+  <defs>
+    <linearGradient id="agyPrism" x1="28" y1="28" x2="228" y2="228" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#38BDF8"/>
+      <stop offset="52%" stop-color="#6366F1"/>
+      <stop offset="100%" stop-color="#A855F7"/>
+    </linearGradient>
+    <linearGradient id="agyGlass" x1="48" y1="40" x2="208" y2="216" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.34"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.08"/>
+    </linearGradient>
+  </defs>
+  <rect x="26" y="26" width="204" height="204" rx="46" fill="url(#agyPrism)"/>
+  <rect x="34" y="34" width="188" height="188" rx="39" fill="url(#agyGlass)" stroke="#FFFFFF" stroke-opacity="0.55" stroke-width="3"/>
+  <path d="M56 82C56 67.64 67.64 56 82 56H174C188.36 56 200 67.64 200 82V94H56V82Z" fill="#FFFFFF" fill-opacity="0.22"/>
+  <rect x="54" y="54" width="148" height="148" rx="28" stroke="#0F172A" stroke-opacity="0.22" stroke-width="3"/>
+  <path d="M107 95.5C107 90.6 112.4 87.6 116.6 90.1L166.2 120.6C170.2 123.1 170.2 128.9 166.2 131.4L116.6 161.9C112.4 164.4 107 161.4 107 156.5V95.5Z" fill="#FFFFFF" stroke="#0F172A" stroke-opacity="0.32" stroke-width="4" stroke-linejoin="round"/>
+  <circle cx="176" cy="75" r="7" fill="#FDE68A"/>
+</svg>

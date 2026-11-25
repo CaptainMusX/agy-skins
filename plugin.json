@@ -1,0 +1,20 @@
+{
+  "name": "agy-skins",
+  "displayName": "Antigravity Wallpaper Engine",
+  "version": "1.0.0",
+  "description": "Wallpaper Engine (Scene, Web, video and Picture) live backdrop, liquid glass, font sets, click/trail FX and 3D parallax for Google Antigravity.",
+  "author": {
+    "name": "CaptainMusX",
+    "url": "https://github.com/CaptainMusX"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/CaptainMusX/agy-skins.git"
+  },
+  "logo": "assets/logo.svg",
+  "suggestedPrompts": [
+    "Check agy-skins Wallpaper Engine status and live diagnostics",
+    "Help me configure liquid glass and typography in agy-skins",
+    "Troubleshoot Wallpaper Engine CDP connection in agy-skins"
+  ]
+}

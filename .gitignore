@@ -1,0 +1,14 @@
+node_modules/
+*.log
+*.pid
+*.key
+.env
+.env.*
+.DS_Store
+Thumbs.db
+.update-in-progress
+verification/
+coverage/
+tmp/
+cdp_state.json
+theme_config.json

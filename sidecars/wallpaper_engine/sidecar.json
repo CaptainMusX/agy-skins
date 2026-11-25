@@ -1,0 +1,20 @@
+{
+  "command": "node",
+  "args": [
+    "server.mjs"
+  ],
+  "description": "Antigravity Wallpaper Engine, liquid glass, typography, click/trail FX and 3D parallax sidecar & local media service",
+  "display_name": "agy-skins",
+  "has_web_ui": true,
+  "restart_policy": "always",
+  "ui_config": {
+    "display_name": "Wallpaper Engine",
+    "views": [
+      {
+        "entrypoint": "SIDECAR_UI_ENTRYPOINT_AUX_PANE",
+        "path": "/",
+        "title": "Wallpaper Engine"
+      }
+    ]
+  }
+}
