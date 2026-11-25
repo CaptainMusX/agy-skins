@@ -1,6 +1,8 @@
 /**
  * Root `we-picker` shell shared identically across Antigravity native Settings pane,
  * Alt+Shift+W floating dialog, and standalone Aux Sidecar pane.
+ * Uses persistent header, tabs bar (sliding .we-tabs__pill), body outlet, footer,
+ * and toast slots so interactions animate cleanly without rebuilding outer chrome.
  */
 import { TAB_RESET_KEYS } from '../shared/config.js'
 import { weAccentInk } from '../shared/glass-presets.js'
@@ -32,8 +34,11 @@ export function ensureWePickerStyles(doc = document) {
   if (!styleEl) {
     styleEl = doc.createElement('style')
     styleEl.id = PICKER_STYLE_ID
-    styleEl.textContent = WE_PICKER_CSS
+    styleEl.dataset.plugin = 'agy-skins'
     doc.head.appendChild(styleEl)
+  }
+  if (styleEl.textContent !== WE_PICKER_CSS) {
+    styleEl.textContent = WE_PICKER_CSS
   }
   return styleEl
 }
@@ -74,102 +79,139 @@ export function mountWePicker(rootEl, { embed = 'settings', getAuth = null } = {
 
   const store = createPanelStore({ getAuth, embed })
   const hostWrap = el('div', { className: 'we-picker', dataset: { weEmbed: embed } })
+  const bumpInteract = () => store.markInteracting(650)
+  hostWrap.addEventListener('pointerdown', bumpInteract, true)
+  hostWrap.addEventListener('input', bumpInteract, true)
+  hostWrap.addEventListener('change', bumpInteract, true)
+
+  const loadingEl = el('div', { className: 'we-picker__empty' },
+    el('div', { className: 'we-picker__hint' }, '正在同步 Wallpaper Engine 状态…')
+  )
+  const cardNameEl = el('span', { className: 'we-picker__card-name' })
+  const headBadgeEl = el('span', { className: 'we-picker__head-badge' })
+  const cardDescEl = el('span', { className: 'we-picker__card-desc' })
+  const headerShell = el('div', { className: 'we-picker__card-shell' },
+    el('div', { className: 'we-picker__card-head' }, cardNameEl, headBadgeEl, cardDescEl)
+  )
+
+  const pillEl = el('span', { className: 'we-tabs__pill', 'aria-hidden': 'true' })
+  const tabBtns = TABS.map(item => el('button', {
+    type: 'button',
+    role: 'tab',
+    className: 'we-tabs__tab',
+    onClick: () => {
+      if (store.state.tab === item.id) return
+      store.state.tab = item.id
+      store.state.armedConfirm = ''
+      store.notify()
+    }
+  }, ''))
+  const tabsBar = el('div', { className: 'we-tabs', role: 'tablist' }, pillEl, tabBtns)
+  const bodyEl = el('div', { className: 'we-picker__body' })
+  const footerEl = el('div', { className: 'we-picker__footer' })
+  const toastEl = el('div', { className: 'we-picker__toast', role: 'status', style: { display: 'none' } })
+
+  hostWrap.replaceChildren(loadingEl, headerShell, tabsBar, bodyEl, footerEl, toastEl)
   rootEl.innerHTML = ''
   rootEl.appendChild(hostWrap)
 
+  let lastAccent = ''
+  let lastTabsVisible = false
+  let lastRenderKey = ''
   let resizeObserver = null
-  let lastTabsBar = null
 
-  const positionPill = (tabsBar, immediate = false) => {
-    if (!tabsBar) return
-    const pill = tabsBar.querySelector('.we-tabs__pill')
+  const positionPill = (immediate = false) => {
     const activeTab = tabsBar.querySelector('.we-tabs__tab--active')
-    if (!pill || !activeTab) return
+    if (!activeTab) return
     const left = activeTab.offsetLeft - 3
     const width = activeTab.offsetWidth
     if (width <= 0) return
-    if (immediate) pill.style.transition = 'none'
-    pill.style.width = `${width}px`
-    pill.style.transform = `translateX(${left}px)`
+    if (immediate) pillEl.style.transition = 'none'
+    pillEl.style.width = `${width}px`
+    pillEl.style.transform = `translateX(${left}px)`
     if (immediate) {
-      void pill.offsetWidth
-      pill.style.transition = ''
+      void pillEl.offsetWidth
+      pillEl.style.transition = ''
     }
   }
 
+  if (typeof ResizeObserver === 'function') {
+    resizeObserver = new ResizeObserver(() => {
+      if (tabsBar.style.display !== 'none') positionPill(true)
+    })
+    resizeObserver.observe(tabsBar)
+  }
+
   const render = () => {
-    const { config, weItems, tab, toast } = store.state
-    const focusSnap = captureFocusState(hostWrap)
-    hostWrap.innerHTML = ''
+    const { config, weItems, tab, toast, pickerOpen } = store.state
+    const hasConfig = Boolean(config)
+    loadingEl.style.display = hasConfig ? 'none' : ''
+    headerShell.style.display = hasConfig ? '' : 'none'
+    bodyEl.style.display = hasConfig ? '' : 'none'
 
     if (!config) {
-      hostWrap.appendChild(el('div', { className: 'we-picker__empty' },
-        el('div', { className: 'we-picker__hint' }, '正在同步 Wallpaper Engine 状态…')
-      ))
+      tabsBar.style.display = 'none'
+      footerEl.style.display = 'none'
+      toastEl.style.display = 'none'
       return
     }
 
     const accent = /^#[0-9a-f]{6}$/i.test(config.accent || '') ? config.accent : '#4f8cff'
-    hostWrap.style.setProperty('--we-accent-src', accent)
-    hostWrap.style.setProperty('--we-accent-ink', weAccentInk(accent))
+    if (accent !== lastAccent) {
+      lastAccent = accent
+      hostWrap.style.setProperty('--we-accent-src', accent)
+      hostWrap.style.setProperty('--we-accent-ink', weAccentInk(accent))
+    }
 
     const t = store.getT()
     const hiddenSet = new Set(config.hiddenWallpaperIds || [])
     const playableCount = weItems.filter(i => !hiddenSet.has(i.id)).length
     const activeTabDef = TABS.find(item => item.id === tab) || TABS[0]
 
-    /* 1. Header Card */
-    hostWrap.appendChild(el('div', { className: 'we-picker__card-shell' },
-      el('div', { className: 'we-picker__card-head' },
-        el('span', { className: 'we-picker__card-name' }, t('wallpaperEngineTitle')),
-        el('span', { className: 'we-picker__card-badge' }, t('playableBadge', playableCount)),
-        el('span', { className: 'we-picker__card-desc' }, t('wallpaperEngineDesc'))
-      )
-    ))
+    const titleStr = t('wallpaperEngineTitle')
+    const badgeStr = t('playableBadge', playableCount)
+    const descStr = t('wallpaperEngineDesc')
+    if (cardNameEl.textContent !== titleStr) cardNameEl.textContent = titleStr
+    if (headBadgeEl.textContent !== badgeStr) headBadgeEl.textContent = badgeStr
+    if (cardDescEl.textContent !== descStr) cardDescEl.textContent = descStr
 
-    /* 2. Segmented Tabs Bar with Sliding Pill */
-    if (!store.state.pickerOpen) {
-      const pill = el('span', { className: 'we-tabs__pill', 'aria-hidden': 'true' })
-      const tabsBar = el('div', { className: 'we-tabs', role: 'tablist' },
-        pill,
-        TABS.map(item => el('button', {
-          type: 'button',
-          role: 'tab',
-          'aria-selected': item.id === activeTabDef.id ? 'true' : 'false',
-          className: `we-tabs__tab ${item.id === activeTabDef.id ? 'we-tabs__tab--active' : ''}`,
-          onClick: () => {
-            if (store.state.tab === item.id) return
-            store.state.tab = item.id
-            store.state.armedConfirm = ''
-            store.notify()
-          }
-        }, t(item.key)))
-      )
-      hostWrap.appendChild(tabsBar)
-      lastTabsBar = tabsBar
-
-      if (resizeObserver) resizeObserver.disconnect()
-      if (typeof ResizeObserver === 'function') {
-        resizeObserver = new ResizeObserver(() => positionPill(lastTabsBar, true))
-        resizeObserver.observe(tabsBar)
-      }
-      requestAnimationFrame(() => positionPill(tabsBar, false))
+    const tabsVisible = !pickerOpen
+    tabsBar.style.display = tabsVisible ? '' : 'none'
+    if (tabsVisible) {
+      TABS.forEach((item, idx) => {
+        const btn = tabBtns[idx]
+        const label = t(item.key)
+        const active = item.id === activeTabDef.id
+        if (btn.textContent !== label) btn.textContent = label
+        btn.setAttribute('aria-selected', active ? 'true' : 'false')
+        btn.classList.toggle('we-tabs__tab--active', active)
+      })
+      requestAnimationFrame(() => positionPill(!lastTabsVisible))
     }
+    lastTabsVisible = tabsVisible
 
-    /* 3. Active Tab Content (or in-page drill-down modal) */
-    hostWrap.appendChild(activeTabDef.render(store))
-
-    /* 4. Bottom Tab Reset Control */
-    if (!store.state.pickerOpen && TAB_RESET_KEYS[activeTabDef.id]) {
-      hostWrap.appendChild(renderTabReset(store, activeTabDef.id))
-    }
-
-    /* 5. Transient Toast Pill */
+    // Toast slot update without rebuilding tab body!
     if (toast?.message) {
-      hostWrap.appendChild(el('div', { className: 'we-picker__toast', role: 'status' }, toast.message))
+      if (toastEl.textContent !== toast.message) toastEl.textContent = toast.message
+      toastEl.style.display = ''
+    } else {
+      toastEl.style.display = 'none'
     }
 
-    restoreFocusState(hostWrap, focusSnap)
+    // Re-render tab body & footer
+    const focusSnap = captureFocusState(bodyEl)
+    bodyEl.replaceChildren(activeTabDef.render(store))
+    if (!pickerOpen && TAB_RESET_KEYS[activeTabDef.id]) {
+      footerEl.style.display = ''
+      footerEl.replaceChildren(renderTabReset(store, activeTabDef.id))
+    } else {
+      footerEl.style.display = 'none'
+      footerEl.replaceChildren()
+    }
+    if (focusSnap && lastRenderKey === activeTabDef.id) {
+      restoreFocusState(bodyEl, focusSnap)
+    }
+    lastRenderKey = activeTabDef.id
   }
 
   const onKeyDown = e => {

@@ -2,14 +2,15 @@
  * Unified Two-Stage Readability Liquid Glass controller for Google Antigravity 2.0,
  * modeled directly on elysia395/dsh-wallpaper-engine (packages/glass/src/glass-css.js + glass.js).
  *
- * Eliminates Antigravity's disjointed seams:
- * - Clears main shell/header/chat/sheet wrappers to reveal ONE continuous wallpaper+scrim backdrop.
- * - Remaps Antigravity's `--onyx-*` and surface alias tokens on body[data-agy-skins-active="true"],
- *   eliminating the 4px solid `--onyx-frame` composer halo and solid sidebar pills.
- * - Strips the 48px white `from-background` fade strip above `.surface-composer`.
- * - Hosts composer backdrop-filter on `::before` so fixed popups never lose viewport anchoring.
- * - Styles `.settings-modal-container` and `.settings-modal-backdrop` as one unified frosted sheet.
- * - Mutates only CSSOM properties on rule[0] during slider drags without rebuilding stylesheet text.
+ * Performance & visual architecture:
+ * - Writes dynamic visual properties directly onto scoped per-surface CSSOM rules
+ *   (topbar, leftSidebar, rightSidebar, composer, settingsModal, floaters, etc.)
+ *   rather than mutating custom properties on <html>/<body> during slider drags,
+ *   keeping interactive drags at ~3-10ms/frame across Antigravity's 4,000+ DOM nodes.
+ * - Avoids full-viewport backdrop-filter blur on .settings-modal-backdrop so live
+ *   1080p/4K video wallpapers never trigger double full-screen blur passes.
+ * - Syncs root-level --card / --color-card / --onyx-* tokens on commit updates so
+ *   both native Antigravity Tailwind v4 aliases and nested cards share cohesive opacity.
  */
 import { READABILITY_FLOOR, READABILITY_FLOOR_DARK, weClampSurfaceColor, weAccentInk } from '../shared/glass-presets.js'
 
@@ -89,11 +90,28 @@ function cornerRadiusString(mode, sqTL, sqTR, sqBR, sqBL) {
   return `${c(sqTL)} ${c(sqTR)} ${c(sqBR)} ${c(sqBL)}`
 }
 
+function setRuleProp(rule, prop, val, important = true) {
+  if (!rule) return
+  const strVal = String(val ?? '')
+  if (important) {
+    if (rule.getPropertyValue(prop).trim() !== strVal || rule.getPropertyPriority?.(prop) !== 'important') {
+      rule.setProperty(prop, strVal, 'important')
+    }
+  } else {
+    if (rule.getPropertyValue(prop).trim() !== strVal || rule.getPropertyPriority?.(prop) === 'important') {
+      rule.setProperty(prop, strVal)
+    }
+  }
+}
+
 export class GlassController {
   constructor() {
     this.styleEl = null
     this.materialRule = null
+    this.rules = null
     this.lastMaterialKey = null
+    this.lastRootKey = null
+    this.lastPickerKey = null
     this.seedKey = null
     this.seedColors = { bg: null, sidebar: null, card: null }
     this.terminalObserver = null
@@ -121,10 +139,11 @@ export class GlassController {
       enabled = false,
       wallpaperEnabled = enabled,
       glassEnabled = true,
-      glassTransparency = 72,
-      bubbleOpacity = 62,
+      isPreview = false,
+      glassTransparency = 68,
+      bubbleOpacity = 65,
       composerFrost = 22,
-      surfaceFrost = 18,
+      surfaceFrost = 20,
       saturation = 175,
       border = 32,
       highlight = true,
@@ -133,9 +152,9 @@ export class GlassController {
       glassDarkSeparate = true,
       glassFidelity = 100,
       chatGlassFidelity = 100,
-      settingsWindowTransparency = 24,
+      settingsWindowTransparency = 18,
       settingsWindowBlur = 24,
-      settingsMaskStrength = 80,
+      settingsMaskStrength = 55,
       sidebarGlass = true,
       sidebarFollowGlobal = true,
       sidebarBlur = 18,
@@ -153,7 +172,7 @@ export class GlassController {
       rightSidebarSquareTR = false,
       rightSidebarSquareBR = false,
       rightSidebarSquareBL = false,
-      titlebarGlass = false,
+      titlebarGlass = true,
       thinkingMode = 'glass',
       floaterSolidBase = true,
       glassMode = {},
@@ -184,7 +203,10 @@ export class GlassController {
 
     if (!this.styleEl || !document.head.contains(this.styleEl)) {
       this.materialRule = null
+      this.rules = null
       this.lastMaterialKey = null
+      this.lastRootKey = null
+      this.lastPickerKey = null
       this.styleEl = document.getElementById(STYLE_ID) || document.createElement('style')
       this.styleEl.id = STYLE_ID
       this.styleEl.dataset.plugin = 'agy-skins'
@@ -216,12 +238,11 @@ export class GlassController {
     const settingsColorRaw = pick('settingsWindow', settingsWindowColor, globalColorRaw)
     const clampedSettings = weClampSurfaceColor(settingsColorRaw, isDark, rawFid)
 
-    const transPct = pct(glassTransparency, 72)
-    // Scale tint alpha softly while floor preserves readability
+    const transPct = pct(glassTransparency, 68)
     const glassAlpha = glassOn ? Math.max(0.04, 1 - transPct / 100) * (isDark ? 0.62 : 0.78) : 0.92
-    const bubbleAlpha = glassOn ? Math.max(0.04, pct(bubbleOpacity, 62) / 100) * (isDark ? 0.56 : 0.72) : 0.92
+    const bubbleAlpha = glassOn ? Math.max(0.04, pct(bubbleOpacity, 65) / 100) * (isDark ? 0.56 : 0.72) : 0.92
 
-    const gBlur = Math.min(60, Math.max(0, pct(surfaceFrost, 18)))
+    const gBlur = Math.min(60, Math.max(0, pct(surfaceFrost, 20)))
     const cBlur = Math.min(60, Math.max(0, pct(composerFrost, 22)))
     const sBlur = Math.min(60, Math.max(0, pct(pick('settingsWindow', settingsWindowBlur, gBlur), gBlur)))
     const saturate = Math.min(220, Math.max(100, Number.isFinite(Number(saturation)) ? Number(saturation) : 175))
@@ -239,6 +260,7 @@ export class GlassController {
     const borderRgb = isDark ? '255, 255, 255' : '15, 23, 42'
     const rawBorder = Math.min(0.9, Math.max(0, pct(border, 32) / 100))
     const borderAlpha = isDark ? rawBorder * 0.42 : rawBorder * 0.24
+    const borderColorCss = `rgba(${borderRgb}, ${borderAlpha.toFixed(3)})`
     const highlightAlpha = highlight ? (isDark ? 0.16 : 0.48) : 0
     const sheenTop = isDark ? 0.08 : 0.16
     const shadowAlpha = isDark ? 0.26 : 0.08
@@ -257,19 +279,24 @@ export class GlassController {
     const codeBlockTint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 0.85, floor)
     const capsuleTint = `rgba(${clampedGlobal.rgb}, ${Math.min(0.45, Math.max(0.08, glassAlpha * 0.45)).toFixed(3)})`
 
-    const sTrans = pct(pick('settingsWindow', settingsWindowTransparency, transPct), 24)
+    const sTrans = pct(pick('settingsWindow', settingsWindowTransparency, transPct), 18)
     const sAlpha = glassOn ? Math.max(0.10, 1 - sTrans / 100) * (isDark ? 0.72 : 0.84) : 0.96
-    const settingsTint = mixFormula(clampedSettings.hex, clampedSettings.rgb, sAlpha, floor)
-    const maskStrength = (pct(settingsMaskStrength, 80) / 100).toFixed(2)
+    const settingsFloor = Math.max(floor, isDark ? 0.70 : 0.74)
+    const settingsTint = mixFormula(clampedSettings.hex, clampedSettings.rgb, sAlpha, settingsFloor)
+    const maskNum = pct(settingsMaskStrength, 55) / 100
+    const maskStrength = maskNum.toFixed(2)
+    const modalBackdrop = isDark
+      ? `rgba(0, 0, 0, ${(0.44 * maskNum).toFixed(3)})`
+      : `rgba(15, 23, 42, ${(0.14 * maskNum).toFixed(3)})`
+    const inner1 = isDark ? 'rgba(255, 255, 255, 0.055)' : 'rgba(10, 10, 14, 0.042)'
+    const inner2 = isDark ? 'rgba(255, 255, 255, 0.09)' : 'rgba(10, 10, 14, 0.07)'
+    const inner3 = isDark ? 'rgba(255, 255, 255, 0.14)' : 'rgba(10, 10, 14, 0.11)'
 
-    // Left sidebar & Titlebar formulas
     const lsAlphaPct = pct(pick('leftSidebar', leftSidebarTransparency, transPct), transPct)
     const lsBlurPx = Math.min(60, Math.max(0, pct(pick('leftSidebar', leftSidebarBlur, gBlur), gBlur)))
     const lsAlpha = Math.max(0.04, 1 - lsAlphaPct / 100) * (isDark ? 0.62 : 0.78)
     const lsActive = glassOn && leftSidebarGlass && !sidebarFullClear
-    const leftSidebarTint = !lsActive
-      ? 'transparent'
-      : mixFormula(clampedGlobal.hex, clampedGlobal.rgb, lsAlpha, floor)
+    const leftSidebarTint = !lsActive ? 'transparent' : mixFormula(clampedGlobal.hex, clampedGlobal.rgb, lsAlpha, floor)
     const leftSidebarFrost = lsActive && lsBlurPx > 0
       ? `blur(${lsBlurPx}px) saturate(${saturate}%) brightness(${isDark ? 1.04 : 1.01})`
       : 'none'
@@ -281,21 +308,17 @@ export class GlassController {
     const tbBlurPx = Math.min(60, Math.max(0, pct(pick('titlebar', titlebarBlur, gBlur), gBlur)))
     const tbAlpha = Math.max(0.04, 1 - tbAlphaPct / 100) * (isDark ? 0.62 : 0.78)
     const tbActive = glassOn && titlebarGlass && !sidebarFullClear
-    const titlebarTint = !tbActive
-      ? 'transparent'
-      : mixFormula(clampedGlobal.hex, clampedGlobal.rgb, tbAlpha, floor)
+    const titlebarTint = !tbActive ? 'transparent' : mixFormula(clampedGlobal.hex, clampedGlobal.rgb, tbAlpha, floor)
     const titlebarFrost = tbActive && tbBlurPx > 0
       ? `blur(${tbBlurPx}px) saturate(${saturate}%) brightness(${isDark ? 1.04 : 1.01})`
       : 'none'
-    // Constant sheen stop-to-stop so thin titlebar height doesn't produce brightness step against sidebar
     const titlebarSheen = tbActive
       ? `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, ${sheenTop}))`
       : 'none'
 
-    // Right sidebar / panel
     const rsFollow = sidebarFollowGlobal !== false && !modeCustom('sidebar')
     const rsBlurPx = rsFollow ? gBlur : Math.min(60, Math.max(0, pct(sidebarBlur, 18)))
-    const rsAlphaPct = rsFollow ? transPct : pct(sidebarAlpha, 72)
+    const rsAlphaPct = rsFollow ? transPct : pct(sidebarAlpha, 68)
     const rsAlpha = Math.max(0.04, 1 - rsAlphaPct / 100) * (isDark ? 0.62 : 0.78)
     const rsColorClamped = weClampSurfaceColor(rsFollow ? globalColorRaw : (sidebarColor || globalColorRaw), isDark, rawFid)
     const rsActive = glassOn && sidebarGlass && !sidebarFullClear
@@ -308,12 +331,8 @@ export class GlassController {
       ? `blur(${rsBlurPx}px) saturate(${saturate}%) brightness(${isDark ? 1.04 : 1.01})`
       : 'none'
 
-    const leftRadius = cornerRadiusString(
-      leftSidebarCornerRadius, leftSidebarSquareTL, leftSidebarSquareTR, leftSidebarSquareBR, leftSidebarSquareBL
-    )
-    const rightRadius = cornerRadiusString(
-      rightSidebarCornerRadius, rightSidebarSquareTL, rightSidebarSquareTR, rightSidebarSquareBR, rightSidebarSquareBL
-    )
+    const leftRadius = cornerRadiusString(leftSidebarCornerRadius, leftSidebarSquareTL, leftSidebarSquareTR, leftSidebarSquareBR, leftSidebarSquareBL)
+    const rightRadius = cornerRadiusString(rightSidebarCornerRadius, rightSidebarSquareTL, rightSidebarSquareTR, rightSidebarSquareBR, rightSidebarSquareBL)
 
     const validAccent = /^#[0-9a-f]{6}$/i.test(accent || '') ? accent : '#4f8cff'
     const accentInk = weAccentInk(validAccent)
@@ -322,8 +341,9 @@ export class GlassController {
     const materialKey = JSON.stringify({
       active, wallpaperEnabled: Boolean(wallpaperEnabled), glassOn, isDark,
       layer1Tint, layer2Tint, layer3Tint, elevatedTint, floatingTint,
+      inner1, inner2, inner3,
       inputMajorTint, bubbleTint, codeBlockTint, capsuleTint,
-      settingsTint, sBlur, maskStrength,
+      settingsTint, sBlur, maskStrength, modalBackdrop,
       surfaceFrostCss, composerFrostCss, settingsFrostCss,
       leftSidebarTint, leftSidebarFrost, leftSidebarSheen, lsActive,
       titlebarTint, titlebarFrost, titlebarSheen, tbActive,
@@ -333,13 +353,18 @@ export class GlassController {
       sidebarFullClear: Boolean(sidebarFullClear)
     })
 
-    if (this.lastMaterialKey === materialKey && this.styleEl.isConnected) return
+    if (this.lastMaterialKey === materialKey && this.styleEl.isConnected && (isPreview || this.lastRootKey === materialKey)) return
 
     this.readHostSeeds(root)
-    body.setAttribute('data-agy-skins-active', 'true')
-    if (wallpaperEnabled) body.setAttribute('data-agy-skins-wallpaper', 'true')
-    else body.removeAttribute('data-agy-skins-wallpaper')
-    body.setAttribute('data-agy-thinking-mode', resolvedThinking)
+    for (const target of [root, body]) {
+      if (target?.getAttribute?.('data-agy-skins-active') !== 'true') target?.setAttribute?.('data-agy-skins-active', 'true')
+      if (wallpaperEnabled) {
+        if (target?.getAttribute?.('data-agy-skins-wallpaper') !== 'true') target?.setAttribute?.('data-agy-skins-wallpaper', 'true')
+      } else if (target?.getAttribute?.('data-agy-skins-wallpaper')) {
+        target?.removeAttribute?.('data-agy-skins-wallpaper')
+      }
+    }
+    if (body.getAttribute('data-agy-thinking-mode') !== resolvedThinking) body.setAttribute('data-agy-thinking-mode', resolvedThinking)
     if (floaterSolidBase !== false) body.setAttribute('data-agy-floater-solid', 'true')
     else body.removeAttribute('data-agy-floater-solid')
     if (sidebarFullClear) body.setAttribute('data-agy-sidebar-fullclear', 'true')
@@ -362,6 +387,9 @@ export class GlassController {
       '--we-layer-1': layer1Tint,
       '--we-layer-2': layer2Tint,
       '--we-layer-3': layer3Tint,
+      '--we-inner-1': inner1,
+      '--we-inner-2': inner2,
+      '--we-inner-3': inner3,
       '--we-elevated-fill': elevatedTint,
       '--we-floating-tint': floatingTint,
       '--we-input-major': inputMajorTint,
@@ -373,6 +401,7 @@ export class GlassController {
       '--we-settings-frost': settingsFrostCss,
       '--we-settings-blur-px': `${sBlur}px`,
       '--we-mask-strength': maskStrength,
+      '--we-modal-backdrop': modalBackdrop,
 
       '--we-surface-frost': surfaceFrostCss,
       '--we-composer-frost': composerFrostCss,
@@ -394,7 +423,6 @@ export class GlassController {
       '--we-left-radius': leftRadius,
       '--we-right-radius': rightRadius,
 
-      // Legacy alias vars preserved for smooth diagnostics / tests
       '--agy-skins-chrome-tint': layer2Tint,
       '--agy-skins-card-tint': inputMajorTint,
       '--agy-skins-sidebar-tint': leftSidebarTint,
@@ -406,46 +434,287 @@ export class GlassController {
       '--agy-skins-overlay-frost': settingsFrostCss
     }
 
-    if (this.materialRule) {
-      for (const [k, v] of Object.entries(vars)) {
-        if (this.materialRule.getPropertyValue(k).trim() !== v) {
-          this.materialRule.setProperty(k, v)
-        }
+    const rootImportantVars = {
+      '--onyx-frame': 'transparent',
+      '--onyx-well': inner1,
+      '--onyx-raised': elevatedTint,
+      '--onyx-selected': `color-mix(in srgb, ${validAccent} 18%, ${elevatedTint})`,
+      '--onyx-key': inner2,
+      '--sidebar-secondary': `color-mix(in srgb, ${validAccent} 14%, ${inner2})`,
+      '--sidebar-muted': inner1,
+      '--secondary': inner2,
+      '--color-secondary': inner2,
+      '--muted': inner1,
+      '--color-muted': inner1,
+      '--card': layer2Tint,
+      '--color-card': layer2Tint,
+      '--popover': floatingTint,
+      '--color-popover': floatingTint,
+      '--glass': inputMajorTint,
+      '--border': borderColorCss,
+      '--color-border': borderColorCss,
+      '--card-border': borderColorCss,
+      '--glass-border': borderColorCss,
+      '--glass-highlight': `rgba(255, 255, 255, ${highlightAlpha.toFixed(3)})`
+    }
+
+    const composerSheen = `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.04) 38%, rgba(255, 255, 255, 0.015))`
+    const composerShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}, 0 14px 36px -10px rgba(0, 0, 0, ${shadowAlpha})`
+    const bubbleSheen = `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.01))`
+    const bubbleShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}`
+    const settingsSheen = `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.025) 38%, rgba(255, 255, 255, 0.04))`
+    const settingsShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}, 0 24px 80px rgba(0, 7, 18, 0.28)`
+    const selectedBorderColor = `color-mix(in srgb, ${validAccent} 24%, ${borderColorCss})`
+    const selectedRowShadow = `inset 0 1px 0 rgba(255, 255, 255, ${(highlightAlpha * 0.6).toFixed(3)}), inset 0 0 0 1px ${selectedBorderColor}`
+
+    if (this.rules) {
+      // Fast-path: update direct targeted CSSOM rules cleanly (~3-10ms instead of 400ms full-doc var recalc!)
+      setRuleProp(this.rules.topbar, 'background-color', tbActive ? titlebarTint : 'transparent')
+      setRuleProp(this.rules.topbar, 'background-image', tbActive ? titlebarSheen : 'none')
+      setRuleProp(this.rules.topbar, 'backdrop-filter', tbActive ? titlebarFrost : 'none')
+      setRuleProp(this.rules.topbar, '-webkit-backdrop-filter', tbActive ? titlebarFrost : 'none')
+
+      setRuleProp(this.rules.leftSidebar, 'background-color', leftSidebarTint)
+      setRuleProp(this.rules.leftSidebar, 'background-image', leftSidebarSheen)
+      setRuleProp(this.rules.leftSidebar, 'backdrop-filter', leftSidebarFrost)
+      setRuleProp(this.rules.leftSidebar, '-webkit-backdrop-filter', leftSidebarFrost)
+      setRuleProp(this.rules.leftSidebar, 'border-radius', leftRadius)
+
+      setRuleProp(this.rules.rightSidebar, 'background-color', rightSidebarTint)
+      setRuleProp(this.rules.rightSidebar, 'background-image', leftSidebarSheen)
+      setRuleProp(this.rules.rightSidebar, 'backdrop-filter', rightSidebarFrost)
+      setRuleProp(this.rules.rightSidebar, '-webkit-backdrop-filter', rightSidebarFrost)
+      setRuleProp(this.rules.rightSidebar, 'border-radius', rightRadius)
+
+      setRuleProp(this.rules.newChatBtn, 'background-color', inner2)
+      setRuleProp(this.rules.newChatBtn, 'border-color', borderColorCss)
+      setRuleProp(this.rules.newChatBtn, 'box-shadow', bubbleShadow)
+
+      setRuleProp(this.rules.selectedRow, 'background-color', `color-mix(in srgb, ${validAccent} 14%, ${inner2})`)
+      setRuleProp(this.rules.selectedRow, 'box-shadow', selectedRowShadow)
+
+      setRuleProp(this.rules.composerCard, 'background-color', inputMajorTint)
+      setRuleProp(this.rules.composerCard, 'background-image', composerSheen)
+      setRuleProp(this.rules.composerCard, 'box-shadow', composerShadow)
+      setRuleProp(this.rules.composerBefore, 'backdrop-filter', composerFrostCss)
+      setRuleProp(this.rules.composerBefore, '-webkit-backdrop-filter', composerFrostCss)
+
+      setRuleProp(this.rules.bubbles, 'background-color', resolvedThinking === 'native' ? '' : bubbleTint)
+      setRuleProp(this.rules.bubbles, 'background-image', resolvedThinking === 'native' ? '' : bubbleSheen)
+      setRuleProp(this.rules.bubbles, 'border-color', borderColorCss)
+      setRuleProp(this.rules.bubbles, 'box-shadow', resolvedThinking === 'native' ? '' : bubbleShadow)
+      setRuleProp(this.rules.bubbles, 'backdrop-filter', resolvedThinking === 'glass' ? surfaceFrostCss : 'none')
+      setRuleProp(this.rules.bubbles, '-webkit-backdrop-filter', resolvedThinking === 'glass' ? surfaceFrostCss : 'none')
+
+      setRuleProp(this.rules.chatPre, 'background-color', resolvedThinking === 'native' ? inner2 : codeBlockTint)
+      setRuleProp(this.rules.chatPre, 'border-color', borderColorCss)
+      setRuleProp(this.rules.chatPre, 'backdrop-filter', resolvedThinking === 'glass' ? surfaceFrostCss : 'none')
+      setRuleProp(this.rules.chatPre, '-webkit-backdrop-filter', resolvedThinking === 'glass' ? surfaceFrostCss : 'none')
+
+      setRuleProp(this.rules.settingsBackdrop, 'background-color', modalBackdrop)
+
+      setRuleProp(this.rules.settingsModal, 'background-color', settingsTint)
+      setRuleProp(this.rules.settingsModal, 'background-image', settingsSheen)
+      setRuleProp(this.rules.settingsModal, 'backdrop-filter', settingsFrostCss)
+      setRuleProp(this.rules.settingsModal, '-webkit-backdrop-filter', settingsFrostCss)
+      setRuleProp(this.rules.settingsModal, 'border-color', borderColorCss)
+      setRuleProp(this.rules.settingsModal, 'box-shadow', settingsShadow)
+
+      setRuleProp(this.rules.floaters, 'background-color', floatingTint)
+      setRuleProp(this.rules.floaters, 'backdrop-filter', surfaceFrostCss)
+      setRuleProp(this.rules.floaters, '-webkit-backdrop-filter', surfaceFrostCss)
+      setRuleProp(this.rules.floaters, 'border-color', borderColorCss)
+
+      const pickerKey = `${inner1}|${inner2}|${inner3}|${borderRgb}|${borderAlpha}|${validAccent}|${accentInk}|${clampedGlobal.hex}`
+      if (this.lastPickerKey !== pickerKey && this.rules.pickerVars) {
+        setRuleProp(this.rules.pickerVars, '--we-inner-1', inner1, false)
+        setRuleProp(this.rules.pickerVars, '--we-inner-2', inner2, false)
+        setRuleProp(this.rules.pickerVars, '--we-inner-3', inner3, false)
+        setRuleProp(this.rules.pickerVars, '--we-border-rgb', borderRgb, false)
+        setRuleProp(this.rules.pickerVars, '--we-border-alpha', String(borderAlpha.toFixed(3)), false)
+        setRuleProp(this.rules.pickerVars, '--we-readability-base', clampedGlobal.hex, false)
+        setRuleProp(this.rules.pickerVars, '--we-accent-src', validAccent, false)
+        setRuleProp(this.rules.pickerVars, '--we-accent-ink', accentInk, false)
+        this.lastPickerKey = pickerKey
+      }
+
+      if (!isPreview && this.materialRule) {
+        for (const [k, v] of Object.entries(vars)) setRuleProp(this.materialRule, k, v, false)
+        for (const [k, v] of Object.entries(rootImportantVars)) setRuleProp(this.materialRule, k, v, true)
+        this.lastRootKey = materialKey
       }
       this.lastMaterialKey = materialKey
       return
     }
 
     const varLines = Object.entries(vars).map(([k, v]) => `  ${k}: ${v};`).join('\n')
+    const importantVarLines = Object.entries(rootImportantVars).map(([k, v]) => `  ${k}: ${v} !important;`).join('\n')
     const css = `
-/* Unified Antigravity token remap + material variables */
+/* 0. Root material tokens (synced on commit only, not 60fps drags) */
+html[data-agy-skins-active="true"],
 body[data-agy-skins-active="true"] {
 ${varLines}
-  --onyx-frame: transparent;
-  --onyx-well: color-mix(in srgb, var(--we-readability-base) 26%, rgba(128, 128, 128, 0.08));
-  --onyx-raised: var(--we-elevated-fill);
-  --onyx-selected: color-mix(in srgb, var(--we-accent-src) 18%, var(--we-elevated-fill));
-  --onyx-key: var(--we-elevated-fill);
-  --sidebar-secondary: color-mix(in srgb, var(--we-accent-src) 18%, rgba(128, 128, 128, 0.10));
-  --sidebar-muted: color-mix(in srgb, var(--we-accent-src) 10%, rgba(128, 128, 128, 0.05));
-  --secondary: var(--we-capsule-fill);
-  --muted: var(--we-layer-1);
-  --card: var(--we-layer-2);
-  --glass: var(--we-input-major);
-  --border: rgba(var(--we-border-rgb), var(--we-border-alpha));
-  --card-border: rgba(var(--we-border-rgb), var(--we-border-alpha));
-  --glass-border: rgba(var(--we-border-rgb), var(--we-border-alpha));
-  --glass-highlight: rgba(255, 255, 255, var(--we-highlight-alpha));
+${importantVarLines}
 }
 
-/* Unified single-canvas wallpaper backdrop: remove ALL seams between shell, top bar, titlebar, and main chat */
+/* 1. Scoped .we-picker tokens (never invalidates host workbench DOM) */
+.we-picker {
+  --we-inner-1: ${inner1};
+  --we-inner-2: ${inner2};
+  --we-inner-3: ${inner3};
+  --we-border-rgb: ${borderRgb};
+  --we-border-alpha: ${borderAlpha.toFixed(3)};
+  --we-readability-base: ${clampedGlobal.hex};
+  --we-accent-src: ${validAccent};
+  --we-accent-ink: ${accentInk};
+}
+
+/* 2. Top bar rule */
+body[data-agy-skins-active="true"] .agy-shell > .shrink-0 {
+  background-color: ${tbActive ? titlebarTint : 'transparent'} !important;
+  background-image: ${tbActive ? titlebarSheen : 'none'} !important;
+  backdrop-filter: ${tbActive ? titlebarFrost : 'none'} !important;
+  -webkit-backdrop-filter: ${tbActive ? titlebarFrost : 'none'} !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+/* 3. Left sidebar rule */
+body[data-agy-skins-active="true"] [data-testid="sidebar-split"] > :first-child {
+  background-color: ${leftSidebarTint} !important;
+  background-image: ${leftSidebarSheen} !important;
+  backdrop-filter: ${leftSidebarFrost} !important;
+  -webkit-backdrop-filter: ${leftSidebarFrost} !important;
+  border-radius: ${leftRadius} !important;
+  border-right: none !important;
+  box-shadow: none !important;
+}
+
+/* 4. Right side panel unified from y=30 top strip through body */
+body[data-agy-skins-active="true"] [data-side-panel-focus-scope]:not([data-has-browser-hole="true"]):not(:has([data-browser-hole]:not([data-browser-hole="false"]))) {
+  background-color: ${rightSidebarTint} !important;
+  background-image: ${leftSidebarSheen} !important;
+  backdrop-filter: ${rightSidebarFrost} !important;
+  -webkit-backdrop-filter: ${rightSidebarFrost} !important;
+  border-radius: ${rightRadius} !important;
+  box-shadow: none !important;
+}
+
+/* 5. Sidebar elevated button */
+body[data-agy-skins-active="true"] :is(.agy-sidebar-raised, [data-testid="new-conversation-button"]) {
+  background-color: ${inner2} !important;
+  border-color: ${borderColorCss} !important;
+  box-shadow: ${bubbleShadow} !important;
+}
+
+/* 6. Selected sidebar row */
+body[data-agy-skins-active="true"] .agy-sidebar-row[data-selected="true"] {
+  background-color: color-mix(in srgb, ${validAccent} 14%, ${inner2}) !important;
+  --row-bg: transparent !important;
+  box-shadow: ${selectedRowShadow} !important;
+}
+
+/* 7. Composer card */
+body[data-agy-skins-active="true"] .surface-composer > .surface-composer-card {
+  position: relative;
+  isolation: isolate;
+  background-color: ${inputMajorTint} !important;
+  background-image: ${composerSheen} !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: ${composerShadow} !important;
+}
+
+/* 8. Composer ::before frost carrier */
+body[data-agy-skins-active="true"] .surface-composer > .surface-composer-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  backdrop-filter: ${composerFrostCss} !important;
+  -webkit-backdrop-filter: ${composerFrostCss} !important;
+}
+
+/* 9. User message bubbles */
+body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) :is([data-testid="user-message-bubble"], .agy-user-bubble) {
+  background-color: ${bubbleTint} !important;
+  background-image: ${bubbleSheen} !important;
+  border-color: ${borderColorCss} !important;
+  box-shadow: ${bubbleShadow} !important;
+  backdrop-filter: ${resolvedThinking === 'glass' ? surfaceFrostCss : 'none'} !important;
+  -webkit-backdrop-filter: ${resolvedThinking === 'glass' ? surfaceFrostCss : 'none'} !important;
+}
+
+/* 10. Markdown code/tables */
+body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] :is(pre, table) {
+  background-color: ${codeBlockTint} !important;
+  border-color: ${borderColorCss} !important;
+  backdrop-filter: ${resolvedThinking === 'glass' ? surfaceFrostCss : 'none'} !important;
+  -webkit-backdrop-filter: ${resolvedThinking === 'glass' ? surfaceFrostCss : 'none'} !important;
+}
+
+/* 11. Settings modal backdrop scrim (no fullscreen video blur pass!) */
+body[data-agy-skins-active="true"] .settings-modal-backdrop,
+#agy-skins-studio-backdrop {
+  background-color: ${modalBackdrop} !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 12. Settings modal & Alt+Shift+W frosted sheet */
+body[data-agy-skins-active="true"] .settings-modal-container,
+body[data-agy-skins-active="true"] #agy-skins-studio-dialog,
+body[data-agy-skins-active="true"] [role="dialog"]:not(#agy-skins-studio-dialog) {
+  background-color: ${settingsTint} !important;
+  background-image: ${settingsSheen} !important;
+  backdrop-filter: ${settingsFrostCss} !important;
+  -webkit-backdrop-filter: ${settingsFrostCss} !important;
+  border-color: ${borderColorCss} !important;
+  box-shadow: ${settingsShadow} !important;
+}
+
+/* 13. Floating menus, overview gutters, fastpick & portals */
+body[data-agy-skins-active="true"] :is(
+  .surface-glass,
+  .agy-fastpick,
+  .agy-popover,
+  .quick-input-widget,
+  [data-testid="overview-panel-host-gutter"],
+  [data-radix-popper-content-wrapper] > *,
+  [data-base-ui-portal] :is([role="listbox"], [role="menu"], [role="dialog"]),
+  [role="menu"],
+  [role="listbox"]
+) {
+  background-color: ${floatingTint} !important;
+  backdrop-filter: ${surfaceFrostCss} !important;
+  -webkit-backdrop-filter: ${surfaceFrostCss} !important;
+  border-color: ${borderColorCss} !important;
+}
+
+/* Static structural clears */
+html[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"],
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] {
-  --background: transparent;
-  --shell: transparent;
-  --shell-canvas: transparent;
-  --content: transparent;
-  --home-glow: transparent;
+  --background: transparent !important;
+  --color-background: transparent !important;
+  --shell: transparent !important;
+  --shell-canvas: transparent !important;
+  --content: transparent !important;
+  --home-glow: transparent !important;
   background-color: transparent !important;
+}
+
+body[data-agy-skins-active="true"] :is(
+  .settings-modal-container,
+  #agy-skins-studio-dialog,
+  [data-testid="sidebar-split"] > :first-child,
+  [data-side-panel-focus-scope]
+) {
+  --card: var(--we-inner-1) !important;
+  --color-card: var(--we-inner-1) !important;
+  --onyx-raised: var(--we-inner-2) !important;
+  --onyx-well: var(--we-inner-1) !important;
 }
 
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] :is(
@@ -469,21 +738,31 @@ body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] :is(
   box-shadow: none !important;
 }
 
-/* Remove inset sheet borders, rounded box margins, and right-column titlebar wrapper doubling */
-body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-main-content-body] {
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-main-content-body],
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-inset-shell [data-side-panel-body] {
   margin: 0 !important;
   border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-main-content-body]::after,
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-main-content-body]::before,
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-inset-shell [data-side-panel-body]::after,
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-panes] .agy-sheet[data-sheet-inset] [data-tiling-pane]::after,
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-panes] .agy-sheet[data-sheet-inset] [data-main-content-body] > [data-testid="bottom-terminal-panel"]::after,
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-hoisted-slot-rim="side"] {
   content: none !important;
   display: none !important;
   box-shadow: none !important;
 }
-body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-fill-edge] > .shrink-0 {
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-fill-edge] > .shrink-0,
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-inset-shell [data-side-panel-strip],
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-panes] .agy-sheet[data-sheet-inset] [data-main-content-body] > [data-testid="bottom-terminal-panel"],
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-panes] .agy-sheet[data-sheet-inset] [data-testid="tiling-splitter"] > [data-splitter-band] {
   background: transparent !important;
+  background-color: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
@@ -494,7 +773,6 @@ body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-shell {
   z-index: 1 !important;
 }
 
-/* Eliminate the 48px gradient bandage bar right above the composer */
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-content-body] .pointer-events-none.absolute.bottom-0,
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-content-body] [class*="from-background"],
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-content-body] [class*="to-background"],
@@ -505,38 +783,16 @@ body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-c
   background-image: none !important;
 }
 
-/* Top window bar ONLY when titlebarGlass is enabled (constant sheen -> no seam against left sidebar) */
-body[data-agy-skins-active="true"] .agy-shell > .shrink-0 {
-  background-color: var(--we-titlebar-tint) !important;
-  background-image: var(--we-titlebar-sheen) !important;
-  backdrop-filter: var(--we-titlebar-frost) !important;
-  -webkit-backdrop-filter: var(--we-titlebar-frost) !important;
-  border-bottom: none !important;
-  box-shadow: none !important;
-}
-body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"]:not([data-agy-titlebar-glass="true"]) .agy-shell > .shrink-0 {
-  background: transparent !important;
-  background-image: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* Left sidebar single unified structural veil + corner radii; clear all inner wrappers */
-body[data-agy-skins-active="true"] [data-testid="sidebar-split"] > :first-child {
-  background-color: var(--we-sidebar-tint) !important;
-  background-image: var(--we-sidebar-sheen) !important;
-  backdrop-filter: var(--we-sidebar-frost) !important;
-  -webkit-backdrop-filter: var(--we-sidebar-frost) !important;
-  border-radius: var(--we-left-radius) !important;
-  border-right: none !important;
-  box-shadow: none !important;
-}
 body[data-agy-skins-active="true"] [data-testid="sidebar-split"] .bg-sidebar,
 body[data-agy-skins-active="true"] .agy-shell > .shrink-0 .bg-sidebar,
 body[data-agy-skins-active="true"] [data-testid="conversation-list-sidebar"],
 body[data-agy-skins-active="true"] [data-testid="sidebar-navigation-items"],
 body[data-agy-skins-active="true"] .agy-sidebar-row .agy-row-actions,
-body[data-agy-skins-active="true"] .agy-status-overflow {
+body[data-agy-skins-active="true"] .agy-status-overflow,
+body[data-agy-skins-active="true"] .surface-composer,
+body[data-agy-skins-active="true"] .settings-modal-container [data-testid="settings-sidebar"],
+body[data-agy-skins-active="true"] .settings-modal-container .bg-background,
+body[data-agy-skins-active="true"] .settings-modal-container .bg-sidebar {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -545,30 +801,6 @@ body[data-agy-skins-active="true"] .agy-status-overflow {
   box-shadow: none !important;
 }
 
-/* Sidebar elevated button & selected row -> cohesive glass pills instead of opaque white slabs */
-body[data-agy-skins-active="true"] .agy-sidebar-raised,
-body[data-agy-skins-active="true"] [data-testid="new-conversation-button"] {
-  background-color: var(--we-elevated-fill) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha)),
-              inset 0 0 0 1px rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-}
-body[data-agy-skins-active="true"] .agy-sidebar-row[data-selected="true"] {
-  background-color: var(--sidebar-secondary) !important;
-  --row-bg: transparent !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(var(--we-highlight-alpha) * 0.6)),
-              inset 0 0 0 1px color-mix(in srgb, var(--we-accent-src) 24%, rgba(var(--we-border-rgb), var(--we-border-alpha))) !important;
-}
-
-/* Right auxiliary / side panel (preserve split-browser cutout) */
-body[data-agy-skins-active="true"] [data-side-panel-body]:not([data-has-browser-hole="true"]):not(:has([data-browser-hole]:not([data-browser-hole="false"]))) {
-  background-color: var(--we-right-sidebar-tint) !important;
-  background-image: var(--we-sidebar-sheen) !important;
-  backdrop-filter: var(--we-right-sidebar-frost) !important;
-  -webkit-backdrop-filter: var(--we-right-sidebar-frost) !important;
-  border-radius: var(--we-right-radius) !important;
-  box-shadow: none !important;
-}
 body[data-agy-skins-active="true"][data-has-browser-hole="true"] [data-has-browser-hole="true"],
 body[data-agy-skins-active="true"][data-has-browser-hole="true"] [data-browser-hole]:not([data-browser-hole="false"]),
 body[data-agy-skins-active="true"][data-has-browser-hole="true"] .browser-hole-opaque:not([data-has-browser-hole="true"]) {
@@ -578,131 +810,63 @@ body[data-agy-skins-active="true"][data-has-browser-hole="true"] .browser-hole-o
   -webkit-backdrop-filter: none !important;
 }
 
-/* iOS Liquid Glass Composer — strip 4px --onyx-frame ring; host backdrop-filter on ::before */
-body[data-agy-skins-active="true"] .surface-composer {
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-body[data-agy-skins-active="true"] .surface-composer > .surface-composer-card {
-  position: relative;
-  isolation: isolate;
-  background-color: var(--we-input-major) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top)), rgba(255, 255, 255, 0.04) 38%, rgba(255, 255, 255, 0.015)) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha)),
-    inset 0 0 0 1px rgba(var(--we-border-rgb), var(--we-border-alpha)),
-    0 14px 36px -10px rgba(0, 0, 0, var(--we-shadow-alpha)) !important;
-}
-body[data-agy-skins-active="true"] .surface-composer > .surface-composer-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: -1;
-  backdrop-filter: var(--we-composer-frost) !important;
-  -webkit-backdrop-filter: var(--we-composer-frost) !important;
-}
-
-/* Thinking / Chat Content 3-Gear Mode: glass | off | native */
-body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-testid="user-message-bubble"],
-body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) .agy-user-bubble {
-  background-color: var(--we-bubble-fill) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top)), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.01)) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha)),
-    inset 0 0 0 1px rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-}
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] [data-testid="user-message-bubble"],
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] .agy-user-bubble,
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] [data-markdown-root] pre,
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] [data-testid="tool-group-collapsible"],
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] [data-testid="worked-for-collapsible"] {
-  backdrop-filter: var(--we-surface-frost) !important;
-  -webkit-backdrop-filter: var(--we-surface-frost) !important;
-}
-body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] pre,
-body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] table {
-  background-color: var(--we-code-block-fill) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
+body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] :is([data-testid="tool-group-collapsible"], [data-testid="worked-for-collapsible"]) {
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
 }
 body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] th {
-  background-color: color-mix(in srgb, rgba(var(--we-border-rgb), 0.08) 65%, var(--we-code-block-fill)) !important;
+  background-color: var(--we-inner-1) !important;
 }
 body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] :not(pre) > code {
   background-color: var(--we-capsule-fill) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-body[data-agy-skins-active="true"][data-agy-thinking-mode="off"] :is([data-testid="user-message-bubble"], .agy-user-bubble, [data-markdown-root] pre) {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-body[data-agy-skins-active="true"][data-agy-thinking-mode="native"] [data-markdown-root] pre {
-  background-color: var(--secondary) !important;
-}
 
-/* Unified Settings Modal Window & Backdrop Scrim */
-body[data-agy-skins-active="true"] .settings-modal-backdrop {
-  background-color: rgba(0, 0, 0, calc(0.32 * var(--we-mask-strength))) !important;
-  backdrop-filter: blur(calc(var(--we-settings-blur-px) * 0.45)) !important;
-  -webkit-backdrop-filter: blur(calc(var(--we-settings-blur-px) * 0.45)) !important;
-}
-body[data-agy-skins-active="true"] .settings-modal-container,
-body[data-agy-skins-active="true"] [role="dialog"]:not(#agy-skins-studio-dialog) {
-  background-color: var(--we-settings-tint) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top)), rgba(255, 255, 255, 0.03) 38%, rgba(255, 255, 255, 0.05)) !important;
-  backdrop-filter: var(--we-settings-frost) !important;
-  -webkit-backdrop-filter: var(--we-settings-frost) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha)),
-    inset 0 0 0 1px rgba(var(--we-border-rgb), var(--we-border-alpha)),
-    0 24px 80px rgba(0, 7, 18, 0.34) !important;
-}
-body[data-agy-skins-active="true"] .settings-modal-container [data-testid="settings-sidebar"],
-body[data-agy-skins-active="true"] .settings-modal-container .bg-background,
-body[data-agy-skins-active="true"] .settings-modal-container .bg-sidebar {
-  background-color: transparent !important;
-  background-image: none !important;
-}
 body[data-agy-skins-active="true"] .settings-modal-container [data-testid="settings-sidebar"] {
-  border-right: 1px solid rgba(var(--we-border-rgb), calc(var(--we-border-alpha) * 0.7)) !important;
+  border-right: 1px solid var(--border) !important;
 }
 body[data-agy-skins-active="true"] .settings-modal-container .bg-card {
-  background-color: var(--we-layer-1) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-}
-
-/* Floating menus / fastpick vs native tooltips (exempt tooltips from blur) */
-body[data-agy-skins-active="true"] :is(.surface-glass, .agy-fastpick, .quick-input-widget, [role="menu"], [role="listbox"]) {
-  background-color: var(--we-floating-tint) !important;
-  backdrop-filter: var(--we-surface-frost) !important;
-  -webkit-backdrop-filter: var(--we-surface-frost) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
+  background-color: var(--we-inner-1) !important;
+  border-color: var(--border) !important;
 }
 body[data-agy-skins-active="true"] [role="tooltip"] {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-
-/* Embedded xterm transparent support */
 body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   background-color: transparent !important;
 }
 `
     this.styleEl.textContent = css
-    this.materialRule = this.styleEl.sheet?.cssRules?.[0]?.style || null
+    const cssRules = this.styleEl.sheet?.cssRules
+    this.materialRule = cssRules?.[0]?.style || null
+    if (cssRules && cssRules.length >= 14) {
+      this.rules = {
+        rootVars: cssRules[0].style,
+        pickerVars: cssRules[1].style,
+        topbar: cssRules[2].style,
+        leftSidebar: cssRules[3].style,
+        rightSidebar: cssRules[4].style,
+        newChatBtn: cssRules[5].style,
+        selectedRow: cssRules[6].style,
+        composerCard: cssRules[7].style,
+        composerBefore: cssRules[8].style,
+        bubbles: cssRules[9].style,
+        chatPre: cssRules[10].style,
+        settingsBackdrop: cssRules[11].style,
+        settingsModal: cssRules[12].style,
+        floaters: cssRules[13].style
+      }
+    }
     this.lastMaterialKey = materialKey
+    if (!isPreview) this.lastRootKey = materialKey
+    this.lastPickerKey = `${inner1}|${inner2}|${inner3}|${borderRgb}|${borderAlpha}|${validAccent}|${accentInk}|${clampedGlobal.hex}`
     this.syncTerminalObserver()
   }
 
   clearAll(body) {
+    const root = typeof document !== 'undefined' ? document.documentElement : null
     for (const attr of [
       'data-agy-skins-active',
       'data-agy-skins-wallpaper',
@@ -713,21 +877,39 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       'data-agy-left-sidebar'
     ]) {
       body?.removeAttribute?.(attr)
+      root?.removeAttribute?.(attr)
     }
     const el = this.styleEl || document.getElementById(STYLE_ID)
     el?.remove()
     this.styleEl = null
     this.materialRule = null
+    this.rules = null
     this.lastMaterialKey = null
+    this.lastRootKey = null
+    this.lastPickerKey = null
     this.releaseTerminalObserver()
   }
 
   syncTerminalObserver() {
     if (typeof MutationObserver !== 'function' || typeof document === 'undefined' || this.terminalObserver) return
+    const pendingRoots = new Set()
+    let rafId = 0
     this.terminalObserver = new MutationObserver(entries => {
       for (const entry of entries) {
-        if (entry.target?.nodeType === 1) this.applyTerminalSurface(entry.target)
+        for (const node of entry.addedNodes || []) {
+          if (node?.nodeType !== 1) continue
+          if (node.matches?.('.xterm') || node.querySelector?.('.xterm')) {
+            pendingRoots.add(node)
+          }
+        }
       }
+      if (!pendingRoots.size || rafId) return
+      const schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : cb => setTimeout(cb, 0)
+      rafId = schedule(() => {
+        rafId = 0
+        for (const root of pendingRoots) this.applyTerminalSurface(root)
+        pendingRoots.clear()
+      })
     })
     this.terminalObserver.observe(document.body, { childList: true, subtree: true })
     this.applyTerminalSurface(document.body)

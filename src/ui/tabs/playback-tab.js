@@ -37,13 +37,14 @@ export function renderPlaybackTab(store) {
       segRow({
         label: t('wallpaperFit'),
         value: config.wallpaperFit || 'cover',
+        syncActive: true,
         items: [
           { id: 'cover', label: isZh ? '铺满' : 'Cover' },
           { id: 'contain', label: isZh ? '适应' : 'Contain' },
           { id: 'fill', label: isZh ? '拉伸' : 'Fill' },
           { id: 'center', label: isZh ? '居中' : 'Center' }
         ],
-        onPick: id => void store.updateConfig({ wallpaperFit: id })
+        onPick: id => void store.updateConfig({ wallpaperFit: id }, { rerender: false })
       }),
       configSlider(store, 'wallpaperBlur', t('wallpaperBlur')),
       configSlider(store, 'maskOcclusion', t('maskOcclusion')),
@@ -54,7 +55,7 @@ export function renderPlaybackTab(store) {
       switchRow({
         label: isZh ? '水平镜像翻转' : 'Horizontal flip',
         checked: Boolean(config.wallpaperFlip),
-        onChange: v => void store.updateConfig({ wallpaperFlip: v })
+        onChange: v => void store.updateConfig({ wallpaperFlip: v }, { rerender: false })
       }),
       configSlider(store, 'layerPositionX', isZh ? '水平构图偏移' : 'Horizontal position'),
       configSlider(store, 'layerPositionY', isZh ? '垂直构图偏移' : 'Vertical position'),
@@ -69,76 +70,82 @@ export function renderPlaybackTab(store) {
       segRow({
         label: t('wallpaperMode'),
         value: config.wallpaperMode || 'live',
+        syncActive: true,
         items: [
           { id: 'live', label: t('wallpaperModeLive') },
           { id: 'frame', label: t('wallpaperModeFrame') }
         ],
-        onPick: id => void store.updateConfig({ wallpaperMode: id })
+        onPick: id => void store.updateConfig({ wallpaperMode: id }, { rerender: false })
       }),
       segRow({
         label: t('videoPlaybackRate'),
         value: String(config.videoPlaybackRate ?? 1),
+        syncActive: true,
         items: [
           { id: '0.5', label: '0.5×' },
           { id: '1', label: '1×' },
           { id: '1.5', label: '1.5×' },
           { id: '2', label: '2×' }
         ],
-        onPick: id => void store.updateConfig({ videoPlaybackRate: Number(id) })
+        onPick: id => void store.updateConfig({ videoPlaybackRate: Number(id) }, { rerender: false })
       }),
       switchRow({
         label: t('sceneLive'),
         hint: t('sceneLiveDesc'),
         checked: config.sceneLive !== false,
-        onChange: v => void store.updateConfig({ sceneLive: v })
+        onChange: v => void store.updateConfig({ sceneLive: v }, { rerender: false })
       }),
       segRow({
         label: t('sceneLiveFps'),
         value: String(config.sceneLiveFps ?? 30),
+        syncActive: true,
         items: [
           { id: '15', label: '15 FPS' },
           { id: '30', label: '30 FPS' },
           { id: '60', label: '60 FPS' }
         ],
-        onPick: id => void store.updateConfig({ sceneLiveFps: Number(id) })
+        onPick: id => void store.updateConfig({ sceneLiveFps: Number(id) }, { rerender: false })
       }),
       switchRow({
         label: t('sceneAutoQuality'),
         hint: t('sceneAutoQualityDesc'),
         checked: config.sceneAutoQuality !== false,
-        onChange: v => void store.updateConfig({ sceneAutoQuality: v })
+        onChange: v => void store.updateConfig({ sceneAutoQuality: v }, { rerender: false })
       }),
       segRow({
         label: t('sceneRenderDpr'),
         value: String(config.sceneRenderDpr ?? 0),
+        syncActive: true,
         items: [
           { id: '0', label: t('sceneRenderDprAuto') },
           { id: '1', label: '1×' },
           { id: '1.5', label: '1.5×' },
           { id: '2', label: '2×' }
         ],
-        onPick: id => void store.updateConfig({ sceneRenderDpr: Number(id) })
+        onPick: id => void store.updateConfig({ sceneRenderDpr: Number(id) }, { rerender: false })
       }),
       segRow({
         label: t('sceneVideoTexScale'),
         value: String(config.sceneVideoTexScale ?? 0),
+        syncActive: true,
         items: [
           { id: '0', label: t('sceneVideoTexScaleAuto') },
           { id: '0.5', label: t('sceneVideoTexScaleHalf') },
           { id: '1', label: t('sceneVideoTexScaleFull') }
         ],
-        onPick: id => void store.updateConfig({ sceneVideoTexScale: Number(id) })
+        onPick: id => void store.updateConfig({ sceneVideoTexScale: Number(id) }, { rerender: false })
       }),
       segRow({
         label: isZh ? '实时壁纸延迟激活' : 'Live boot delay',
         value: String(config.liveBootDelay ?? 3),
+        syncActive: true,
         items: [
           { id: '0', label: '0s' },
           { id: '1', label: '1s' },
           { id: '3', label: '3s' },
           { id: '5', label: '5s' }
         ],
-        onPick: id => void store.updateConfig({ liveBootDelay: Number(id) })
+        onPick: id => void store.updateConfig({ liveBootDelay: Number(id) }, { rerender: false })
       })
     )
   )

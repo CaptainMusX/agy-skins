@@ -55,6 +55,7 @@ function cornerButtons(store, prefix, label, equalCorners) {
     label,
     chips: !equalCorners,
     equalCorners,
+    syncActive: true,
     items: items.map(it => ({
       id: it.id,
       label: it.label,
@@ -62,7 +63,10 @@ function cornerButtons(store, prefix, label, equalCorners) {
     })),
     onPick: id => {
       const target = items.find(it => it.id === id)
-      if (target) void store.updateConfig({ [target.key]: !cfg[target.key] })
+      if (target) {
+        const curVal = Boolean(store.state.config?.[target.key])
+        void store.updateConfig({ [target.key]: !curVal }, { rerender: false })
+      }
     }
   })
 }
@@ -276,7 +280,8 @@ function renderGlassSection(store) {
   const open = store.state.sectionsOpen.glassUi !== false
   const glassColor = config.glassColor || { light: '#ffffff', dark: '#0d1524' }
   const withSurfaceCustom = (surface, patch, opts) => {
-    const nextMode = { ...(config.glassMode || {}), [surface]: 'custom' }
+    const curMode = store.state.config?.glassMode || config.glassMode || {}
+    const nextMode = { ...curMode, [surface]: 'custom' }
     void store.updateConfig({ ...patch, glassMode: nextMode, activePresetId: '' }, opts)
   }
   const surfaceSlider = (surface, cfgKey, label) => {
@@ -290,7 +295,7 @@ function renderGlassSection(store) {
       value: config[cfgKey],
       defaultValue: DEFAULT_CONFIG[cfgKey],
       onChange: v => withSurfaceCustom(surface, { [cfgKey]: v }, { defer: true, rerender: false }),
-      onCommit: v => withSurfaceCustom(surface, { [cfgKey]: v }, { defer: false, rerender: true })
+      onCommit: v => withSurfaceCustom(surface, { [cfgKey]: v }, { defer: false, rerender: false })
     })
   }
   const autoFollowBtn = (surface, cfgKey) => {
@@ -299,9 +304,10 @@ function renderGlassSection(store) {
       type: 'button',
       className: `we-picker__swatch we-picker__swatch--auto ${isInherited ? 'we-picker__swatch--active' : ''}`,
       onClick: () => {
-        const nextMode = { ...(config.glassMode || {}) }
+        const curMode = store.state.config?.glassMode || config.glassMode || {}
+        const nextMode = { ...curMode }
         if (surface) nextMode[surface] = 'inherit'
-        void store.updateConfig({ [cfgKey]: '', glassMode: nextMode, activePresetId: '' })
+        void store.updateConfig({ [cfgKey]: '', glassMode: nextMode, activePresetId: '' }, { rerender: false })
       }
     }, isZh ? '跟随' : 'Auto')
   }
@@ -318,7 +324,7 @@ function renderGlassSection(store) {
         label: isZh ? '启用液态玻璃 UI' : 'Enable Liquid Glass UI',
         hint: isZh ? '开启后对顶栏、侧栏、输入卡、对话区与设置弹窗应用统一两段可读性玻璃。' : 'Unified two-stage readability glass across workbench & Settings.',
         checked: config.glassEnabled !== false,
-        onChange: v => void store.updateConfig({ glassEnabled: v, activePresetId: '' })
+        onChange: v => void store.updateConfig({ glassEnabled: v, activePresetId: '' }, { rerender: false })
       }),
       switchRow({
         label: isZh ? '深浅色分别配置玻璃底色' : 'Separate light/dark glass tints',
@@ -331,21 +337,21 @@ function renderGlassSection(store) {
           presets: GLASS_COLOR_PRESETS,
           value: glassColor.light,
           colorValue: glassColor.light,
-          onPick: (c, defer) => void store.updateConfig({ glassColor: { ...glassColor, light: c }, activePresetId: '' }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ glassColor: { ...(store.state.config?.glassColor || glassColor), light: c }, activePresetId: '' }, { defer, rerender: false })
         }),
         swatchRow({
           label: isZh ? '深色模式玻璃底色' : 'Dark tint color',
           presets: GLASS_COLOR_PRESETS,
           value: glassColor.dark,
           colorValue: glassColor.dark,
-          onPick: (c, defer) => void store.updateConfig({ glassColor: { ...glassColor, dark: c }, activePresetId: '' }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ glassColor: { ...(store.state.config?.glassColor || glassColor), dark: c }, activePresetId: '' }, { defer, rerender: false })
         })
       ] : swatchRow({
         label: isZh ? '玻璃底色' : 'Glass tint color',
         presets: GLASS_COLOR_PRESETS,
         value: glassColor.light,
         colorValue: glassColor.light,
-        onPick: (c, defer) => void store.updateConfig({ glassColor: { light: c, dark: c }, activePresetId: '' }, { defer, rerender: !defer })
+        onPick: (c, defer) => void store.updateConfig({ glassColor: { light: c, dark: c }, activePresetId: '' }, { defer, rerender: false })
       }),
       configSlider(store, 'panelGlass', t('panelGlass')),
       configSlider(store, 'surfaceFrost', t('surfaceFrost')),
@@ -356,38 +362,39 @@ function renderGlassSection(store) {
         label: isZh ? '思考过程块外观' : 'Thinking Block',
         hint: isZh ? '三档独立控制，避免长文思考卡片过透或生硬白框。' : 'Three-mode glass/off/native style for reasoning blocks.',
         value: config.thinkingMode || 'glass',
+        syncActive: true,
         items: [
           { id: 'off', label: isZh ? '关' : 'Off' },
           { id: 'glass', label: isZh ? '液态玻璃' : 'Liquid Glass' },
           { id: 'native', label: isZh ? '原生' : 'Native' }
         ],
-        onPick: id => void store.updateConfig({ thinkingMode: id, activePresetId: '' })
+        onPick: id => void store.updateConfig({ thinkingMode: id, activePresetId: '' }, { rerender: false })
       }),
       switchRow({
         label: isZh ? '左侧边栏液态玻璃' : 'Left sidebar glass',
         checked: config.leftSidebarGlass !== false,
-        onChange: v => void store.updateConfig({ leftSidebarGlass: v, activePresetId: '' })
+        onChange: v => void store.updateConfig({ leftSidebarGlass: v, activePresetId: '' }, { rerender: false })
       }),
       switchRow({
         label: isZh ? '顶部标题栏液态玻璃' : 'Titlebar glass',
         checked: Boolean(config.titlebarGlass),
-        onChange: v => void store.updateConfig({ titlebarGlass: v, activePresetId: '' })
+        onChange: v => void store.updateConfig({ titlebarGlass: v, activePresetId: '' }, { rerender: false })
       }),
       switchRow({
         label: isZh ? '辅助/右侧栏液态玻璃' : 'Aux sidebar glass',
         checked: config.sidebarGlass !== false,
-        onChange: v => void store.updateConfig({ sidebarGlass: v, activePresetId: '' })
+        onChange: v => void store.updateConfig({ sidebarGlass: v, activePresetId: '' }, { rerender: false })
       }),
       switchRow({
         label: isZh ? '全透侧栏模式' : 'Full-clear sidebar',
         hint: isZh ? '移除侧栏毛玻璃雾化层，使左侧导航直通壁纸层。' : 'Removes frost layer so sidebar sits straight over wallpaper.',
         checked: Boolean(config.sidebarFullClear),
-        onChange: v => void store.updateConfig({ sidebarFullClear: v, activePresetId: '' })
+        onChange: v => void store.updateConfig({ sidebarFullClear: v, activePresetId: '' }, { rerender: false })
       }),
       switchRow({
         label: isZh ? '浮层保留底层可读衬底' : 'Floater readable base',
         checked: config.floaterSolidBase !== false,
-        onChange: v => void store.updateConfig({ floaterSolidBase: v, activePresetId: '' })
+        onChange: v => void store.updateConfig({ floaterSolidBase: v, activePresetId: '' }, { rerender: false })
       }),
       el('div', { className: 'we-picker__row' },
         el('button', {
@@ -406,7 +413,7 @@ function renderGlassSection(store) {
           value: config.conversationColor,
           colorValue: config.conversationColor || glassColor.light,
           autoBtn: autoFollowBtn('conversation', 'conversationColor'),
-          onPick: (c, defer) => withSurfaceCustom('conversation', { conversationColor: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => withSurfaceCustom('conversation', { conversationColor: c }, { defer, rerender: false })
         }),
         surfaceSlider('leftSidebar', 'leftSidebarTransparency', isZh ? '左侧栏透明度' : 'Left sidebar transparency'),
         surfaceSlider('leftSidebar', 'leftSidebarBlur', isZh ? '左侧栏模糊' : 'Left sidebar blur'),
@@ -415,7 +422,7 @@ function renderGlassSection(store) {
         switchRow({
           label: isZh ? '辅助侧栏跟随全局参数' : 'Aux sidebar follows global glass',
           checked: config.sidebarFollowGlobal !== false,
-          onChange: v => void store.updateConfig({ sidebarFollowGlobal: v })
+          onChange: v => void store.updateConfig({ sidebarFollowGlobal: v }, { rerender: false })
         }),
         configSlider(store, 'sidebarAlpha', isZh ? '辅助侧栏透明度' : 'Aux sidebar transparency'),
         configSlider(store, 'sidebarBlur', isZh ? '辅助侧栏模糊' : 'Aux sidebar blur'),
@@ -426,7 +433,7 @@ function renderGlassSection(store) {
           value: config.sidebarContentColor,
           colorValue: config.sidebarContentColor || glassColor.light,
           autoBtn: autoFollowBtn('sidebarContent', 'sidebarContentColor'),
-          onPick: (c, defer) => withSurfaceCustom('sidebarContent', { sidebarContentColor: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => withSurfaceCustom('sidebarContent', { sidebarContentColor: c }, { defer, rerender: false })
         }),
         surfaceSlider('settingsWindow', 'settingsWindowTransparency', isZh ? '设置弹窗透明度' : 'Settings transparency'),
         surfaceSlider('settingsWindow', 'settingsWindowBlur', isZh ? '设置弹窗模糊' : 'Settings blur'),
@@ -436,7 +443,7 @@ function renderGlassSection(store) {
           value: config.settingsWindowColor,
           colorValue: config.settingsWindowColor || glassColor.light,
           autoBtn: autoFollowBtn('settingsWindow', 'settingsWindowColor'),
-          onPick: (c, defer) => withSurfaceCustom('settingsWindow', { settingsWindowColor: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => withSurfaceCustom('settingsWindow', { settingsWindowColor: c }, { defer, rerender: false })
         })
       ) : null
     ] : null
@@ -746,7 +753,7 @@ export function renderAppearanceTab(store) {
   const autoColorBtn = (cfgKey, autoText) => el('button', {
     type: 'button',
     className: `we-picker__swatch we-picker__swatch--auto ${!config[cfgKey] ? 'we-picker__swatch--active' : ''}`,
-    onClick: () => void store.updateConfig({ [cfgKey]: '' })
+    onClick: () => void store.updateConfig({ [cfgKey]: '' }, { rerender: false })
   }, autoText)
 
   const uiElements = [
@@ -769,7 +776,7 @@ export function renderAppearanceTab(store) {
       switchRow({
         label: isZh ? '从当前壁纸自动取色作为强调色' : 'Extract accent color from wallpaper',
         checked: Boolean(config.themeFollow),
-        onChange: v => void store.updateConfig({ themeFollow: v })
+        onChange: v => void store.updateConfig({ themeFollow: v }, { rerender: false })
       })
     ),
 
@@ -786,7 +793,7 @@ export function renderAppearanceTab(store) {
         switchRow({
           label: t('glassHighlight'),
           checked: config.glassHighlight !== false,
-          onChange: v => void store.updateConfig({ glassHighlight: v, activePresetId: '' })
+          onChange: v => void store.updateConfig({ glassHighlight: v, activePresetId: '' }, { rerender: false })
         })
       ] : null
     ),
@@ -805,15 +812,17 @@ export function renderAppearanceTab(store) {
         segRow({
           label: isZh ? '左侧边栏统一圆角' : 'Left sidebar radius',
           value: config.leftSidebarCornerRadius || 'native',
+          syncActive: true,
           items: radiusItems,
-          onPick: id => void store.updateConfig({ leftSidebarCornerRadius: id, activePresetId: '' })
+          onPick: id => void store.updateConfig({ leftSidebarCornerRadius: id, activePresetId: '' }, { rerender: false })
         }),
         cornerButtons(store, 'leftSidebar', isZh ? '左侧边栏单独改直角' : 'Left sidebar square corners', equalCorners),
         segRow({
           label: isZh ? '右侧栏统一圆角' : 'Right sidebar radius',
           value: config.rightSidebarCornerRadius || 'native',
+          syncActive: true,
           items: radiusItems,
-          onPick: id => void store.updateConfig({ rightSidebarCornerRadius: id, activePresetId: '' })
+          onPick: id => void store.updateConfig({ rightSidebarCornerRadius: id, activePresetId: '' }, { rerender: false })
         }),
         cornerButtons(store, 'rightSidebar', isZh ? '右侧栏单独改直角' : 'Right sidebar square corners', equalCorners)
       ] : null
@@ -834,7 +843,7 @@ export function renderAppearanceTab(store) {
           presets: ACCENT_PRESETS,
           value: config.accent || '#4f8cff',
           colorValue: COLOR_HEX_RE.test(config.accent || '') ? config.accent : '#4f8cff',
-          onPick: (c, defer) => void store.updateConfig({ accent: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ accent: c }, { defer, rerender: false })
         }),
         switchRow({
           label: isZh ? '分元素自定义界面配色' : 'Customize per-element colors',
@@ -848,7 +857,7 @@ export function renderAppearanceTab(store) {
           value: config[item.key],
           colorValue: COLOR_HEX_RE.test(config[item.key] || '') ? config[item.key] : (config.accent || '#4f8cff'),
           autoBtn: autoColorBtn(item.key, isZh ? '跟随' : 'Auto'),
-          onPick: (c, defer) => void store.updateConfig({ [item.key]: c, uiColorCustom: true }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ [item.key]: c, uiColorCustom: true }, { defer, rerender: false })
         })),
         swatchRow({
           label: t('caretColor'),
@@ -856,7 +865,7 @@ export function renderAppearanceTab(store) {
           value: config.caretColor,
           colorValue: COLOR_HEX_RE.test(config.caretColor || '') ? config.caretColor : '#4f8cff',
           autoBtn: autoColorBtn('caretColor', isZh ? '自动' : 'Auto'),
-          onPick: (c, defer) => void store.updateConfig({ caretColor: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ caretColor: c }, { defer, rerender: false })
         })
       ] : null
     ),

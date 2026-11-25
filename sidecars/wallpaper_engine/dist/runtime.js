@@ -177,9 +177,9 @@
       this.root.setAttribute("aria-hidden", "true");
       this.root.style.cssText = "position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;contain:strict;";
       this.layers = document.createElement("div");
-      this.layers.style.cssText = "position:absolute;inset:0;overflow:hidden;";
+      this.layers.style.cssText = "position:absolute;inset:0;overflow:hidden;will-change:transform;";
       this.scrim = document.createElement("div");
-      this.scrim.style.cssText = "position:absolute;inset:0;pointer-events:none;";
+      this.scrim.style.cssText = "position:absolute;inset:0;pointer-events:none;will-change:background-color;";
       this.root.replaceChildren(this.layers, this.scrim);
       document.body.prepend(this.root);
       this.ensureListeners();
@@ -476,11 +476,23 @@
     applyOptionsToLayer(layer) {
       const options = this.currentOptions;
       const blur = clamp(options.blur, 0, 60, 0);
-      const surface = layer._surface;
-      const media = layer._media;
       const brightness = clamp(options.brightness, 40, 160, 100);
       const contrast = clamp(options.contrast, 40, 200, 100);
       const saturate = clamp(options.saturate, 0, 200, 100);
+      const posX = clamp(options.layerPositionX, 0, 100, 50);
+      const posY = clamp(options.layerPositionY, 0, 100, 50);
+      const layerScalePct = clamp(options.layerScale, 50, 150, 100);
+      const opacityPct = clamp(options.opacity, 0, 100, 100);
+      const objectFit = options.fit === "center" ? "none" : options.fit;
+      const sound = Boolean(options.sound);
+      const volumePct = clamp(options.volume, 0, 100, 100);
+      const playbackRate = clamp(options.playbackRate, 0.25, 2, 1);
+      const loop = options.loop !== false;
+      const media = layer._media;
+      const optKey = `${blur}|${brightness}|${contrast}|${saturate}|${posX}|${posY}|${layerScalePct}|${Boolean(options.flip)}|${opacityPct}|${objectFit}|${sound}|${volumePct}|${playbackRate}|${loop}|${media.childElementCount}`;
+      if (layer._lastOptKey === optKey) return;
+      layer._lastOptKey = optKey;
+      const surface = layer._surface;
       const filters = [];
       if (blur > 0) filters.push(`blur(${blur}px)`);
       if (brightness !== 100) filters.push(`brightness(${brightness}%)`);
@@ -488,15 +500,15 @@
       if (saturate !== 100) filters.push(`saturate(${saturate}%)`);
       surface.style.filter = filters.length ? filters.join(" ") : "none";
       surface.style.inset = blur > 0 ? `-${blur + 8}px` : "0";
-      const x = (50 - clamp(options.layerPositionX, 0, 100, 50)) / 2;
-      const y = (50 - clamp(options.layerPositionY, 0, 100, 50)) / 2;
-      const scale = clamp(options.layerScale, 50, 150, 100) / 100;
+      const x = (50 - posX) / 2;
+      const y = (50 - posY) / 2;
+      const scale = layerScalePct / 100;
       const flip = options.flip ? " scaleX(-1)" : "";
       layer.style.transform = "none";
       surface.style.transform = `translate3d(${x.toFixed(2)}%, ${y.toFixed(2)}%, 0) scale(${scale.toFixed(3)})${flip}`;
-      media.style.opacity = String(clamp(options.opacity, 0, 100, 100) / 100);
-      layer._poster.style.opacity = String(clamp(options.opacity, 0, 100, 100) / 100);
-      const objectFit = options.fit === "center" ? "none" : options.fit;
+      const opacityStr = String(opacityPct / 100);
+      media.style.opacity = opacityStr;
+      layer._poster.style.opacity = opacityStr;
       for (const image of media.querySelectorAll("img")) {
         image.style.objectFit = objectFit;
         image.style.objectPosition = "center";
@@ -505,10 +517,10 @@
       if (video) {
         video.style.objectFit = objectFit;
         video.style.objectPosition = "center";
-        video.muted = !options.sound;
-        video.volume = clamp(options.volume, 0, 100, 100) / 100;
-        video.playbackRate = clamp(options.playbackRate, 0.25, 2, 1);
-        video.loop = options.loop !== false;
+        video.muted = !sound;
+        video.volume = volumePct / 100;
+        video.playbackRate = playbackRate;
+        video.loop = loop;
       }
     }
     buildNextLayer(options, key) {
@@ -1040,10 +1052,10 @@
       nameEn: "Crystal Default",
       values: {
         glassEnabled: true,
-        panelGlass: 72,
-        bubbleOpacity: 62,
+        panelGlass: 68,
+        bubbleOpacity: 65,
         composerFrost: 22,
-        surfaceFrost: 18,
+        surfaceFrost: 20,
         glassSaturation: 175,
         glassBorder: 32,
         glassHighlight: true,
@@ -1051,17 +1063,17 @@
         glassDarkSeparate: true,
         glassFidelity: 100,
         chatGlassFidelity: 100,
-        settingsWindowTransparency: 24,
+        settingsWindowTransparency: 18,
         settingsWindowBlur: 24,
-        settingsMaskStrength: 80,
+        settingsMaskStrength: 55,
         sidebarGlass: true,
         sidebarFollowGlobal: true,
         leftSidebarGlass: true,
         sidebarFullClear: false,
-        titlebarGlass: false,
+        titlebarGlass: true,
         thinkingMode: "glass",
         floaterSolidBase: true,
-        maskOcclusion: 12
+        maskOcclusion: 24
       }
     },
     {
@@ -1084,7 +1096,7 @@
         chatGlassFidelity: 100,
         settingsWindowTransparency: 18,
         settingsWindowBlur: 36,
-        settingsMaskStrength: 85,
+        settingsMaskStrength: 60,
         sidebarGlass: true,
         sidebarFollowGlobal: true,
         leftSidebarGlass: true,
@@ -1092,7 +1104,7 @@
         titlebarGlass: true,
         thinkingMode: "glass",
         floaterSolidBase: true,
-        maskOcclusion: 16
+        maskOcclusion: 28
       }
     },
     {
@@ -1102,7 +1114,7 @@
       nameEn: "High Readability",
       values: {
         glassEnabled: true,
-        panelGlass: 38,
+        panelGlass: 35,
         bubbleOpacity: 82,
         composerFrost: 30,
         surfaceFrost: 28,
@@ -1115,7 +1127,7 @@
         chatGlassFidelity: 100,
         settingsWindowTransparency: 12,
         settingsWindowBlur: 28,
-        settingsMaskStrength: 90,
+        settingsMaskStrength: 65,
         sidebarGlass: true,
         sidebarFollowGlobal: true,
         leftSidebarGlass: true,
@@ -1123,7 +1135,7 @@
         titlebarGlass: true,
         thinkingMode: "native",
         floaterSolidBase: true,
-        maskOcclusion: 22
+        maskOcclusion: 34
       }
     },
     {
@@ -1146,7 +1158,7 @@
         chatGlassFidelity: 78,
         settingsWindowTransparency: 32,
         settingsWindowBlur: 20,
-        settingsMaskStrength: 65,
+        settingsMaskStrength: 45,
         sidebarGlass: true,
         sidebarFollowGlobal: true,
         leftSidebarGlass: false,
@@ -1154,7 +1166,7 @@
         titlebarGlass: false,
         thinkingMode: "off",
         floaterSolidBase: true,
-        maskOcclusion: 8
+        maskOcclusion: 18
       }
     },
     {
@@ -1177,16 +1189,16 @@
         chatGlassFidelity: 95,
         settingsWindowTransparency: 22,
         settingsWindowBlur: 26,
-        settingsMaskStrength: 80,
+        settingsMaskStrength: 55,
         sidebarGlass: true,
         sidebarFollowGlobal: true,
         leftSidebarGlass: true,
         sidebarFullClear: false,
-        titlebarGlass: false,
+        titlebarGlass: true,
         thinkingMode: "glass",
         floaterSolidBase: true,
         accent: "#4f8cff",
-        maskOcclusion: 12
+        maskOcclusion: 24
       }
     }
   ];
@@ -1288,11 +1300,27 @@
     const c = (sq) => sq ? "0px" : mode === "native" ? "0px" : `${mode}px`;
     return `${c(sqTL)} ${c(sqTR)} ${c(sqBR)} ${c(sqBL)}`;
   }
+  function setRuleProp(rule, prop, val, important = true) {
+    if (!rule) return;
+    const strVal = String(val ?? "");
+    if (important) {
+      if (rule.getPropertyValue(prop).trim() !== strVal || rule.getPropertyPriority?.(prop) !== "important") {
+        rule.setProperty(prop, strVal, "important");
+      }
+    } else {
+      if (rule.getPropertyValue(prop).trim() !== strVal || rule.getPropertyPriority?.(prop) === "important") {
+        rule.setProperty(prop, strVal);
+      }
+    }
+  }
   var GlassController = class {
     constructor() {
       this.styleEl = null;
       this.materialRule = null;
+      this.rules = null;
       this.lastMaterialKey = null;
+      this.lastRootKey = null;
+      this.lastPickerKey = null;
       this.seedKey = null;
       this.seedColors = { bg: null, sidebar: null, card: null };
       this.terminalObserver = null;
@@ -1319,10 +1347,11 @@
         enabled = false,
         wallpaperEnabled = enabled,
         glassEnabled = true,
-        glassTransparency = 72,
-        bubbleOpacity = 62,
+        isPreview = false,
+        glassTransparency = 68,
+        bubbleOpacity = 65,
         composerFrost = 22,
-        surfaceFrost = 18,
+        surfaceFrost = 20,
         saturation = 175,
         border = 32,
         highlight = true,
@@ -1331,9 +1360,9 @@
         glassDarkSeparate = true,
         glassFidelity = 100,
         chatGlassFidelity = 100,
-        settingsWindowTransparency = 24,
+        settingsWindowTransparency = 18,
         settingsWindowBlur = 24,
-        settingsMaskStrength = 80,
+        settingsMaskStrength = 55,
         sidebarGlass = true,
         sidebarFollowGlobal = true,
         sidebarBlur = 18,
@@ -1351,7 +1380,7 @@
         rightSidebarSquareTR = false,
         rightSidebarSquareBR = false,
         rightSidebarSquareBL = false,
-        titlebarGlass = false,
+        titlebarGlass = true,
         thinkingMode = "glass",
         floaterSolidBase = true,
         glassMode = {},
@@ -1379,7 +1408,10 @@
       }
       if (!this.styleEl || !document.head.contains(this.styleEl)) {
         this.materialRule = null;
+        this.rules = null;
         this.lastMaterialKey = null;
+        this.lastRootKey = null;
+        this.lastPickerKey = null;
         this.styleEl = document.getElementById(STYLE_ID) || document.createElement("style");
         this.styleEl.id = STYLE_ID;
         this.styleEl.dataset.plugin = "agy-skins";
@@ -1403,10 +1435,10 @@
       const clampedChat = weClampSurfaceColor(chatColorRaw, isDark, rawChatFid);
       const settingsColorRaw = pick("settingsWindow", settingsWindowColor, globalColorRaw);
       const clampedSettings = weClampSurfaceColor(settingsColorRaw, isDark, rawFid);
-      const transPct = pct(glassTransparency, 72);
+      const transPct = pct(glassTransparency, 68);
       const glassAlpha = glassOn ? Math.max(0.04, 1 - transPct / 100) * (isDark ? 0.62 : 0.78) : 0.92;
-      const bubbleAlpha = glassOn ? Math.max(0.04, pct(bubbleOpacity, 62) / 100) * (isDark ? 0.56 : 0.72) : 0.92;
-      const gBlur = Math.min(60, Math.max(0, pct(surfaceFrost, 18)));
+      const bubbleAlpha = glassOn ? Math.max(0.04, pct(bubbleOpacity, 65) / 100) * (isDark ? 0.56 : 0.72) : 0.92;
+      const gBlur = Math.min(60, Math.max(0, pct(surfaceFrost, 20)));
       const cBlur = Math.min(60, Math.max(0, pct(composerFrost, 22)));
       const sBlur = Math.min(60, Math.max(0, pct(pick("settingsWindow", settingsWindowBlur, gBlur), gBlur)));
       const saturate = Math.min(220, Math.max(100, Number.isFinite(Number(saturation)) ? Number(saturation) : 175));
@@ -1416,6 +1448,7 @@
       const borderRgb = isDark ? "255, 255, 255" : "15, 23, 42";
       const rawBorder = Math.min(0.9, Math.max(0, pct(border, 32) / 100));
       const borderAlpha = isDark ? rawBorder * 0.42 : rawBorder * 0.24;
+      const borderColorCss = `rgba(${borderRgb}, ${borderAlpha.toFixed(3)})`;
       const highlightAlpha = highlight ? isDark ? 0.16 : 0.48 : 0;
       const sheenTop = isDark ? 0.08 : 0.16;
       const shadowAlpha = isDark ? 0.26 : 0.08;
@@ -1429,10 +1462,16 @@
       const bubbleTint = mixFormula(clampedChat.hex, clampedChat.rgb, bubbleAlpha, chatFloor);
       const codeBlockTint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 0.85, floor);
       const capsuleTint = `rgba(${clampedGlobal.rgb}, ${Math.min(0.45, Math.max(0.08, glassAlpha * 0.45)).toFixed(3)})`;
-      const sTrans = pct(pick("settingsWindow", settingsWindowTransparency, transPct), 24);
+      const sTrans = pct(pick("settingsWindow", settingsWindowTransparency, transPct), 18);
       const sAlpha = glassOn ? Math.max(0.1, 1 - sTrans / 100) * (isDark ? 0.72 : 0.84) : 0.96;
-      const settingsTint = mixFormula(clampedSettings.hex, clampedSettings.rgb, sAlpha, floor);
-      const maskStrength = (pct(settingsMaskStrength, 80) / 100).toFixed(2);
+      const settingsFloor = Math.max(floor, isDark ? 0.7 : 0.74);
+      const settingsTint = mixFormula(clampedSettings.hex, clampedSettings.rgb, sAlpha, settingsFloor);
+      const maskNum = pct(settingsMaskStrength, 55) / 100;
+      const maskStrength = maskNum.toFixed(2);
+      const modalBackdrop = isDark ? `rgba(0, 0, 0, ${(0.44 * maskNum).toFixed(3)})` : `rgba(15, 23, 42, ${(0.14 * maskNum).toFixed(3)})`;
+      const inner1 = isDark ? "rgba(255, 255, 255, 0.055)" : "rgba(10, 10, 14, 0.042)";
+      const inner2 = isDark ? "rgba(255, 255, 255, 0.09)" : "rgba(10, 10, 14, 0.07)";
+      const inner3 = isDark ? "rgba(255, 255, 255, 0.14)" : "rgba(10, 10, 14, 0.11)";
       const lsAlphaPct = pct(pick("leftSidebar", leftSidebarTransparency, transPct), transPct);
       const lsBlurPx = Math.min(60, Math.max(0, pct(pick("leftSidebar", leftSidebarBlur, gBlur), gBlur)));
       const lsAlpha = Math.max(0.04, 1 - lsAlphaPct / 100) * (isDark ? 0.62 : 0.78);
@@ -1449,26 +1488,14 @@
       const titlebarSheen = tbActive ? `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, ${sheenTop}))` : "none";
       const rsFollow = sidebarFollowGlobal !== false && !modeCustom("sidebar");
       const rsBlurPx = rsFollow ? gBlur : Math.min(60, Math.max(0, pct(sidebarBlur, 18)));
-      const rsAlphaPct = rsFollow ? transPct : pct(sidebarAlpha, 72);
+      const rsAlphaPct = rsFollow ? transPct : pct(sidebarAlpha, 68);
       const rsAlpha = Math.max(0.04, 1 - rsAlphaPct / 100) * (isDark ? 0.62 : 0.78);
       const rsColorClamped = weClampSurfaceColor(rsFollow ? globalColorRaw : sidebarColor || globalColorRaw, isDark, rawFid);
       const rsActive = glassOn && sidebarGlass && !sidebarFullClear;
       const rightSidebarTint = sidebarFullClear ? "transparent" : !rsActive ? isDark ? "#18191e" : "#ffffff" : mixFormula(rsColorClamped.hex, rsColorClamped.rgb, rsAlpha, floor);
       const rightSidebarFrost = rsActive && rsBlurPx > 0 ? `blur(${rsBlurPx}px) saturate(${saturate}%) brightness(${isDark ? 1.04 : 1.01})` : "none";
-      const leftRadius = cornerRadiusString(
-        leftSidebarCornerRadius,
-        leftSidebarSquareTL,
-        leftSidebarSquareTR,
-        leftSidebarSquareBR,
-        leftSidebarSquareBL
-      );
-      const rightRadius = cornerRadiusString(
-        rightSidebarCornerRadius,
-        rightSidebarSquareTL,
-        rightSidebarSquareTR,
-        rightSidebarSquareBR,
-        rightSidebarSquareBL
-      );
+      const leftRadius = cornerRadiusString(leftSidebarCornerRadius, leftSidebarSquareTL, leftSidebarSquareTR, leftSidebarSquareBR, leftSidebarSquareBL);
+      const rightRadius = cornerRadiusString(rightSidebarCornerRadius, rightSidebarSquareTL, rightSidebarSquareTR, rightSidebarSquareBR, rightSidebarSquareBL);
       const validAccent = /^#[0-9a-f]{6}$/i.test(accent || "") ? accent : "#4f8cff";
       const accentInk = weAccentInk(validAccent);
       const resolvedThinking = ["off", "glass", "native"].includes(thinkingMode) ? thinkingMode : "glass";
@@ -1482,6 +1509,9 @@
         layer3Tint,
         elevatedTint,
         floatingTint,
+        inner1,
+        inner2,
+        inner3,
         inputMajorTint,
         bubbleTint,
         codeBlockTint,
@@ -1489,6 +1519,7 @@
         settingsTint,
         sBlur,
         maskStrength,
+        modalBackdrop,
         surfaceFrostCss,
         composerFrostCss,
         settingsFrostCss,
@@ -1516,12 +1547,17 @@
         floaterSolidBase: Boolean(floaterSolidBase),
         sidebarFullClear: Boolean(sidebarFullClear)
       });
-      if (this.lastMaterialKey === materialKey && this.styleEl.isConnected) return;
+      if (this.lastMaterialKey === materialKey && this.styleEl.isConnected && (isPreview || this.lastRootKey === materialKey)) return;
       this.readHostSeeds(root);
-      body.setAttribute("data-agy-skins-active", "true");
-      if (wallpaperEnabled) body.setAttribute("data-agy-skins-wallpaper", "true");
-      else body.removeAttribute("data-agy-skins-wallpaper");
-      body.setAttribute("data-agy-thinking-mode", resolvedThinking);
+      for (const target of [root, body]) {
+        if (target?.getAttribute?.("data-agy-skins-active") !== "true") target?.setAttribute?.("data-agy-skins-active", "true");
+        if (wallpaperEnabled) {
+          if (target?.getAttribute?.("data-agy-skins-wallpaper") !== "true") target?.setAttribute?.("data-agy-skins-wallpaper", "true");
+        } else if (target?.getAttribute?.("data-agy-skins-wallpaper")) {
+          target?.removeAttribute?.("data-agy-skins-wallpaper");
+        }
+      }
+      if (body.getAttribute("data-agy-thinking-mode") !== resolvedThinking) body.setAttribute("data-agy-thinking-mode", resolvedThinking);
       if (floaterSolidBase !== false) body.setAttribute("data-agy-floater-solid", "true");
       else body.removeAttribute("data-agy-floater-solid");
       if (sidebarFullClear) body.setAttribute("data-agy-sidebar-fullclear", "true");
@@ -1542,6 +1578,9 @@
         "--we-layer-1": layer1Tint,
         "--we-layer-2": layer2Tint,
         "--we-layer-3": layer3Tint,
+        "--we-inner-1": inner1,
+        "--we-inner-2": inner2,
+        "--we-inner-3": inner3,
         "--we-elevated-fill": elevatedTint,
         "--we-floating-tint": floatingTint,
         "--we-input-major": inputMajorTint,
@@ -1552,6 +1591,7 @@
         "--we-settings-frost": settingsFrostCss,
         "--we-settings-blur-px": `${sBlur}px`,
         "--we-mask-strength": maskStrength,
+        "--we-modal-backdrop": modalBackdrop,
         "--we-surface-frost": surfaceFrostCss,
         "--we-composer-frost": composerFrostCss,
         "--we-sidebar-tint": leftSidebarTint,
@@ -1569,7 +1609,6 @@
         "--we-shadow-alpha": String(shadowAlpha),
         "--we-left-radius": leftRadius,
         "--we-right-radius": rightRadius,
-        // Legacy alias vars preserved for smooth diagnostics / tests
         "--agy-skins-chrome-tint": layer2Tint,
         "--agy-skins-card-tint": inputMajorTint,
         "--agy-skins-sidebar-tint": leftSidebarTint,
@@ -1580,45 +1619,271 @@
         "--agy-skins-composer-frost": composerFrostCss,
         "--agy-skins-overlay-frost": settingsFrostCss
       };
-      if (this.materialRule) {
-        for (const [k, v] of Object.entries(vars)) {
-          if (this.materialRule.getPropertyValue(k).trim() !== v) {
-            this.materialRule.setProperty(k, v);
-          }
+      const rootImportantVars = {
+        "--onyx-frame": "transparent",
+        "--onyx-well": inner1,
+        "--onyx-raised": elevatedTint,
+        "--onyx-selected": `color-mix(in srgb, ${validAccent} 18%, ${elevatedTint})`,
+        "--onyx-key": inner2,
+        "--sidebar-secondary": `color-mix(in srgb, ${validAccent} 14%, ${inner2})`,
+        "--sidebar-muted": inner1,
+        "--secondary": inner2,
+        "--color-secondary": inner2,
+        "--muted": inner1,
+        "--color-muted": inner1,
+        "--card": layer2Tint,
+        "--color-card": layer2Tint,
+        "--popover": floatingTint,
+        "--color-popover": floatingTint,
+        "--glass": inputMajorTint,
+        "--border": borderColorCss,
+        "--color-border": borderColorCss,
+        "--card-border": borderColorCss,
+        "--glass-border": borderColorCss,
+        "--glass-highlight": `rgba(255, 255, 255, ${highlightAlpha.toFixed(3)})`
+      };
+      const composerSheen = `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.04) 38%, rgba(255, 255, 255, 0.015))`;
+      const composerShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}, 0 14px 36px -10px rgba(0, 0, 0, ${shadowAlpha})`;
+      const bubbleSheen = `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.01))`;
+      const bubbleShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}`;
+      const settingsSheen = `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.025) 38%, rgba(255, 255, 255, 0.04))`;
+      const settingsShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}, 0 24px 80px rgba(0, 7, 18, 0.28)`;
+      const selectedBorderColor = `color-mix(in srgb, ${validAccent} 24%, ${borderColorCss})`;
+      const selectedRowShadow = `inset 0 1px 0 rgba(255, 255, 255, ${(highlightAlpha * 0.6).toFixed(3)}), inset 0 0 0 1px ${selectedBorderColor}`;
+      if (this.rules) {
+        setRuleProp(this.rules.topbar, "background-color", tbActive ? titlebarTint : "transparent");
+        setRuleProp(this.rules.topbar, "background-image", tbActive ? titlebarSheen : "none");
+        setRuleProp(this.rules.topbar, "backdrop-filter", tbActive ? titlebarFrost : "none");
+        setRuleProp(this.rules.topbar, "-webkit-backdrop-filter", tbActive ? titlebarFrost : "none");
+        setRuleProp(this.rules.leftSidebar, "background-color", leftSidebarTint);
+        setRuleProp(this.rules.leftSidebar, "background-image", leftSidebarSheen);
+        setRuleProp(this.rules.leftSidebar, "backdrop-filter", leftSidebarFrost);
+        setRuleProp(this.rules.leftSidebar, "-webkit-backdrop-filter", leftSidebarFrost);
+        setRuleProp(this.rules.leftSidebar, "border-radius", leftRadius);
+        setRuleProp(this.rules.rightSidebar, "background-color", rightSidebarTint);
+        setRuleProp(this.rules.rightSidebar, "background-image", leftSidebarSheen);
+        setRuleProp(this.rules.rightSidebar, "backdrop-filter", rightSidebarFrost);
+        setRuleProp(this.rules.rightSidebar, "-webkit-backdrop-filter", rightSidebarFrost);
+        setRuleProp(this.rules.rightSidebar, "border-radius", rightRadius);
+        setRuleProp(this.rules.newChatBtn, "background-color", inner2);
+        setRuleProp(this.rules.newChatBtn, "border-color", borderColorCss);
+        setRuleProp(this.rules.newChatBtn, "box-shadow", bubbleShadow);
+        setRuleProp(this.rules.selectedRow, "background-color", `color-mix(in srgb, ${validAccent} 14%, ${inner2})`);
+        setRuleProp(this.rules.selectedRow, "box-shadow", selectedRowShadow);
+        setRuleProp(this.rules.composerCard, "background-color", inputMajorTint);
+        setRuleProp(this.rules.composerCard, "background-image", composerSheen);
+        setRuleProp(this.rules.composerCard, "box-shadow", composerShadow);
+        setRuleProp(this.rules.composerBefore, "backdrop-filter", composerFrostCss);
+        setRuleProp(this.rules.composerBefore, "-webkit-backdrop-filter", composerFrostCss);
+        setRuleProp(this.rules.bubbles, "background-color", resolvedThinking === "native" ? "" : bubbleTint);
+        setRuleProp(this.rules.bubbles, "background-image", resolvedThinking === "native" ? "" : bubbleSheen);
+        setRuleProp(this.rules.bubbles, "border-color", borderColorCss);
+        setRuleProp(this.rules.bubbles, "box-shadow", resolvedThinking === "native" ? "" : bubbleShadow);
+        setRuleProp(this.rules.bubbles, "backdrop-filter", resolvedThinking === "glass" ? surfaceFrostCss : "none");
+        setRuleProp(this.rules.bubbles, "-webkit-backdrop-filter", resolvedThinking === "glass" ? surfaceFrostCss : "none");
+        setRuleProp(this.rules.chatPre, "background-color", resolvedThinking === "native" ? inner2 : codeBlockTint);
+        setRuleProp(this.rules.chatPre, "border-color", borderColorCss);
+        setRuleProp(this.rules.chatPre, "backdrop-filter", resolvedThinking === "glass" ? surfaceFrostCss : "none");
+        setRuleProp(this.rules.chatPre, "-webkit-backdrop-filter", resolvedThinking === "glass" ? surfaceFrostCss : "none");
+        setRuleProp(this.rules.settingsBackdrop, "background-color", modalBackdrop);
+        setRuleProp(this.rules.settingsModal, "background-color", settingsTint);
+        setRuleProp(this.rules.settingsModal, "background-image", settingsSheen);
+        setRuleProp(this.rules.settingsModal, "backdrop-filter", settingsFrostCss);
+        setRuleProp(this.rules.settingsModal, "-webkit-backdrop-filter", settingsFrostCss);
+        setRuleProp(this.rules.settingsModal, "border-color", borderColorCss);
+        setRuleProp(this.rules.settingsModal, "box-shadow", settingsShadow);
+        setRuleProp(this.rules.floaters, "background-color", floatingTint);
+        setRuleProp(this.rules.floaters, "backdrop-filter", surfaceFrostCss);
+        setRuleProp(this.rules.floaters, "-webkit-backdrop-filter", surfaceFrostCss);
+        setRuleProp(this.rules.floaters, "border-color", borderColorCss);
+        const pickerKey = `${inner1}|${inner2}|${inner3}|${borderRgb}|${borderAlpha}|${validAccent}|${accentInk}|${clampedGlobal.hex}`;
+        if (this.lastPickerKey !== pickerKey && this.rules.pickerVars) {
+          setRuleProp(this.rules.pickerVars, "--we-inner-1", inner1, false);
+          setRuleProp(this.rules.pickerVars, "--we-inner-2", inner2, false);
+          setRuleProp(this.rules.pickerVars, "--we-inner-3", inner3, false);
+          setRuleProp(this.rules.pickerVars, "--we-border-rgb", borderRgb, false);
+          setRuleProp(this.rules.pickerVars, "--we-border-alpha", String(borderAlpha.toFixed(3)), false);
+          setRuleProp(this.rules.pickerVars, "--we-readability-base", clampedGlobal.hex, false);
+          setRuleProp(this.rules.pickerVars, "--we-accent-src", validAccent, false);
+          setRuleProp(this.rules.pickerVars, "--we-accent-ink", accentInk, false);
+          this.lastPickerKey = pickerKey;
+        }
+        if (!isPreview && this.materialRule) {
+          for (const [k, v] of Object.entries(vars)) setRuleProp(this.materialRule, k, v, false);
+          for (const [k, v] of Object.entries(rootImportantVars)) setRuleProp(this.materialRule, k, v, true);
+          this.lastRootKey = materialKey;
         }
         this.lastMaterialKey = materialKey;
         return;
       }
       const varLines = Object.entries(vars).map(([k, v]) => `  ${k}: ${v};`).join("\n");
+      const importantVarLines = Object.entries(rootImportantVars).map(([k, v]) => `  ${k}: ${v} !important;`).join("\n");
       const css = `
-/* Unified Antigravity token remap + material variables */
+/* 0. Root material tokens (synced on commit only, not 60fps drags) */
+html[data-agy-skins-active="true"],
 body[data-agy-skins-active="true"] {
 ${varLines}
-  --onyx-frame: transparent;
-  --onyx-well: color-mix(in srgb, var(--we-readability-base) 26%, rgba(128, 128, 128, 0.08));
-  --onyx-raised: var(--we-elevated-fill);
-  --onyx-selected: color-mix(in srgb, var(--we-accent-src) 18%, var(--we-elevated-fill));
-  --onyx-key: var(--we-elevated-fill);
-  --sidebar-secondary: color-mix(in srgb, var(--we-accent-src) 18%, rgba(128, 128, 128, 0.10));
-  --sidebar-muted: color-mix(in srgb, var(--we-accent-src) 10%, rgba(128, 128, 128, 0.05));
-  --secondary: var(--we-capsule-fill);
-  --muted: var(--we-layer-1);
-  --card: var(--we-layer-2);
-  --glass: var(--we-input-major);
-  --border: rgba(var(--we-border-rgb), var(--we-border-alpha));
-  --card-border: rgba(var(--we-border-rgb), var(--we-border-alpha));
-  --glass-border: rgba(var(--we-border-rgb), var(--we-border-alpha));
-  --glass-highlight: rgba(255, 255, 255, var(--we-highlight-alpha));
+${importantVarLines}
 }
 
-/* Unified single-canvas wallpaper backdrop: remove ALL seams between shell, top bar, titlebar, and main chat */
+/* 1. Scoped .we-picker tokens (never invalidates host workbench DOM) */
+.we-picker {
+  --we-inner-1: ${inner1};
+  --we-inner-2: ${inner2};
+  --we-inner-3: ${inner3};
+  --we-border-rgb: ${borderRgb};
+  --we-border-alpha: ${borderAlpha.toFixed(3)};
+  --we-readability-base: ${clampedGlobal.hex};
+  --we-accent-src: ${validAccent};
+  --we-accent-ink: ${accentInk};
+}
+
+/* 2. Top bar rule */
+body[data-agy-skins-active="true"] .agy-shell > .shrink-0 {
+  background-color: ${tbActive ? titlebarTint : "transparent"} !important;
+  background-image: ${tbActive ? titlebarSheen : "none"} !important;
+  backdrop-filter: ${tbActive ? titlebarFrost : "none"} !important;
+  -webkit-backdrop-filter: ${tbActive ? titlebarFrost : "none"} !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+}
+
+/* 3. Left sidebar rule */
+body[data-agy-skins-active="true"] [data-testid="sidebar-split"] > :first-child {
+  background-color: ${leftSidebarTint} !important;
+  background-image: ${leftSidebarSheen} !important;
+  backdrop-filter: ${leftSidebarFrost} !important;
+  -webkit-backdrop-filter: ${leftSidebarFrost} !important;
+  border-radius: ${leftRadius} !important;
+  border-right: none !important;
+  box-shadow: none !important;
+}
+
+/* 4. Right side panel unified from y=30 top strip through body */
+body[data-agy-skins-active="true"] [data-side-panel-focus-scope]:not([data-has-browser-hole="true"]):not(:has([data-browser-hole]:not([data-browser-hole="false"]))) {
+  background-color: ${rightSidebarTint} !important;
+  background-image: ${leftSidebarSheen} !important;
+  backdrop-filter: ${rightSidebarFrost} !important;
+  -webkit-backdrop-filter: ${rightSidebarFrost} !important;
+  border-radius: ${rightRadius} !important;
+  box-shadow: none !important;
+}
+
+/* 5. Sidebar elevated button */
+body[data-agy-skins-active="true"] :is(.agy-sidebar-raised, [data-testid="new-conversation-button"]) {
+  background-color: ${inner2} !important;
+  border-color: ${borderColorCss} !important;
+  box-shadow: ${bubbleShadow} !important;
+}
+
+/* 6. Selected sidebar row */
+body[data-agy-skins-active="true"] .agy-sidebar-row[data-selected="true"] {
+  background-color: color-mix(in srgb, ${validAccent} 14%, ${inner2}) !important;
+  --row-bg: transparent !important;
+  box-shadow: ${selectedRowShadow} !important;
+}
+
+/* 7. Composer card */
+body[data-agy-skins-active="true"] .surface-composer > .surface-composer-card {
+  position: relative;
+  isolation: isolate;
+  background-color: ${inputMajorTint} !important;
+  background-image: ${composerSheen} !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: ${composerShadow} !important;
+}
+
+/* 8. Composer ::before frost carrier */
+body[data-agy-skins-active="true"] .surface-composer > .surface-composer-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: -1;
+  backdrop-filter: ${composerFrostCss} !important;
+  -webkit-backdrop-filter: ${composerFrostCss} !important;
+}
+
+/* 9. User message bubbles */
+body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) :is([data-testid="user-message-bubble"], .agy-user-bubble) {
+  background-color: ${bubbleTint} !important;
+  background-image: ${bubbleSheen} !important;
+  border-color: ${borderColorCss} !important;
+  box-shadow: ${bubbleShadow} !important;
+  backdrop-filter: ${resolvedThinking === "glass" ? surfaceFrostCss : "none"} !important;
+  -webkit-backdrop-filter: ${resolvedThinking === "glass" ? surfaceFrostCss : "none"} !important;
+}
+
+/* 10. Markdown code/tables */
+body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] :is(pre, table) {
+  background-color: ${codeBlockTint} !important;
+  border-color: ${borderColorCss} !important;
+  backdrop-filter: ${resolvedThinking === "glass" ? surfaceFrostCss : "none"} !important;
+  -webkit-backdrop-filter: ${resolvedThinking === "glass" ? surfaceFrostCss : "none"} !important;
+}
+
+/* 11. Settings modal backdrop scrim (no fullscreen video blur pass!) */
+body[data-agy-skins-active="true"] .settings-modal-backdrop,
+#agy-skins-studio-backdrop {
+  background-color: ${modalBackdrop} !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 12. Settings modal & Alt+Shift+W frosted sheet */
+body[data-agy-skins-active="true"] .settings-modal-container,
+body[data-agy-skins-active="true"] #agy-skins-studio-dialog,
+body[data-agy-skins-active="true"] [role="dialog"]:not(#agy-skins-studio-dialog) {
+  background-color: ${settingsTint} !important;
+  background-image: ${settingsSheen} !important;
+  backdrop-filter: ${settingsFrostCss} !important;
+  -webkit-backdrop-filter: ${settingsFrostCss} !important;
+  border-color: ${borderColorCss} !important;
+  box-shadow: ${settingsShadow} !important;
+}
+
+/* 13. Floating menus, overview gutters, fastpick & portals */
+body[data-agy-skins-active="true"] :is(
+  .surface-glass,
+  .agy-fastpick,
+  .agy-popover,
+  .quick-input-widget,
+  [data-testid="overview-panel-host-gutter"],
+  [data-radix-popper-content-wrapper] > *,
+  [data-base-ui-portal] :is([role="listbox"], [role="menu"], [role="dialog"]),
+  [role="menu"],
+  [role="listbox"]
+) {
+  background-color: ${floatingTint} !important;
+  backdrop-filter: ${surfaceFrostCss} !important;
+  -webkit-backdrop-filter: ${surfaceFrostCss} !important;
+  border-color: ${borderColorCss} !important;
+}
+
+/* Static structural clears */
+html[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"],
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] {
-  --background: transparent;
-  --shell: transparent;
-  --shell-canvas: transparent;
-  --content: transparent;
-  --home-glow: transparent;
+  --background: transparent !important;
+  --color-background: transparent !important;
+  --shell: transparent !important;
+  --shell-canvas: transparent !important;
+  --content: transparent !important;
+  --home-glow: transparent !important;
   background-color: transparent !important;
+}
+
+body[data-agy-skins-active="true"] :is(
+  .settings-modal-container,
+  #agy-skins-studio-dialog,
+  [data-testid="sidebar-split"] > :first-child,
+  [data-side-panel-focus-scope]
+) {
+  --card: var(--we-inner-1) !important;
+  --color-card: var(--we-inner-1) !important;
+  --onyx-raised: var(--we-inner-2) !important;
+  --onyx-well: var(--we-inner-1) !important;
 }
 
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] :is(
@@ -1642,21 +1907,31 @@ body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] :is(
   box-shadow: none !important;
 }
 
-/* Remove inset sheet borders, rounded box margins, and right-column titlebar wrapper doubling */
-body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-main-content-body] {
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-main-content-body],
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-inset-shell [data-side-panel-body] {
   margin: 0 !important;
   border-radius: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-main-content-body]::after,
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-main-content-body]::before,
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-inset-shell [data-side-panel-body]::after,
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-panes] .agy-sheet[data-sheet-inset] [data-tiling-pane]::after,
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-panes] .agy-sheet[data-sheet-inset] [data-main-content-body] > [data-testid="bottom-terminal-panel"]::after,
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-sheet[data-sheet-inset] [data-hoisted-slot-rim="side"] {
   content: none !important;
   display: none !important;
   box-shadow: none !important;
 }
-body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-fill-edge] > .shrink-0 {
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-fill-edge] > .shrink-0,
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-inset-shell [data-side-panel-strip],
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-panes] .agy-sheet[data-sheet-inset] [data-main-content-body] > [data-testid="bottom-terminal-panel"],
+body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-split-panes] .agy-sheet[data-sheet-inset] [data-testid="tiling-splitter"] > [data-splitter-band] {
   background: transparent !important;
+  background-color: transparent !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   box-shadow: none !important;
@@ -1667,7 +1942,6 @@ body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] .agy-shell {
   z-index: 1 !important;
 }
 
-/* Eliminate the 48px gradient bandage bar right above the composer */
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-content-body] .pointer-events-none.absolute.bottom-0,
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-content-body] [class*="from-background"],
 body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-content-body] [class*="to-background"],
@@ -1678,38 +1952,16 @@ body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-c
   background-image: none !important;
 }
 
-/* Top window bar ONLY when titlebarGlass is enabled (constant sheen -> no seam against left sidebar) */
-body[data-agy-skins-active="true"] .agy-shell > .shrink-0 {
-  background-color: var(--we-titlebar-tint) !important;
-  background-image: var(--we-titlebar-sheen) !important;
-  backdrop-filter: var(--we-titlebar-frost) !important;
-  -webkit-backdrop-filter: var(--we-titlebar-frost) !important;
-  border-bottom: none !important;
-  box-shadow: none !important;
-}
-body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"]:not([data-agy-titlebar-glass="true"]) .agy-shell > .shrink-0 {
-  background: transparent !important;
-  background-image: none !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* Left sidebar single unified structural veil + corner radii; clear all inner wrappers */
-body[data-agy-skins-active="true"] [data-testid="sidebar-split"] > :first-child {
-  background-color: var(--we-sidebar-tint) !important;
-  background-image: var(--we-sidebar-sheen) !important;
-  backdrop-filter: var(--we-sidebar-frost) !important;
-  -webkit-backdrop-filter: var(--we-sidebar-frost) !important;
-  border-radius: var(--we-left-radius) !important;
-  border-right: none !important;
-  box-shadow: none !important;
-}
 body[data-agy-skins-active="true"] [data-testid="sidebar-split"] .bg-sidebar,
 body[data-agy-skins-active="true"] .agy-shell > .shrink-0 .bg-sidebar,
 body[data-agy-skins-active="true"] [data-testid="conversation-list-sidebar"],
 body[data-agy-skins-active="true"] [data-testid="sidebar-navigation-items"],
 body[data-agy-skins-active="true"] .agy-sidebar-row .agy-row-actions,
-body[data-agy-skins-active="true"] .agy-status-overflow {
+body[data-agy-skins-active="true"] .agy-status-overflow,
+body[data-agy-skins-active="true"] .surface-composer,
+body[data-agy-skins-active="true"] .settings-modal-container [data-testid="settings-sidebar"],
+body[data-agy-skins-active="true"] .settings-modal-container .bg-background,
+body[data-agy-skins-active="true"] .settings-modal-container .bg-sidebar {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
@@ -1718,30 +1970,6 @@ body[data-agy-skins-active="true"] .agy-status-overflow {
   box-shadow: none !important;
 }
 
-/* Sidebar elevated button & selected row -> cohesive glass pills instead of opaque white slabs */
-body[data-agy-skins-active="true"] .agy-sidebar-raised,
-body[data-agy-skins-active="true"] [data-testid="new-conversation-button"] {
-  background-color: var(--we-elevated-fill) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha)),
-              inset 0 0 0 1px rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-}
-body[data-agy-skins-active="true"] .agy-sidebar-row[data-selected="true"] {
-  background-color: var(--sidebar-secondary) !important;
-  --row-bg: transparent !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, calc(var(--we-highlight-alpha) * 0.6)),
-              inset 0 0 0 1px color-mix(in srgb, var(--we-accent-src) 24%, rgba(var(--we-border-rgb), var(--we-border-alpha))) !important;
-}
-
-/* Right auxiliary / side panel (preserve split-browser cutout) */
-body[data-agy-skins-active="true"] [data-side-panel-body]:not([data-has-browser-hole="true"]):not(:has([data-browser-hole]:not([data-browser-hole="false"]))) {
-  background-color: var(--we-right-sidebar-tint) !important;
-  background-image: var(--we-sidebar-sheen) !important;
-  backdrop-filter: var(--we-right-sidebar-frost) !important;
-  -webkit-backdrop-filter: var(--we-right-sidebar-frost) !important;
-  border-radius: var(--we-right-radius) !important;
-  box-shadow: none !important;
-}
 body[data-agy-skins-active="true"][data-has-browser-hole="true"] [data-has-browser-hole="true"],
 body[data-agy-skins-active="true"][data-has-browser-hole="true"] [data-browser-hole]:not([data-browser-hole="false"]),
 body[data-agy-skins-active="true"][data-has-browser-hole="true"] .browser-hole-opaque:not([data-has-browser-hole="true"]) {
@@ -1751,130 +1979,62 @@ body[data-agy-skins-active="true"][data-has-browser-hole="true"] .browser-hole-o
   -webkit-backdrop-filter: none !important;
 }
 
-/* iOS Liquid Glass Composer — strip 4px --onyx-frame ring; host backdrop-filter on ::before */
-body[data-agy-skins-active="true"] .surface-composer {
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-body[data-agy-skins-active="true"] .surface-composer > .surface-composer-card {
-  position: relative;
-  isolation: isolate;
-  background-color: var(--we-input-major) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top)), rgba(255, 255, 255, 0.04) 38%, rgba(255, 255, 255, 0.015)) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha)),
-    inset 0 0 0 1px rgba(var(--we-border-rgb), var(--we-border-alpha)),
-    0 14px 36px -10px rgba(0, 0, 0, var(--we-shadow-alpha)) !important;
-}
-body[data-agy-skins-active="true"] .surface-composer > .surface-composer-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
-  z-index: -1;
-  backdrop-filter: var(--we-composer-frost) !important;
-  -webkit-backdrop-filter: var(--we-composer-frost) !important;
-}
-
-/* Thinking / Chat Content 3-Gear Mode: glass | off | native */
-body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-testid="user-message-bubble"],
-body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) .agy-user-bubble {
-  background-color: var(--we-bubble-fill) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top)), rgba(255, 255, 255, 0.04) 40%, rgba(255, 255, 255, 0.01)) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha)),
-    inset 0 0 0 1px rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-}
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] [data-testid="user-message-bubble"],
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] .agy-user-bubble,
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] [data-markdown-root] pre,
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] [data-testid="tool-group-collapsible"],
-body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] [data-testid="worked-for-collapsible"] {
-  backdrop-filter: var(--we-surface-frost) !important;
-  -webkit-backdrop-filter: var(--we-surface-frost) !important;
-}
-body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] pre,
-body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] table {
-  background-color: var(--we-code-block-fill) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
+body[data-agy-skins-active="true"][data-agy-thinking-mode="glass"] :is([data-testid="tool-group-collapsible"], [data-testid="worked-for-collapsible"]) {
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
 }
 body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] th {
-  background-color: color-mix(in srgb, rgba(var(--we-border-rgb), 0.08) 65%, var(--we-code-block-fill)) !important;
+  background-color: var(--we-inner-1) !important;
 }
 body[data-agy-skins-active="true"]:not([data-agy-thinking-mode="native"]) [data-markdown-root] :not(pre) > code {
   background-color: var(--we-capsule-fill) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-body[data-agy-skins-active="true"][data-agy-thinking-mode="off"] :is([data-testid="user-message-bubble"], .agy-user-bubble, [data-markdown-root] pre) {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-body[data-agy-skins-active="true"][data-agy-thinking-mode="native"] [data-markdown-root] pre {
-  background-color: var(--secondary) !important;
-}
 
-/* Unified Settings Modal Window & Backdrop Scrim */
-body[data-agy-skins-active="true"] .settings-modal-backdrop {
-  background-color: rgba(0, 0, 0, calc(0.32 * var(--we-mask-strength))) !important;
-  backdrop-filter: blur(calc(var(--we-settings-blur-px) * 0.45)) !important;
-  -webkit-backdrop-filter: blur(calc(var(--we-settings-blur-px) * 0.45)) !important;
-}
-body[data-agy-skins-active="true"] .settings-modal-container,
-body[data-agy-skins-active="true"] [role="dialog"]:not(#agy-skins-studio-dialog) {
-  background-color: var(--we-settings-tint) !important;
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top)), rgba(255, 255, 255, 0.03) 38%, rgba(255, 255, 255, 0.05)) !important;
-  backdrop-filter: var(--we-settings-frost) !important;
-  -webkit-backdrop-filter: var(--we-settings-frost) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha)),
-    inset 0 0 0 1px rgba(var(--we-border-rgb), var(--we-border-alpha)),
-    0 24px 80px rgba(0, 7, 18, 0.34) !important;
-}
-body[data-agy-skins-active="true"] .settings-modal-container [data-testid="settings-sidebar"],
-body[data-agy-skins-active="true"] .settings-modal-container .bg-background,
-body[data-agy-skins-active="true"] .settings-modal-container .bg-sidebar {
-  background-color: transparent !important;
-  background-image: none !important;
-}
 body[data-agy-skins-active="true"] .settings-modal-container [data-testid="settings-sidebar"] {
-  border-right: 1px solid rgba(var(--we-border-rgb), calc(var(--we-border-alpha) * 0.7)) !important;
+  border-right: 1px solid var(--border) !important;
 }
 body[data-agy-skins-active="true"] .settings-modal-container .bg-card {
-  background-color: var(--we-layer-1) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
-}
-
-/* Floating menus / fastpick vs native tooltips (exempt tooltips from blur) */
-body[data-agy-skins-active="true"] :is(.surface-glass, .agy-fastpick, .quick-input-widget, [role="menu"], [role="listbox"]) {
-  background-color: var(--we-floating-tint) !important;
-  backdrop-filter: var(--we-surface-frost) !important;
-  -webkit-backdrop-filter: var(--we-surface-frost) !important;
-  border-color: rgba(var(--we-border-rgb), var(--we-border-alpha)) !important;
+  background-color: var(--we-inner-1) !important;
+  border-color: var(--border) !important;
 }
 body[data-agy-skins-active="true"] [role="tooltip"] {
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
-
-/* Embedded xterm transparent support */
 body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   background-color: transparent !important;
 }
 `;
       this.styleEl.textContent = css;
-      this.materialRule = this.styleEl.sheet?.cssRules?.[0]?.style || null;
+      const cssRules = this.styleEl.sheet?.cssRules;
+      this.materialRule = cssRules?.[0]?.style || null;
+      if (cssRules && cssRules.length >= 14) {
+        this.rules = {
+          rootVars: cssRules[0].style,
+          pickerVars: cssRules[1].style,
+          topbar: cssRules[2].style,
+          leftSidebar: cssRules[3].style,
+          rightSidebar: cssRules[4].style,
+          newChatBtn: cssRules[5].style,
+          selectedRow: cssRules[6].style,
+          composerCard: cssRules[7].style,
+          composerBefore: cssRules[8].style,
+          bubbles: cssRules[9].style,
+          chatPre: cssRules[10].style,
+          settingsBackdrop: cssRules[11].style,
+          settingsModal: cssRules[12].style,
+          floaters: cssRules[13].style
+        };
+      }
       this.lastMaterialKey = materialKey;
+      if (!isPreview) this.lastRootKey = materialKey;
+      this.lastPickerKey = `${inner1}|${inner2}|${inner3}|${borderRgb}|${borderAlpha}|${validAccent}|${accentInk}|${clampedGlobal.hex}`;
       this.syncTerminalObserver();
     }
     clearAll(body) {
+      const root = typeof document !== "undefined" ? document.documentElement : null;
       for (const attr of [
         "data-agy-skins-active",
         "data-agy-skins-wallpaper",
@@ -1885,20 +2045,38 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         "data-agy-left-sidebar"
       ]) {
         body?.removeAttribute?.(attr);
+        root?.removeAttribute?.(attr);
       }
       const el2 = this.styleEl || document.getElementById(STYLE_ID);
       el2?.remove();
       this.styleEl = null;
       this.materialRule = null;
+      this.rules = null;
       this.lastMaterialKey = null;
+      this.lastRootKey = null;
+      this.lastPickerKey = null;
       this.releaseTerminalObserver();
     }
     syncTerminalObserver() {
       if (typeof MutationObserver !== "function" || typeof document === "undefined" || this.terminalObserver) return;
+      const pendingRoots = /* @__PURE__ */ new Set();
+      let rafId = 0;
       this.terminalObserver = new MutationObserver((entries) => {
         for (const entry of entries) {
-          if (entry.target?.nodeType === 1) this.applyTerminalSurface(entry.target);
+          for (const node of entry.addedNodes || []) {
+            if (node?.nodeType !== 1) continue;
+            if (node.matches?.(".xterm") || node.querySelector?.(".xterm")) {
+              pendingRoots.add(node);
+            }
+          }
         }
+        if (!pendingRoots.size || rafId) return;
+        const schedule = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 0);
+        rafId = schedule(() => {
+          rafId = 0;
+          for (const root of pendingRoots) this.applyTerminalSurface(root);
+          pendingRoots.clear();
+        });
       });
       this.terminalObserver.observe(document.body, { childList: true, subtree: true });
       this.applyTerminalSurface(document.body);
@@ -2800,7 +2978,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   };
 
   // src/shared/i18n.js
-  var SETTINGS_SIDEBAR_LABEL = "Wallpaper Engine";
+  var SETTINGS_SIDEBAR_LABEL = "Wallpaper";
   var I18N_DICTIONARY = {
     en: {
       pluginName: "Wallpaper Engine",
@@ -2968,8 +3146,8 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       speedFast: "Fast",
       speedNormal: "Normal",
       speedSlow: "Slow",
-      wallpaperOpacity: "Wallpaper Transparency",
-      wallpaperOpacityDesc: "Fades wallpaper toward theme base while keeping glass backdrop valid",
+      wallpaperOpacity: "Wallpaper Opacity",
+      wallpaperOpacityDesc: "Lower values make the wallpaper subtler so text stays crisp (default 38%)",
       pauseOnHidden: "Pause when minimized/hidden",
       pauseOnBlur: "Pause when unfocused",
       pauseOnBattery: "Pause on battery power",
@@ -3182,8 +3360,8 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       speedFast: "快",
       speedNormal: "标准",
       speedSlow: "慢",
-      wallpaperOpacity: "壁纸透明度",
-      wallpaperOpacityDesc: "0% 为完全不透；调高向主题底色淡出以保持玻璃模糊不断裂",
+      wallpaperOpacity: "壁纸不透明度（浓度）",
+      wallpaperOpacityDesc: "数值越低壁纸越淡柔和、文字越清晰（默认 38%）",
       pauseOnHidden: "最小化/切页时暂停",
       pauseOnBlur: "窗口失焦时暂停",
       pauseOnBattery: "使用电池时暂停",
@@ -3297,7 +3475,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     { id: "table", label: "表格", labelEn: "Tables" }
   ];
   var DEFAULT_CONFIG = {
-    schemaVersion: 8,
+    schemaVersion: 9,
     wallpaperEnabled: false,
     wallpaperPaused: false,
     startPaused: false,
@@ -3306,8 +3484,8 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     wallpaperFit: "cover",
     wallpaperSource: "",
     wallpaperBlur: 0,
-    maskOcclusion: 12,
-    wallpaperOpacity: 100,
+    maskOcclusion: 24,
+    wallpaperOpacity: 38,
     backgroundBrightness: 100,
     backgroundContrast: 100,
     backgroundSaturate: 100,
@@ -3388,10 +3566,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     layerPositionY: 50,
     layerScale: 100,
     glassEnabled: true,
-    panelGlass: 72,
-    bubbleOpacity: 62,
+    panelGlass: 68,
+    bubbleOpacity: 65,
     composerFrost: 22,
-    surfaceFrost: 18,
+    surfaceFrost: 20,
     glassSaturation: 175,
     glassBorder: 32,
     glassHighlight: true,
@@ -3399,9 +3577,9 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     glassDarkSeparate: true,
     glassFidelity: 100,
     chatGlassFidelity: 100,
-    settingsWindowTransparency: 24,
+    settingsWindowTransparency: 18,
     settingsWindowBlur: 24,
-    settingsMaskStrength: 80,
+    settingsMaskStrength: 55,
     sidebarGlass: true,
     sidebarFollowGlobal: true,
     sidebarBlur: 18,
@@ -3419,7 +3597,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     rightSidebarSquareTR: false,
     rightSidebarSquareBR: false,
     rightSidebarSquareBL: false,
-    titlebarGlass: false,
+    titlebarGlass: true,
     thinkingMode: "glass",
     floaterSolidBase: true,
     glassMode: {
@@ -3631,25 +3809,39 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 .we-picker {
   --we-accent: var(--we-accent-src, #4f8cff);
   --we-accent-ink: var(--we-accent-ink, #ffffff);
-  --we-ui-h: 30px;
+  --we-ui-h: 34px;
   --we-ui-radius: 8px;
   --we-ink: var(--foreground, #0f172a);
   --we-ink-2: var(--secondary-foreground, rgba(100, 110, 125, 0.92));
   --we-ink-3: var(--muted-foreground, rgba(120, 128, 140, 0.72));
   --we-border-line: rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.28));
-  --we-hover-bg: rgba(128, 128, 128, 0.12);
+  --we-hover-bg: var(--we-inner-2, rgba(128, 128, 128, 0.10));
   --we-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --we-dur-fast: 120ms;
   --we-dur: 200ms;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  contain: layout style;
   color: var(--we-ink);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 15.5px;
+  line-height: 1.5;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+}
+.we-picker__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.we-picker[data-we-embed="aux"] {
+  font-size: 14px;
+  line-height: 1.45;
+  gap: 12px;
+  --we-ui-h: 32px;
 }
 .we-picker *, .we-picker *::before, .we-picker *::after {
   box-sizing: border-box;
@@ -3660,26 +3852,33 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 .we-picker__card-head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--we-border-line);
 }
 .we-picker__card-name {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 30px;
   color: var(--we-ink);
   white-space: nowrap;
 }
-.we-picker__card-badge {
-  font-size: 11px;
+.we-picker__head-badge {
+  position: static;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--we-ink-2);
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
+  border: 1px solid var(--we-border-line);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .we-picker__card-desc {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--we-ink-3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3693,7 +3892,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   flex: 0 0 auto;
   padding: 3px;
   border-radius: 10px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.10));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
   border: 1px solid var(--we-border-line);
   overflow: hidden;
 }
@@ -3703,10 +3902,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   left: 3px;
   bottom: 3px;
   border-radius: 8px;
-  background: var(--we-layer-3, rgba(255, 255, 255, 0.22));
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  background: var(--we-inner-3, rgba(255, 255, 255, 0.24));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transition: transform 220ms var(--we-ease), width 220ms var(--we-ease);
-  will-change: transform;
+  will-change: transform, width;
   pointer-events: none;
 }
 .we-tabs__tab {
@@ -3714,15 +3913,15 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   z-index: 1;
   flex: 1 1 0;
   min-width: 0;
-  height: 28px;
-  padding: 0 4px;
+  height: 34px;
+  padding: 0 6px;
   border: 0;
   background: transparent;
   border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
   color: var(--we-ink-2);
   transition: color var(--we-dur-fast) var(--we-ease), transform var(--we-dur-fast) var(--we-ease);
@@ -3768,10 +3967,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   background: var(--we-hover-bg);
 }
 .we-picker__section-label {
-  font-size: 1.06em;
+  font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--we-ink-2);
+  letter-spacing: 0.01em;
+  color: var(--we-ink);
 }
 .we-picker__section-caret {
   margin-left: auto;
@@ -3814,11 +4013,11 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 .we-picker__current {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 14px;
+  padding: 12px 14px;
   border-radius: 12px;
   border: 1px solid var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.06));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-vinyl {
   position: relative;
@@ -3828,6 +4027,9 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   border-radius: 50%;
   background: repeating-radial-gradient(circle at center, #191920 0 2px, #242530 2px 4px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  will-change: transform;
+  transform: translateZ(0);
+  contain: layout paint;
   animation: we-vinyl-spin 8s linear infinite;
   animation-play-state: paused;
 }
@@ -3882,7 +4084,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   min-width: 0;
 }
 .we-picker__current-title {
-  font-size: 0.95em;
+  font-size: 16px;
   font-weight: 600;
   color: var(--we-ink);
   overflow: hidden;
@@ -3891,7 +4093,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 }
 .we-picker__current-meta {
   display: block;
-  font-size: 0.78em;
+  font-size: 13.5px;
   color: var(--we-ink-2);
   margin-top: 2px;
 }
@@ -3908,32 +4110,34 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   gap: 8px;
 }
 
-/* Uniform Setting Row (32px touch height) */
+/* Uniform Setting Row (40px spacious touch height) */
 .we-picker__ctl {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 32px;
+  gap: 16px;
+  min-height: 40px;
 }
 .we-picker__ctl--wrap { flex-wrap: wrap; row-gap: 8px; }
 .we-picker__ctl--disabled { opacity: 0.45; pointer-events: none; }
 .we-picker__ctl-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
   flex: 1 1 auto;
 }
 .we-picker__ctl-label {
-  font-size: 0.88em;
+  font-size: 15.5px;
+  font-weight: 400;
   color: var(--we-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .we-picker__ctl-hint {
-  font-size: 0.72em;
+  font-size: 13.5px;
+  line-height: 1.45;
   color: var(--we-ink-3);
   overflow-wrap: anywhere;
   max-width: 100%;
@@ -3952,13 +4156,13 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   justify-content: center;
   vertical-align: middle;
   height: var(--we-ui-h);
-  padding: 0 12px;
+  padding: 0 14px;
   border: 1px solid var(--we-border-line);
   border-radius: var(--we-ui-radius);
   background: transparent;
   color: var(--we-ink);
   font: inherit;
-  font-size: 0.82em;
+  font-size: 14px;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
@@ -3966,7 +4170,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   transition: background-color var(--we-dur-fast) var(--we-ease), border-color var(--we-dur-fast) var(--we-ease), color var(--we-dur-fast) var(--we-ease), transform var(--we-dur-fast) var(--we-ease);
 }
 .we-picker__btn:hover:not(:disabled) {
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.12));
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
 }
 .we-picker__btn:disabled { opacity: 0.45; cursor: default; }
 .we-picker__btn.is-on {
@@ -4005,16 +4209,16 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   appearance: none;
   -webkit-appearance: none;
   height: var(--we-ui-h);
-  padding: 0 24px 0 8px;
+  padding: 0 26px 0 10px;
   border: 1px solid var(--we-border-line);
   border-radius: var(--we-ui-radius);
   background-color: transparent;
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%23888' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 8px center;
+  background-position: right 9px center;
   color: var(--we-ink);
   font: inherit;
-  font-size: 0.82em;
+  font-size: 14px;
   cursor: pointer;
   max-width: 100%;
 }
@@ -4026,13 +4230,13 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 
 .we-picker__text {
   height: var(--we-ui-h);
-  padding: 0 9px;
+  padding: 0 10px;
   border: 1px solid var(--we-border-line);
   border-radius: var(--we-ui-radius);
   background: transparent;
   color: var(--we-ink);
   font: inherit;
-  font-size: 0.82em;
+  font-size: 14px;
   flex: 1;
   min-width: 0;
 }
@@ -4052,10 +4256,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 .we-picker__seg--corners-eq { grid-auto-columns: minmax(max-content, 1fr); }
 .we-picker__seg--chips { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 6px; }
 .we-picker__rate {
-  min-width: 52px;
+  min-width: 58px;
   height: var(--we-ui-h);
-  padding: 0 10px;
-  font-size: 0.78em;
+  padding: 0 12px;
+  font-size: 13.5px;
   color: var(--we-ink-2);
 }
 .we-picker__rate--active {
@@ -4080,10 +4284,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 }
 .we-picker__switch-track {
   position: relative;
-  width: 36px;
-  height: 20px;
+  width: 40px;
+  height: 22px;
   border-radius: 999px;
-  background: var(--we-layer-3, rgba(128, 128, 128, 0.35));
+  background: var(--we-inner-3, rgba(128, 128, 128, 0.28));
   border: 1px solid var(--we-border-line);
   transition: background-color 180ms var(--we-ease), border-color 180ms var(--we-ease);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
@@ -4096,30 +4300,30 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   position: absolute;
   left: 2px;
   top: 2px;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   transition: transform 180ms var(--we-ease);
 }
 .we-picker__switch input:checked + .we-picker__switch-track .we-picker__switch-thumb {
-  transform: translateX(16px);
+  transform: translateX(18px);
 }
 
 /* Range Sliders */
 .we-picker__slider-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 28px;
+  gap: 12px;
+  min-height: 36px;
 }
 .we-picker__label {
-  min-width: 90px;
-  max-width: 170px;
+  min-width: 118px;
+  max-width: 220px;
   flex: 0 0 auto;
   color: var(--we-ink);
-  font-size: 0.85em;
+  font-size: 15.5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -4144,9 +4348,9 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 .we-picker__slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 15px;
-  height: 15px;
-  margin-top: -5.5px;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
   border-radius: 50%;
   background: #ffffff;
   border: 2px solid var(--we-accent);
@@ -4155,14 +4359,14 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 }
 .we-picker__slider:hover::-webkit-slider-thumb { transform: scale(1.12); }
 .we-picker__value {
-  min-width: 52px;
+  min-width: 60px;
   text-align: right;
   flex: 0 0 auto;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font-size: 0.74em;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
-  background: var(--we-layer-2, rgba(128, 128, 128, 0.14));
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
   color: var(--we-ink-2);
   display: inline-flex;
   align-items: center;
@@ -4190,8 +4394,8 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   flex: 1 0 100%;
 }
 .we-picker__swatch {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border-radius: 50%;
   border: 0;
@@ -4203,15 +4407,16 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 .we-picker__swatch--active {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.65),
-    0 0 0 2px var(--we-layer-2, rgba(128, 128, 128, 0.3)),
+    0 0 0 2px var(--we-inner-2, rgba(128, 128, 128, 0.25)),
     0 0 0 4px var(--we-accent);
 }
 .we-picker__swatch--auto {
   width: auto;
-  min-width: 34px;
-  padding: 0 7px;
+  height: 26px;
+  min-width: 42px;
+  padding: 0 10px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: #1f2937;
   background: linear-gradient(135deg, #d1d5db 0 50%, #f9fafb 50% 100%);
@@ -4226,8 +4431,8 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   cursor: pointer;
 }
 .we-picker__swatch-custom input[type="color"] {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -4243,12 +4448,12 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 /* Theme Preset 4-Col Grid */
 .we-picker__preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  gap: 6px;
-  padding: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--we-border-line);
   border-radius: 10px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.05));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-picker__preset-cell {
   display: flex;
@@ -4336,11 +4541,11 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   justify-content: space-between;
   gap: 6px;
   height: var(--we-ui-h);
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 13.5px;
   border: 1px solid var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.10));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
   color: var(--we-ink);
   white-space: nowrap;
 }
@@ -4377,21 +4582,21 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 /* Grid: Fixed 16:9 & Classic CD-Rack */
 .we-picker__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
   padding: 2px;
   overflow-x: clip;
 }
 .we-picker__card {
   position: relative;
-  height: 92px;
+  height: 98px;
   padding: 0;
   cursor: pointer;
   display: block;
   overflow: hidden;
   border: 1px solid var(--we-border-line);
   border-radius: 8px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.14));
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
   transition: border-color var(--we-dur-fast) ease, box-shadow var(--we-dur-fast) ease, transform var(--we-dur-fast) ease;
 }
 .we-picker__card img {
@@ -4523,26 +4728,26 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 .we-picker__props, .we-picker__uploads, .we-picker__editor {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: 10px;
+  padding: 12px;
   border-radius: 10px;
   border: 1px solid var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.05));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-picker__uploads-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 160px;
+  gap: 6px;
+  max-height: 180px;
   overflow-y: auto;
 }
 .we-picker__uploads-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border-radius: 6px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.08));
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
 }
 .we-picker__uploads-name, .we-picker__uploads-path {
   flex: 1;
@@ -4550,7 +4755,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8em;
+  font-size: 13.5px;
 }
 .we-picker__font-table {
   width: 100%;
@@ -4559,12 +4764,12 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 .we-picker__font-table th {
   font-weight: 500;
   text-align: left;
-  padding: 4px;
-  font-size: 12px;
+  padding: 6px;
+  font-size: 13.5px;
   color: var(--we-ink-3);
 }
 .we-picker__font-table td {
-  padding: 3px 4px;
+  padding: 4px 6px;
   vertical-align: middle;
 }
 .we-picker__font-table th:nth-child(n+2),
@@ -4577,32 +4782,32 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: 8px;
   border: 1px dashed var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.08));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-picker__empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 36px 16px;
+  gap: 12px;
+  padding: 40px 18px;
   text-align: center;
 }
 .we-picker__empty-title {
-  font-size: 0.96em;
+  font-size: 17px;
   font-weight: 600;
   color: var(--we-ink);
 }
-.we-picker__hint { font-size: 0.78em; color: var(--we-ink-3); }
+.we-picker__hint { font-size: 13.5px; line-height: 1.45; color: var(--we-ink-3); }
 .we-picker__toast {
   position: sticky;
   bottom: 8px;
   align-self: center;
-  padding: 6px 14px;
+  padding: 7px 16px;
   border-radius: 999px;
-  font-size: 0.8em;
+  font-size: 13.5px;
   background: var(--we-accent);
   color: var(--we-accent-ink, #ffffff);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
@@ -4610,42 +4815,42 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 }
 
 /* Extension Module Cards & About */
-.we-ext { display: flex; flex-direction: column; gap: 10px; }
+.we-ext { display: flex; flex-direction: column; gap: 12px; }
 .we-ext__module {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid var(--we-border-line);
   border-radius: 12px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.06));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-ext__module-head { display: flex; align-items: center; gap: 8px; }
-.we-ext__module-title { font-size: 0.9em; font-weight: 600; color: var(--we-ink); }
-.we-about__lead { display: flex; flex-direction: column; gap: 8px; }
-.we-about__p { margin: 0; font-size: 0.82em; line-height: 1.65; color: var(--we-ink-2); }
+.we-ext__module-title { font-size: 16px; font-weight: 600; color: var(--we-ink); }
+.we-about__lead { display: flex; flex-direction: column; gap: 10px; }
+.we-about__p { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--we-ink-2); }
 .we-about__url {
   display: block;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-radius: 8px;
   border: 1px dashed var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.08));
-  font-size: 0.8em;
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
+  font-size: 13.5px;
   color: var(--we-ink-2);
   user-select: text;
   word-break: break-all;
 }
 .we-log-pre {
   margin: 0;
-  padding: 10px;
+  padding: 12px;
   border-radius: 8px;
   border: 1px solid var(--we-border-line);
-  background: var(--we-layer-1, rgba(0, 0, 0, 0.14));
+  background: var(--we-inner-1, rgba(0, 0, 0, 0.08));
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.74em;
+  font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
-  max-height: 200px;
+  max-height: 220px;
   overflow: auto;
   color: var(--we-ink-2);
 }
@@ -4754,6 +4959,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       fontAdvanced: false,
       armedConfirm: "",
       search: "",
+      openMenus: {
+        rating: false,
+        type: false
+      },
       sectionsOpen: {
         glassPresets: true,
         glassUi: true,
@@ -4765,8 +4974,18 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     };
     const listeners = /* @__PURE__ */ new Set();
     let deferFlushTimer = null;
+    let deferSendTimer = null;
+    let deferredPatch = null;
+    let pendingSyncTimer = null;
+    let mutationSeq = 0;
+    let interactingUntil = 0;
+    let initialLoading = false;
     const notify = () => {
       for (const fn of listeners) fn(state);
+    };
+    const markInteracting = (ms = 550) => {
+      const until = Date.now() + ms;
+      if (until > interactingUntil) interactingUntil = until;
     };
     const rpc = (action, body = {}) => callBackend(action, body, auth());
     const showToast = (message, kind = "info") => {
@@ -4791,17 +5010,24 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     );
     const isZh = () => getLang() === "zh";
     const loadInitial = async () => {
-      const data = await rpc("get-state");
-      if (data?.config) state.config = data.config;
-      if (Array.isArray(data?.weItems)) state.weItems = data.weItems;
-      if (data?.cdp) state.cdp = data.cdp;
-      if (data?.mediaOrigin) state.mediaOrigin = data.mediaOrigin;
-      if (data?.systemLocale) state.systemLocale = data.systemLocale;
-      notify();
-      if (!state.weItems.length || state.weItems.every((i) => !i.previewUrl && i.previewPath)) {
-        void rescanLibrary();
+      if (initialLoading) return;
+      initialLoading = true;
+      try {
+        const data = await rpc("get-state");
+        if (data?.config) state.config = data.config;
+        if (Array.isArray(data?.weItems)) state.weItems = data.weItems;
+        if (data?.cdp) state.cdp = data.cdp;
+        if (data?.mediaOrigin) state.mediaOrigin = data.mediaOrigin;
+        if (data?.systemLocale) state.systemLocale = data.systemLocale;
+        notify();
+        if (!state.weItems.length || state.weItems.every((i) => !i.previewUrl && i.previewPath)) {
+          void rescanLibrary();
+        }
+        void refreshSlots();
+      } catch {
+      } finally {
+        initialLoading = false;
       }
-      void refreshSlots();
     };
     const refreshSlots = async () => {
       if (typeof document !== "undefined") {
@@ -4826,27 +5052,61 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       }
       return state.discoveredSlots;
     };
+    const sendDeferredUpdate = async () => {
+      if (!deferredPatch) return;
+      const patchToSend = deferredPatch;
+      deferredPatch = null;
+      const seq = ++mutationSeq;
+      try {
+        const res = await rpc("update-config", { patch: patchToSend, defer: true });
+        if (res?.config && seq === mutationSeq) {
+          state.config = res.config;
+        }
+        if (deferFlushTimer) clearTimeout(deferFlushTimer);
+        deferFlushTimer = setTimeout(() => {
+          deferFlushTimer = null;
+          void rpc("flush-config").catch(() => {
+          });
+        }, 320);
+      } catch {
+      }
+    };
     const updateConfig = async (patch, { defer = false, rerender = true } = {}) => {
-      if (!state.config) return null;
+      if (!state.config || !patch || typeof patch !== "object") return null;
       state.config = { ...state.config, ...patch };
+      const handledInProcess = Boolean(globalThis.__agySkinsRuntime?.previewConfig?.(state.config));
+      if (defer) {
+        markInteracting(600);
+        deferredPatch = { ...deferredPatch || {}, ...patch };
+        if (rerender) notify();
+        if (handledInProcess) {
+          if (deferSendTimer) clearTimeout(deferSendTimer);
+          deferSendTimer = setTimeout(() => {
+            deferSendTimer = null;
+            void sendDeferredUpdate();
+          }, 260);
+        } else if (!deferSendTimer) {
+          deferSendTimer = setTimeout(() => {
+            deferSendTimer = null;
+            void sendDeferredUpdate();
+          }, 90);
+        }
+        return state.config;
+      }
+      const combinedPatch = deferredPatch ? { ...deferredPatch, ...patch } : patch;
+      deferredPatch = null;
+      if (deferSendTimer) {
+        clearTimeout(deferSendTimer);
+        deferSendTimer = null;
+      }
+      const seq = ++mutationSeq;
       if (rerender) notify();
       try {
-        const res = await rpc("update-config", { patch, defer });
-        if (res?.config) {
-          if (rerender) {
-            state.config = res.config;
-            notify();
-          } else {
-            state.config = res.config;
-          }
-        }
-        if (defer) {
-          if (deferFlushTimer) clearTimeout(deferFlushTimer);
-          deferFlushTimer = setTimeout(() => {
-            deferFlushTimer = null;
-            void rpc("flush-config").catch(() => {
-            });
-          }, 320);
+        const res = await rpc("update-config", { patch: combinedPatch, defer: false });
+        if (res?.config && seq === mutationSeq) {
+          const selChanged = JSON.stringify(state.config.weSelection) !== JSON.stringify(res.config.weSelection);
+          state.config = res.config;
+          if (rerender && selChanged) notify();
         }
       } catch (err) {
         if (rerender) showToast(String(err?.message || err), "warn");
@@ -4896,16 +5156,36 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     };
     const syncExternal = (payload) => {
       if (!payload) return;
+      if (!state.config && !initialLoading && auth()?.origin) {
+        void loadInitial();
+      }
       let changed = false;
-      if (payload.cdp) {
-        state.cdp = payload.cdp;
+      const nextCdp = payload.cdp;
+      if (nextCdp) {
+        const prev = state.cdp || {};
+        const cdpDiff = prev.state !== nextCdp.state || prev.port !== nextCdp.port || prev.targets !== nextCdp.targets || prev.shortcutState !== nextCdp.shortcutState || prev.canFixShortcut !== nextCdp.canFixShortcut;
+        if (cdpDiff) {
+          state.cdp = nextCdp;
+          if (state.tab === "advanced") changed = true;
+        }
+      }
+      const nextLocale = payload.systemLocale || "";
+      if (nextLocale && nextLocale !== state.systemLocale) {
+        state.systemLocale = nextLocale;
         changed = true;
       }
-      if (payload.systemLocale) {
-        state.systemLocale = payload.systemLocale;
-        changed = true;
+      if (!changed) return;
+      const waitMs = interactingUntil - Date.now();
+      if (waitMs > 0) {
+        if (!pendingSyncTimer) {
+          pendingSyncTimer = setTimeout(() => {
+            pendingSyncTimer = null;
+            if (Date.now() >= interactingUntil) notify();
+          }, waitMs + 40);
+        }
+        return;
       }
-      if (changed) notify();
+      notify();
     };
     return {
       state,
@@ -4915,6 +5195,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         return () => listeners.delete(fn);
       },
       notify,
+      markInteracting,
       showToast,
       getLang,
       getT,
@@ -5073,25 +5354,32 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       defaultValue: opts.defaultValue ?? DEFAULT_CONFIG[cfgKey],
       numberEdit: Boolean(opts.numberEdit),
       onChange: (v) => void store.updateConfig({ [cfgKey]: v }, { defer: true, rerender: false }),
-      onCommit: (v) => void store.updateConfig({ [cfgKey]: v }, { defer: false, rerender: opts.rerenderOnCommit === true })
+      onCommit: (v) => void store.updateConfig({ [cfgKey]: v }, { defer: false, rerender: false })
     });
   }
-  function segRow({ label, hint = "", tooltip = "", items, value, onPick, chips = false, equalCorners = false }) {
+  function segRow({ label, hint = "", tooltip = "", items, value, onPick, chips = false, equalCorners = false, syncActive = false }) {
     const segClass = `we-picker__seg${chips ? " we-picker__seg--chips" : ""}${equalCorners ? " we-picker__seg--corners-eq" : ""}`;
+    const btns = items.map((item) => el("button", {
+      type: "button",
+      dataset: { segId: String(item.id) },
+      className: `we-picker__btn we-picker__rate ${item.active !== void 0 ? item.active ? "we-picker__rate--active" : "" : value === item.id ? "we-picker__rate--active" : ""}`,
+      title: item.hint || "",
+      onClick: (e) => {
+        if (syncActive) {
+          if (item.active !== void 0) {
+            e.currentTarget.classList.toggle("we-picker__rate--active");
+          } else {
+            for (const b of btns) b.classList.toggle("we-picker__rate--active", b === e.currentTarget);
+          }
+        }
+        onPick?.(item.id);
+      }
+    }, item.label));
     return el(
       "div",
       { className: "we-picker__ctl we-picker__ctl--wrap" },
       ctlText(label, hint, tooltip),
-      el(
-        "div",
-        { className: segClass },
-        items.map((item) => el("button", {
-          type: "button",
-          className: `we-picker__btn we-picker__rate ${item.active !== void 0 ? item.active ? "we-picker__rate--active" : "" : value === item.id ? "we-picker__rate--active" : ""}`,
-          title: item.hint || "",
-          onClick: () => onPick?.(item.id)
-        }, item.label))
-      )
+      el("div", { className: segClass }, btns)
     );
   }
   function selectRow({ label, hint = "", tooltip = "", value, options, disabled = false, onChange }) {
@@ -5110,35 +5398,54 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       }, opt.label)))
     );
   }
-  function swatchRow({ label, hint = "", tooltip = "", presets, value, colorValue = "", onPick, autoBtn = null, disabled = false }) {
+  function swatchRow({ label, hint = "", tooltip = "", presets, value, colorValue = "", onPick, autoBtn = null, disabled = false, syncActive = true }) {
     const norm = String(value || "").toLowerCase();
     const hexVal = /^#[0-9a-f]{6}$/i.test(colorValue || value || "") ? colorValue || value : "#4f8cff";
+    const wrap = el("div", { className: "we-picker__swatches" });
+    const updateActiveRing = (activeNode) => {
+      if (!syncActive) return;
+      for (const child of wrap.querySelectorAll(".we-picker__swatch")) {
+        child.classList.toggle("we-picker__swatch--active", child === activeNode);
+      }
+    };
+    const btns = presets.map((c) => el("button", {
+      type: "button",
+      className: `we-picker__swatch ${norm === c.toLowerCase() ? "we-picker__swatch--active" : ""}`,
+      style: { backgroundColor: c },
+      title: c,
+      onClick: (e) => {
+        updateActiveRing(e.currentTarget);
+        onPick?.(c, false);
+      }
+    }));
+    if (autoBtn) {
+      autoBtn.addEventListener("click", () => updateActiveRing(autoBtn));
+      wrap.appendChild(autoBtn);
+    }
+    for (const b of btns) wrap.appendChild(b);
+    wrap.appendChild(
+      el(
+        "label",
+        { className: "we-picker__swatch-custom", title: "自定义颜色" },
+        el("input", {
+          type: "color",
+          value: hexVal,
+          onInput: (e) => {
+            updateActiveRing(null);
+            onPick?.(e.target.value, true);
+          },
+          onChange: (e) => {
+            updateActiveRing(null);
+            onPick?.(e.target.value, false);
+          }
+        })
+      )
+    );
     return el(
       "div",
       { className: `we-picker__ctl we-picker__ctl--wrap ${disabled ? "we-picker__ctl--disabled" : ""}` },
       ctlText(label, hint, tooltip),
-      el(
-        "div",
-        { className: "we-picker__swatches" },
-        autoBtn,
-        presets.map((c) => el("button", {
-          type: "button",
-          className: `we-picker__swatch ${norm === c.toLowerCase() ? "we-picker__swatch--active" : ""}`,
-          style: { backgroundColor: c },
-          title: c,
-          onClick: () => onPick?.(c, false)
-        })),
-        el(
-          "label",
-          { className: "we-picker__swatch-custom", title: "自定义颜色" },
-          el("input", {
-            type: "color",
-            value: hexVal,
-            onInput: (e) => onPick?.(e.target.value, true),
-            onChange: (e) => onPick?.(e.target.value, false)
-          })
-        )
-      )
+      wrap
     );
   }
   function renderConfirmRow({ armedToken, token, question, confirmLabel = "确认", cancelLabel = "取消", onConfirm, onCancel, danger = false }) {
@@ -5308,7 +5615,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
             value: Number.isFinite(Number(curVal)) ? Number(curVal) : min,
             defaultValue: prop.default ?? min,
             onChange: (v) => setProp(v, { rerender: false }),
-            onCommit: (v) => setProp(v, { rerender: true })
+            onCommit: (v) => setProp(v, { rerender: false })
           });
         }
         return el(
@@ -5336,11 +5643,14 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     const ratingSet = new Set(config.contentRatingFilter || ["everyone"]);
     const showHidden = store.state.modalView === "hidden";
     const draftSet = isDraft ? new Set(store.state.editingGroup.wallpaperIds || []) : null;
+    if (!store.state.openMenus) store.state.openMenus = { rating: false, type: false };
     const baseMatchesSearchAndList = (item) => {
-      if (showHidden !== hiddenSet.has(item.id)) return false;
-      if (config.folderFilter && config.folderFilter !== "all" && item.libraryRoot !== config.folderFilter) return false;
-      if (config.orientationFilter === "landscape" && item.width > 0 && item.height > 0 && item.width < item.height) return false;
-      if (config.orientationFilter === "portrait" && item.width > 0 && item.height > 0 && item.height <= item.width) return false;
+      const curCfg = store.state.config || config;
+      const curHidden = new Set(curCfg.hiddenWallpaperIds || []);
+      if (showHidden !== curHidden.has(item.id)) return false;
+      if (curCfg.folderFilter && curCfg.folderFilter !== "all" && item.libraryRoot !== curCfg.folderFilter) return false;
+      if (curCfg.orientationFilter === "landscape" && item.width > 0 && item.height > 0 && item.width < item.height) return false;
+      if (curCfg.orientationFilter === "portrait" && item.width > 0 && item.height > 0 && item.height <= item.width) return false;
       const q = String(store.state.search || "").trim().toLowerCase();
       if (q) {
         const titleHit = String(item.title || "").toLowerCase().includes(q);
@@ -5349,7 +5659,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       }
       return true;
     };
-    const filterItems = () => weItems.filter((item) => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(item.contentrating || "everyone")).sort((a, b) => config.sortOrder === "title" ? String(a.title || "").localeCompare(String(b.title || ""), void 0, { sensitivity: "base" }) : (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0));
+    const filterItems = () => {
+      const curCfg = store.state.config || config;
+      return weItems.filter((item) => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(item.contentrating || "everyone")).sort((a, b) => curCfg.sortOrder === "title" ? String(a.title || "").localeCompare(String(b.title || ""), void 0, { sensitivity: "base" }) : (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0));
+    };
     const ratingCounts = {};
     const typeCounts = {};
     for (const item of weItems) {
@@ -5363,30 +5676,53 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     const folders = [...new Set(weItems.map((i) => i.libraryRoot).filter(Boolean))];
     const batchSet = new Set(store.state.batchSelected);
     const gridHost = el("div", { className: "we-picker__grid" });
-    const toggleMultiFilter = (field, allowed, value) => {
-      const next = new Set(config[field] || allowed);
-      if (next.has(value)) {
-        if (next.size > 1) next.delete(value);
+    const ratingSummary = el(
+      "summary",
+      { className: "we-picker__rating-btn" },
+      isZh ? `分级 · ${ratingSet.size}/4 ▾` : `Rating · ${ratingSet.size}/4 ▾`
+    );
+    const typeSummary = el(
+      "summary",
+      { className: "we-picker__rating-btn" },
+      isZh ? `类型 · ${typeSet.size}/4 ▾` : `Type · ${typeSet.size}/4 ▾`
+    );
+    const toggleMultiFilter = (field, value, inputEl) => {
+      const targetSet = field === "contentRatingFilter" ? ratingSet : typeSet;
+      if (targetSet.has(value)) {
+        if (targetSet.size <= 1) {
+          if (inputEl) inputEl.checked = true;
+          return;
+        }
+        targetSet.delete(value);
       } else {
-        next.add(value);
+        targetSet.add(value);
       }
-      void store.updateConfig({ [field]: [...next] });
+      if (field === "contentRatingFilter") {
+        ratingSummary.textContent = isZh ? `分级 · ${targetSet.size}/4 ▾` : `Rating · ${targetSet.size}/4 ▾`;
+      } else {
+        typeSummary.textContent = isZh ? `类型 · ${targetSet.size}/4 ▾` : `Type · ${targetSet.size}/4 ▾`;
+      }
+      renderGridCards();
+      void store.updateConfig({ [field]: [...targetSet] }, { rerender: false });
     };
     const renderGridCards = () => {
+      const cfg = store.state.config || config;
       gridHost.innerHTML = "";
       const filtered = filterItems();
       if (!isDraft && !showHidden) {
-        const canResume = !config.wallpaperEnabled && Boolean(config.wallpaperSource || config.weSelection);
-        const label = config.wallpaperPaused ? isZh ? "▶ 播放" : "▶ Play" : config.wallpaperEnabled ? t("closeCard") : canResume ? isZh ? "▶ 播放" : "▶ Play" : isZh ? "✕ 关闭" : "✕ Off";
+        const canResume = !cfg.wallpaperEnabled && Boolean(cfg.wallpaperSource || cfg.weSelection);
+        const label = cfg.wallpaperPaused ? isZh ? "▶ 播放" : "▶ Play" : cfg.wallpaperEnabled ? t("closeCard") : canResume ? isZh ? "▶ 播放" : "▶ Play" : isZh ? "✕ 关闭" : "✕ Off";
         gridHost.appendChild(el("div", {
           className: "we-picker__card",
           role: "button",
           tabIndex: 0,
           title: isZh ? "开关或恢复当前壁纸" : "Toggle active wallpaper",
           onClick: () => {
-            if (config.wallpaperPaused) void store.updateConfig({ wallpaperPaused: false });
-            else if (config.wallpaperEnabled) void store.updateConfig({ wallpaperEnabled: false });
-            else if (canResume) void store.updateConfig({ wallpaperEnabled: true, wallpaperPaused: false });
+            const cur = store.state.config || cfg;
+            const canCurResume = !cur.wallpaperEnabled && Boolean(cur.wallpaperSource || cur.weSelection);
+            if (cur.wallpaperPaused) void store.updateConfig({ wallpaperPaused: false });
+            else if (cur.wallpaperEnabled) void store.updateConfig({ wallpaperEnabled: false });
+            else if (canCurResume) void store.updateConfig({ wallpaperEnabled: true, wallpaperPaused: false });
           }
         }, el("div", { className: "we-picker__card-close" }, label)));
       }
@@ -5610,19 +5946,24 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           {
             className: "we-picker__select",
             value: config.sortOrder || "newest",
-            onChange: (e) => void store.updateConfig({ sortOrder: e.target.value })
+            onChange: (e) => {
+              void store.updateConfig({ sortOrder: e.target.value }, { rerender: false });
+              renderGridCards();
+            }
           },
           el("option", { value: "newest", selected: config.sortOrder === "newest" }, isZh ? "最新排序" : "Newest"),
           el("option", { value: "title", selected: config.sortOrder === "title" }, isZh ? "名称排序" : "Title A-Z")
         ),
         el(
           "details",
-          { className: "we-picker__rating-menu" },
-          el(
-            "summary",
-            { className: "we-picker__rating-btn" },
-            isZh ? `分级 · ${ratingSet.size}/4 ▾` : `Rating · ${ratingSet.size}/4 ▾`
-          ),
+          {
+            className: "we-picker__rating-menu",
+            open: Boolean(store.state.openMenus.rating),
+            onToggle: (e) => {
+              store.state.openMenus.rating = e.currentTarget.open;
+            }
+          },
+          ratingSummary,
           el(
             "div",
             { className: "we-picker__rating-list" },
@@ -5632,7 +5973,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
               el("input", {
                 type: "checkbox",
                 checked: ratingSet.has(r),
-                onChange: () => toggleMultiFilter("contentRatingFilter", ["everyone"], r)
+                onChange: (e) => toggleMultiFilter("contentRatingFilter", r, e.currentTarget)
               }),
               el("span", { style: { flex: "1" } }, ratingLabelMap[r] || r),
               el("span", { className: "we-picker__hint" }, String(ratingCounts[r] || 0))
@@ -5641,12 +5982,14 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         ),
         el(
           "details",
-          { className: "we-picker__rating-menu" },
-          el(
-            "summary",
-            { className: "we-picker__rating-btn" },
-            isZh ? `类型 · ${typeSet.size}/4 ▾` : `Type · ${typeSet.size}/4 ▾`
-          ),
+          {
+            className: "we-picker__rating-menu",
+            open: Boolean(store.state.openMenus.type),
+            onToggle: (e) => {
+              store.state.openMenus.type = e.currentTarget.open;
+            }
+          },
+          typeSummary,
           el(
             "div",
             { className: "we-picker__rating-list" },
@@ -5656,7 +5999,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
               el("input", {
                 type: "checkbox",
                 checked: typeSet.has(kind),
-                onChange: () => toggleMultiFilter("typeFilter", WALLPAPER_TYPES, kind)
+                onChange: (e) => toggleMultiFilter("typeFilter", kind, e.currentTarget)
               }),
               el("span", { style: { flex: "1" } }, getKindBadge(kind, t)),
               el("span", { className: "we-picker__hint" }, String(typeCounts[kind] || 0))
@@ -5982,6 +6325,16 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         }
       }),
       store.state.propsOpen ? renderPropsEditor(store) : null,
+      /* 1b. Quick Wallpaper Readability & Scrim Sliders */
+      el(
+        "div",
+        { className: "we-picker__section" },
+        sectionHead({
+          title: isZh ? "壁纸显示强度与护眼遮罩" : "Wallpaper Visibility & Contrast Scrim"
+        }),
+        configSlider(store, "wallpaperOpacity", t("wallpaperOpacity"), { tooltip: t("wallpaperOpacityDesc") }),
+        configSlider(store, "maskOcclusion", t("maskOcclusion"), { tooltip: t("maskOcclusionDesc") })
+      ),
       /* 2. Transition Section */
       el(
         "div",
@@ -6340,6 +6693,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       label,
       chips: !equalCorners,
       equalCorners,
+      syncActive: true,
       items: items.map((it) => ({
         id: it.id,
         label: it.label,
@@ -6347,7 +6701,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       })),
       onPick: (id) => {
         const target = items.find((it) => it.id === id);
-        if (target) void store.updateConfig({ [target.key]: !cfg[target.key] });
+        if (target) {
+          const curVal = Boolean(store.state.config?.[target.key]);
+          void store.updateConfig({ [target.key]: !curVal }, { rerender: false });
+        }
       }
     });
   }
@@ -6595,7 +6952,8 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     const open = store.state.sectionsOpen.glassUi !== false;
     const glassColor = config.glassColor || { light: "#ffffff", dark: "#0d1524" };
     const withSurfaceCustom = (surface, patch, opts) => {
-      const nextMode = { ...config.glassMode || {}, [surface]: "custom" };
+      const curMode = store.state.config?.glassMode || config.glassMode || {};
+      const nextMode = { ...curMode, [surface]: "custom" };
       void store.updateConfig({ ...patch, glassMode: nextMode, activePresetId: "" }, opts);
     };
     const surfaceSlider = (surface, cfgKey, label) => {
@@ -6609,7 +6967,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         value: config[cfgKey],
         defaultValue: DEFAULT_CONFIG[cfgKey],
         onChange: (v) => withSurfaceCustom(surface, { [cfgKey]: v }, { defer: true, rerender: false }),
-        onCommit: (v) => withSurfaceCustom(surface, { [cfgKey]: v }, { defer: false, rerender: true })
+        onCommit: (v) => withSurfaceCustom(surface, { [cfgKey]: v }, { defer: false, rerender: false })
       });
     };
     const autoFollowBtn = (surface, cfgKey) => {
@@ -6618,9 +6976,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         type: "button",
         className: `we-picker__swatch we-picker__swatch--auto ${isInherited ? "we-picker__swatch--active" : ""}`,
         onClick: () => {
-          const nextMode = { ...config.glassMode || {} };
+          const curMode = store.state.config?.glassMode || config.glassMode || {};
+          const nextMode = { ...curMode };
           if (surface) nextMode[surface] = "inherit";
-          void store.updateConfig({ [cfgKey]: "", glassMode: nextMode, activePresetId: "" });
+          void store.updateConfig({ [cfgKey]: "", glassMode: nextMode, activePresetId: "" }, { rerender: false });
         }
       }, isZh ? "跟随" : "Auto");
     };
@@ -6638,7 +6997,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           label: isZh ? "启用液态玻璃 UI" : "Enable Liquid Glass UI",
           hint: isZh ? "开启后对顶栏、侧栏、输入卡、对话区与设置弹窗应用统一两段可读性玻璃。" : "Unified two-stage readability glass across workbench & Settings.",
           checked: config.glassEnabled !== false,
-          onChange: (v) => void store.updateConfig({ glassEnabled: v, activePresetId: "" })
+          onChange: (v) => void store.updateConfig({ glassEnabled: v, activePresetId: "" }, { rerender: false })
         }),
         switchRow({
           label: isZh ? "深浅色分别配置玻璃底色" : "Separate light/dark glass tints",
@@ -6651,21 +7010,21 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
             presets: GLASS_COLOR_PRESETS,
             value: glassColor.light,
             colorValue: glassColor.light,
-            onPick: (c, defer) => void store.updateConfig({ glassColor: { ...glassColor, light: c }, activePresetId: "" }, { defer, rerender: !defer })
+            onPick: (c, defer) => void store.updateConfig({ glassColor: { ...store.state.config?.glassColor || glassColor, light: c }, activePresetId: "" }, { defer, rerender: false })
           }),
           swatchRow({
             label: isZh ? "深色模式玻璃底色" : "Dark tint color",
             presets: GLASS_COLOR_PRESETS,
             value: glassColor.dark,
             colorValue: glassColor.dark,
-            onPick: (c, defer) => void store.updateConfig({ glassColor: { ...glassColor, dark: c }, activePresetId: "" }, { defer, rerender: !defer })
+            onPick: (c, defer) => void store.updateConfig({ glassColor: { ...store.state.config?.glassColor || glassColor, dark: c }, activePresetId: "" }, { defer, rerender: false })
           })
         ] : swatchRow({
           label: isZh ? "玻璃底色" : "Glass tint color",
           presets: GLASS_COLOR_PRESETS,
           value: glassColor.light,
           colorValue: glassColor.light,
-          onPick: (c, defer) => void store.updateConfig({ glassColor: { light: c, dark: c }, activePresetId: "" }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ glassColor: { light: c, dark: c }, activePresetId: "" }, { defer, rerender: false })
         }),
         configSlider(store, "panelGlass", t("panelGlass")),
         configSlider(store, "surfaceFrost", t("surfaceFrost")),
@@ -6676,38 +7035,39 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           label: isZh ? "思考过程块外观" : "Thinking Block",
           hint: isZh ? "三档独立控制，避免长文思考卡片过透或生硬白框。" : "Three-mode glass/off/native style for reasoning blocks.",
           value: config.thinkingMode || "glass",
+          syncActive: true,
           items: [
             { id: "off", label: isZh ? "关" : "Off" },
             { id: "glass", label: isZh ? "液态玻璃" : "Liquid Glass" },
             { id: "native", label: isZh ? "原生" : "Native" }
           ],
-          onPick: (id) => void store.updateConfig({ thinkingMode: id, activePresetId: "" })
+          onPick: (id) => void store.updateConfig({ thinkingMode: id, activePresetId: "" }, { rerender: false })
         }),
         switchRow({
           label: isZh ? "左侧边栏液态玻璃" : "Left sidebar glass",
           checked: config.leftSidebarGlass !== false,
-          onChange: (v) => void store.updateConfig({ leftSidebarGlass: v, activePresetId: "" })
+          onChange: (v) => void store.updateConfig({ leftSidebarGlass: v, activePresetId: "" }, { rerender: false })
         }),
         switchRow({
           label: isZh ? "顶部标题栏液态玻璃" : "Titlebar glass",
           checked: Boolean(config.titlebarGlass),
-          onChange: (v) => void store.updateConfig({ titlebarGlass: v, activePresetId: "" })
+          onChange: (v) => void store.updateConfig({ titlebarGlass: v, activePresetId: "" }, { rerender: false })
         }),
         switchRow({
           label: isZh ? "辅助/右侧栏液态玻璃" : "Aux sidebar glass",
           checked: config.sidebarGlass !== false,
-          onChange: (v) => void store.updateConfig({ sidebarGlass: v, activePresetId: "" })
+          onChange: (v) => void store.updateConfig({ sidebarGlass: v, activePresetId: "" }, { rerender: false })
         }),
         switchRow({
           label: isZh ? "全透侧栏模式" : "Full-clear sidebar",
           hint: isZh ? "移除侧栏毛玻璃雾化层，使左侧导航直通壁纸层。" : "Removes frost layer so sidebar sits straight over wallpaper.",
           checked: Boolean(config.sidebarFullClear),
-          onChange: (v) => void store.updateConfig({ sidebarFullClear: v, activePresetId: "" })
+          onChange: (v) => void store.updateConfig({ sidebarFullClear: v, activePresetId: "" }, { rerender: false })
         }),
         switchRow({
           label: isZh ? "浮层保留底层可读衬底" : "Floater readable base",
           checked: config.floaterSolidBase !== false,
-          onChange: (v) => void store.updateConfig({ floaterSolidBase: v, activePresetId: "" })
+          onChange: (v) => void store.updateConfig({ floaterSolidBase: v, activePresetId: "" }, { rerender: false })
         }),
         el(
           "div",
@@ -6733,7 +7093,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
             value: config.conversationColor,
             colorValue: config.conversationColor || glassColor.light,
             autoBtn: autoFollowBtn("conversation", "conversationColor"),
-            onPick: (c, defer) => withSurfaceCustom("conversation", { conversationColor: c }, { defer, rerender: !defer })
+            onPick: (c, defer) => withSurfaceCustom("conversation", { conversationColor: c }, { defer, rerender: false })
           }),
           surfaceSlider("leftSidebar", "leftSidebarTransparency", isZh ? "左侧栏透明度" : "Left sidebar transparency"),
           surfaceSlider("leftSidebar", "leftSidebarBlur", isZh ? "左侧栏模糊" : "Left sidebar blur"),
@@ -6742,7 +7102,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           switchRow({
             label: isZh ? "辅助侧栏跟随全局参数" : "Aux sidebar follows global glass",
             checked: config.sidebarFollowGlobal !== false,
-            onChange: (v) => void store.updateConfig({ sidebarFollowGlobal: v })
+            onChange: (v) => void store.updateConfig({ sidebarFollowGlobal: v }, { rerender: false })
           }),
           configSlider(store, "sidebarAlpha", isZh ? "辅助侧栏透明度" : "Aux sidebar transparency"),
           configSlider(store, "sidebarBlur", isZh ? "辅助侧栏模糊" : "Aux sidebar blur"),
@@ -6753,7 +7113,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
             value: config.sidebarContentColor,
             colorValue: config.sidebarContentColor || glassColor.light,
             autoBtn: autoFollowBtn("sidebarContent", "sidebarContentColor"),
-            onPick: (c, defer) => withSurfaceCustom("sidebarContent", { sidebarContentColor: c }, { defer, rerender: !defer })
+            onPick: (c, defer) => withSurfaceCustom("sidebarContent", { sidebarContentColor: c }, { defer, rerender: false })
           }),
           surfaceSlider("settingsWindow", "settingsWindowTransparency", isZh ? "设置弹窗透明度" : "Settings transparency"),
           surfaceSlider("settingsWindow", "settingsWindowBlur", isZh ? "设置弹窗模糊" : "Settings blur"),
@@ -6763,7 +7123,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
             value: config.settingsWindowColor,
             colorValue: config.settingsWindowColor || glassColor.light,
             autoBtn: autoFollowBtn("settingsWindow", "settingsWindowColor"),
-            onPick: (c, defer) => withSurfaceCustom("settingsWindow", { settingsWindowColor: c }, { defer, rerender: !defer })
+            onPick: (c, defer) => withSurfaceCustom("settingsWindow", { settingsWindowColor: c }, { defer, rerender: false })
           })
         ) : null
       ] : null
@@ -7110,7 +7470,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     const autoColorBtn = (cfgKey, autoText) => el("button", {
       type: "button",
       className: `we-picker__swatch we-picker__swatch--auto ${!config[cfgKey] ? "we-picker__swatch--active" : ""}`,
-      onClick: () => void store.updateConfig({ [cfgKey]: "" })
+      onClick: () => void store.updateConfig({ [cfgKey]: "" }, { rerender: false })
     }, autoText);
     const uiElements = [
       { key: "uiColorSend", label: isZh ? "发送按钮与主 CTA" : "Send & CTA button" },
@@ -7134,7 +7494,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         switchRow({
           label: isZh ? "从当前壁纸自动取色作为强调色" : "Extract accent color from wallpaper",
           checked: Boolean(config.themeFollow),
-          onChange: (v) => void store.updateConfig({ themeFollow: v })
+          onChange: (v) => void store.updateConfig({ themeFollow: v }, { rerender: false })
         })
       ),
       /* Detail */
@@ -7152,7 +7512,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           switchRow({
             label: t("glassHighlight"),
             checked: config.glassHighlight !== false,
-            onChange: (v) => void store.updateConfig({ glassHighlight: v, activePresetId: "" })
+            onChange: (v) => void store.updateConfig({ glassHighlight: v, activePresetId: "" }, { rerender: false })
           })
         ] : null
       ),
@@ -7171,15 +7531,17 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           segRow({
             label: isZh ? "左侧边栏统一圆角" : "Left sidebar radius",
             value: config.leftSidebarCornerRadius || "native",
+            syncActive: true,
             items: radiusItems,
-            onPick: (id) => void store.updateConfig({ leftSidebarCornerRadius: id, activePresetId: "" })
+            onPick: (id) => void store.updateConfig({ leftSidebarCornerRadius: id, activePresetId: "" }, { rerender: false })
           }),
           cornerButtons(store, "leftSidebar", isZh ? "左侧边栏单独改直角" : "Left sidebar square corners", equalCorners),
           segRow({
             label: isZh ? "右侧栏统一圆角" : "Right sidebar radius",
             value: config.rightSidebarCornerRadius || "native",
+            syncActive: true,
             items: radiusItems,
-            onPick: (id) => void store.updateConfig({ rightSidebarCornerRadius: id, activePresetId: "" })
+            onPick: (id) => void store.updateConfig({ rightSidebarCornerRadius: id, activePresetId: "" }, { rerender: false })
           }),
           cornerButtons(store, "rightSidebar", isZh ? "右侧栏单独改直角" : "Right sidebar square corners", equalCorners)
         ] : null
@@ -7201,7 +7563,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
             presets: ACCENT_PRESETS,
             value: config.accent || "#4f8cff",
             colorValue: COLOR_HEX_RE.test(config.accent || "") ? config.accent : "#4f8cff",
-            onPick: (c, defer) => void store.updateConfig({ accent: c }, { defer, rerender: !defer })
+            onPick: (c, defer) => void store.updateConfig({ accent: c }, { defer, rerender: false })
           }),
           switchRow({
             label: isZh ? "分元素自定义界面配色" : "Customize per-element colors",
@@ -7215,7 +7577,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
             value: config[item.key],
             colorValue: COLOR_HEX_RE.test(config[item.key] || "") ? config[item.key] : config.accent || "#4f8cff",
             autoBtn: autoColorBtn(item.key, isZh ? "跟随" : "Auto"),
-            onPick: (c, defer) => void store.updateConfig({ [item.key]: c, uiColorCustom: true }, { defer, rerender: !defer })
+            onPick: (c, defer) => void store.updateConfig({ [item.key]: c, uiColorCustom: true }, { defer, rerender: false })
           })),
           swatchRow({
             label: t("caretColor"),
@@ -7223,7 +7585,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
             value: config.caretColor,
             colorValue: COLOR_HEX_RE.test(config.caretColor || "") ? config.caretColor : "#4f8cff",
             autoBtn: autoColorBtn("caretColor", isZh ? "自动" : "Auto"),
-            onPick: (c, defer) => void store.updateConfig({ caretColor: c }, { defer, rerender: !defer })
+            onPick: (c, defer) => void store.updateConfig({ caretColor: c }, { defer, rerender: false })
           })
         ] : null
       ),
@@ -7271,13 +7633,14 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         segRow({
           label: t("wallpaperFit"),
           value: config.wallpaperFit || "cover",
+          syncActive: true,
           items: [
             { id: "cover", label: isZh ? "铺满" : "Cover" },
             { id: "contain", label: isZh ? "适应" : "Contain" },
             { id: "fill", label: isZh ? "拉伸" : "Fill" },
             { id: "center", label: isZh ? "居中" : "Center" }
           ],
-          onPick: (id) => void store.updateConfig({ wallpaperFit: id })
+          onPick: (id) => void store.updateConfig({ wallpaperFit: id }, { rerender: false })
         }),
         configSlider(store, "wallpaperBlur", t("wallpaperBlur")),
         configSlider(store, "maskOcclusion", t("maskOcclusion")),
@@ -7288,7 +7651,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         switchRow({
           label: isZh ? "水平镜像翻转" : "Horizontal flip",
           checked: Boolean(config.wallpaperFlip),
-          onChange: (v) => void store.updateConfig({ wallpaperFlip: v })
+          onChange: (v) => void store.updateConfig({ wallpaperFlip: v }, { rerender: false })
         }),
         configSlider(store, "layerPositionX", isZh ? "水平构图偏移" : "Horizontal position"),
         configSlider(store, "layerPositionY", isZh ? "垂直构图偏移" : "Vertical position"),
@@ -7304,76 +7667,82 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         segRow({
           label: t("wallpaperMode"),
           value: config.wallpaperMode || "live",
+          syncActive: true,
           items: [
             { id: "live", label: t("wallpaperModeLive") },
             { id: "frame", label: t("wallpaperModeFrame") }
           ],
-          onPick: (id) => void store.updateConfig({ wallpaperMode: id })
+          onPick: (id) => void store.updateConfig({ wallpaperMode: id }, { rerender: false })
         }),
         segRow({
           label: t("videoPlaybackRate"),
           value: String(config.videoPlaybackRate ?? 1),
+          syncActive: true,
           items: [
             { id: "0.5", label: "0.5×" },
             { id: "1", label: "1×" },
             { id: "1.5", label: "1.5×" },
             { id: "2", label: "2×" }
           ],
-          onPick: (id) => void store.updateConfig({ videoPlaybackRate: Number(id) })
+          onPick: (id) => void store.updateConfig({ videoPlaybackRate: Number(id) }, { rerender: false })
         }),
         switchRow({
           label: t("sceneLive"),
           hint: t("sceneLiveDesc"),
           checked: config.sceneLive !== false,
-          onChange: (v) => void store.updateConfig({ sceneLive: v })
+          onChange: (v) => void store.updateConfig({ sceneLive: v }, { rerender: false })
         }),
         segRow({
           label: t("sceneLiveFps"),
           value: String(config.sceneLiveFps ?? 30),
+          syncActive: true,
           items: [
             { id: "15", label: "15 FPS" },
             { id: "30", label: "30 FPS" },
             { id: "60", label: "60 FPS" }
           ],
-          onPick: (id) => void store.updateConfig({ sceneLiveFps: Number(id) })
+          onPick: (id) => void store.updateConfig({ sceneLiveFps: Number(id) }, { rerender: false })
         }),
         switchRow({
           label: t("sceneAutoQuality"),
           hint: t("sceneAutoQualityDesc"),
           checked: config.sceneAutoQuality !== false,
-          onChange: (v) => void store.updateConfig({ sceneAutoQuality: v })
+          onChange: (v) => void store.updateConfig({ sceneAutoQuality: v }, { rerender: false })
         }),
         segRow({
           label: t("sceneRenderDpr"),
           value: String(config.sceneRenderDpr ?? 0),
+          syncActive: true,
           items: [
             { id: "0", label: t("sceneRenderDprAuto") },
             { id: "1", label: "1×" },
             { id: "1.5", label: "1.5×" },
             { id: "2", label: "2×" }
           ],
-          onPick: (id) => void store.updateConfig({ sceneRenderDpr: Number(id) })
+          onPick: (id) => void store.updateConfig({ sceneRenderDpr: Number(id) }, { rerender: false })
         }),
         segRow({
           label: t("sceneVideoTexScale"),
           value: String(config.sceneVideoTexScale ?? 0),
+          syncActive: true,
           items: [
             { id: "0", label: t("sceneVideoTexScaleAuto") },
             { id: "0.5", label: t("sceneVideoTexScaleHalf") },
             { id: "1", label: t("sceneVideoTexScaleFull") }
           ],
-          onPick: (id) => void store.updateConfig({ sceneVideoTexScale: Number(id) })
+          onPick: (id) => void store.updateConfig({ sceneVideoTexScale: Number(id) }, { rerender: false })
         }),
         segRow({
           label: isZh ? "实时壁纸延迟激活" : "Live boot delay",
           value: String(config.liveBootDelay ?? 3),
+          syncActive: true,
           items: [
             { id: "0", label: "0s" },
             { id: "1", label: "1s" },
             { id: "3", label: "3s" },
             { id: "5", label: "5s" }
           ],
-          onPick: (id) => void store.updateConfig({ liveBootDelay: Number(id) })
+          onPick: (id) => void store.updateConfig({ liveBootDelay: Number(id) }, { rerender: false })
         })
       )
     );
@@ -7427,15 +7796,16 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         segRow({
           label: isZh ? "壁纸库卡片排布" : "Library card style",
           value: config.pickerLayout || "fixed",
+          syncActive: true,
           items: [
             { id: "fixed", label: isZh ? "常规网格" : "Fixed Grid" },
             { id: "classic", label: isZh ? "CD 架叠放" : "CD Rack" }
           ],
-          onPick: (id) => void store.updateConfig({ pickerLayout: id })
+          onPick: (id) => void store.updateConfig({ pickerLayout: id }, { rerender: false })
         }),
         selectRow({
           label: isZh ? "插件内部界面语言" : "Inner UI language",
-          hint: isZh ? '注：Antigravity Settings 左侧菜单条目始终保持英文 "Wallpaper Engine"。' : 'Note: Antigravity Settings left nav label always stays English "Wallpaper Engine".',
+          hint: isZh ? '注：Antigravity Settings 左侧菜单条目始终保持英文 "Wallpaper"。' : 'Note: Antigravity Settings left nav label always stays English "Wallpaper".',
           value: config.uiLanguage || "zh",
           options: [
             { value: "zh", label: "简体中文（推荐）" },
@@ -7453,13 +7823,13 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           label: t("browserHoleCutout"),
           hint: t("browserHoleCutoutDesc"),
           checked: config.browserHoleCutout !== false,
-          onChange: (v) => void store.updateConfig({ browserHoleCutout: v })
+          onChange: (v) => void store.updateConfig({ browserHoleCutout: v }, { rerender: false })
         }),
         switchRow({
           label: t("studioShortcut"),
           hint: t("studioShortcutDesc"),
           checked: config.studioShortcut !== false,
-          onChange: (v) => void store.updateConfig({ studioShortcut: v })
+          onChange: (v) => void store.updateConfig({ studioShortcut: v }, { rerender: false })
         }),
         el(
           "div",
@@ -7505,23 +7875,23 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         switchRow({
           label: t("pauseOnHidden"),
           checked: config.pauseOnHidden !== false,
-          onChange: (v) => void store.updateConfig({ pauseOnHidden: v })
+          onChange: (v) => void store.updateConfig({ pauseOnHidden: v }, { rerender: false })
         }),
         switchRow({
           label: t("pauseOnBlur"),
           checked: Boolean(config.pauseOnBlur),
-          onChange: (v) => void store.updateConfig({ pauseOnBlur: v })
+          onChange: (v) => void store.updateConfig({ pauseOnBlur: v }, { rerender: false })
         }),
         switchRow({
           label: t("pauseOnBattery"),
           checked: Boolean(config.pauseOnBattery),
-          onChange: (v) => void store.updateConfig({ pauseOnBattery: v })
+          onChange: (v) => void store.updateConfig({ pauseOnBattery: v }, { rerender: false })
         }),
         switchRow({
           label: t("startPaused"),
           hint: isZh ? "开启后每次冷启动时默认暂停动态渲染，按需再播放。" : "Start wallpaper paused after each cold launch.",
           checked: Boolean(config.startPaused),
-          onChange: (v) => void store.updateConfig({ startPaused: v })
+          onChange: (v) => void store.updateConfig({ startPaused: v }, { rerender: false })
         })
       ),
       el(
@@ -7628,31 +7998,33 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         switchRow({
           label: t("fxEnabled"),
           checked: Boolean(config.fxEnabled),
-          onChange: (v) => void store.updateConfig({ fxEnabled: v })
+          onChange: (v) => void store.updateConfig({ fxEnabled: v }, { rerender: false })
         }),
         switchRow({
           label: t("fxClick"),
           checked: config.fxClick !== false,
-          onChange: (v) => void store.updateConfig({ fxClick: v })
+          onChange: (v) => void store.updateConfig({ fxClick: v }, { rerender: false })
         }),
         segRow({
           label: t("fxClickStyle"),
           value: config.fxClickStyle || "ripple",
+          syncActive: true,
           items: FX_CLICK_STYLES.map((id) => ({ id, label: clickLabel[id] || id })),
-          onPick: (id) => void store.updateConfig({ fxClickStyle: id })
+          onPick: (id) => void store.updateConfig({ fxClickStyle: id }, { rerender: false })
         }),
         configSlider(store, "fxClickSize", t("fxClickSize")),
         configSlider(store, "fxClickGlow", t("fxClickGlow")),
         switchRow({
           label: t("fxTrail"),
           checked: config.fxTrail !== false,
-          onChange: (v) => void store.updateConfig({ fxTrail: v })
+          onChange: (v) => void store.updateConfig({ fxTrail: v }, { rerender: false })
         }),
         segRow({
           label: t("fxTrailStyle"),
           value: config.fxTrailStyle || "comet",
+          syncActive: true,
           items: FX_TRAIL_STYLES.map((id) => ({ id, label: trailLabel[id] || id })),
-          onPick: (id) => void store.updateConfig({ fxTrailStyle: id })
+          onPick: (id) => void store.updateConfig({ fxTrailStyle: id }, { rerender: false })
         }),
         configSlider(store, "fxTrailLength", t("fxTrailLength")),
         configSlider(store, "fxTrailWidth", t("fxTrailWidth")),
@@ -7662,7 +8034,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           label: t("fxBlend"),
           value: config.fxBlend || "screen",
           options: FX_BLEND_VALUES.map((v) => ({ value: v, label: blendLabel[v] || v })),
-          onChange: (v) => void store.updateConfig({ fxBlend: v })
+          onChange: (v) => void store.updateConfig({ fxBlend: v }, { rerender: false })
         }),
         segRow({
           label: t("fxColorMode"),
@@ -7675,7 +8047,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           presets: ACCENT_PRESETS,
           value: config.fxColor || "#4f8cff",
           colorValue: config.fxColor || "#4f8cff",
-          onPick: (c, defer) => void store.updateConfig({ fxColor: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ fxColor: c }, { defer, rerender: false })
         }) : null
       ),
       /* Module 2: 3D Parallax */
@@ -7692,14 +8064,14 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         switchRow({
           label: t("parallaxEnabled"),
           checked: Boolean(config.parallaxEnabled),
-          onChange: (v) => void store.updateConfig({ parallaxEnabled: v })
+          onChange: (v) => void store.updateConfig({ parallaxEnabled: v }, { rerender: false })
         }),
         configSlider(store, "parallaxBg", t("parallaxBgDepth"), { step: 0.1 }),
         configSlider(store, "parallaxSmooth", t("parallaxSmooth")),
         switchRow({
           label: t("parallaxUi"),
           checked: Boolean(config.parallaxUi),
-          onChange: (v) => void store.updateConfig({ parallaxUi: v })
+          onChange: (v) => void store.updateConfig({ parallaxUi: v }, { rerender: false })
         }),
         configSlider(store, "parallaxUiChatDepth", t("parallaxUiChat"), { step: 0.1 }),
         configSlider(store, "parallaxUiComposerDepth", t("parallaxUiComposer"), { step: 0.1 }),
@@ -7711,7 +8083,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           switchRow({
             label: isZh ? "联动扩展槽位视差 ([data-slot])" : "Follow extension UI slots ([data-slot])",
             checked: Boolean(config.parallaxPlugin),
-            onChange: (v) => void store.updateConfig({ parallaxPlugin: v })
+            onChange: (v) => void store.updateConfig({ parallaxPlugin: v }, { rerender: false })
           }),
           el("button", {
             type: "button",
@@ -7732,12 +8104,14 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           defaultValue: 1,
           value: config.parallaxPluginDepths?.[slot] ?? 1,
           onChange: (v) => {
-            const next = { ...config.parallaxPluginDepths || {}, [slot]: v };
+            const cur = store.state.config?.parallaxPluginDepths || {};
+            const next = { ...cur, [slot]: v };
             void store.updateConfig({ parallaxPluginDepths: next }, { defer: true, rerender: false });
           },
           onCommit: (v) => {
-            const next = { ...config.parallaxPluginDepths || {}, [slot]: v };
-            void store.updateConfig({ parallaxPluginDepths: next });
+            const cur = store.state.config?.parallaxPluginDepths || {};
+            const next = { ...cur, [slot]: v };
+            void store.updateConfig({ parallaxPluginDepths: next }, { defer: false, rerender: false });
           }
         })) : el("div", { className: "we-picker__hint" }, isZh ? "当前工作台未发现额外 [data-slot] 扩展面板。" : "No extra [data-slot] panels detected right now.")
       )
@@ -7754,7 +8128,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       el(
         "p",
         { className: "we-about__p" },
-        isZh ? "Wallpaper Engine (agy-skins) v2.0.0 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.0.0 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
+        isZh ? "Wallpaper Engine (agy-skins) v2.1.0 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.1.0 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
       ),
       el(
         "p",
@@ -7814,8 +8188,11 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     if (!styleEl) {
       styleEl = doc.createElement("style");
       styleEl.id = PICKER_STYLE_ID;
-      styleEl.textContent = WE_PICKER_CSS;
+      styleEl.dataset.plugin = "agy-skins";
       doc.head.appendChild(styleEl);
+    }
+    if (styleEl.textContent !== WE_PICKER_CSS) {
+      styleEl.textContent = WE_PICKER_CSS;
     }
     return styleEl;
   }
@@ -7855,92 +8232,127 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     ensureWePickerStyles(doc);
     const store = createPanelStore({ getAuth, embed });
     const hostWrap = el("div", { className: "we-picker", dataset: { weEmbed: embed } });
+    const bumpInteract = () => store.markInteracting(650);
+    hostWrap.addEventListener("pointerdown", bumpInteract, true);
+    hostWrap.addEventListener("input", bumpInteract, true);
+    hostWrap.addEventListener("change", bumpInteract, true);
+    const loadingEl = el(
+      "div",
+      { className: "we-picker__empty" },
+      el("div", { className: "we-picker__hint" }, "正在同步 Wallpaper Engine 状态…")
+    );
+    const cardNameEl = el("span", { className: "we-picker__card-name" });
+    const headBadgeEl = el("span", { className: "we-picker__head-badge" });
+    const cardDescEl = el("span", { className: "we-picker__card-desc" });
+    const headerShell = el(
+      "div",
+      { className: "we-picker__card-shell" },
+      el("div", { className: "we-picker__card-head" }, cardNameEl, headBadgeEl, cardDescEl)
+    );
+    const pillEl = el("span", { className: "we-tabs__pill", "aria-hidden": "true" });
+    const tabBtns = TABS.map((item) => el("button", {
+      type: "button",
+      role: "tab",
+      className: "we-tabs__tab",
+      onClick: () => {
+        if (store.state.tab === item.id) return;
+        store.state.tab = item.id;
+        store.state.armedConfirm = "";
+        store.notify();
+      }
+    }, ""));
+    const tabsBar = el("div", { className: "we-tabs", role: "tablist" }, pillEl, tabBtns);
+    const bodyEl = el("div", { className: "we-picker__body" });
+    const footerEl = el("div", { className: "we-picker__footer" });
+    const toastEl = el("div", { className: "we-picker__toast", role: "status", style: { display: "none" } });
+    hostWrap.replaceChildren(loadingEl, headerShell, tabsBar, bodyEl, footerEl, toastEl);
     rootEl.innerHTML = "";
     rootEl.appendChild(hostWrap);
+    let lastAccent = "";
+    let lastTabsVisible = false;
+    let lastRenderKey = "";
     let resizeObserver = null;
-    let lastTabsBar = null;
-    const positionPill = (tabsBar, immediate = false) => {
-      if (!tabsBar) return;
-      const pill = tabsBar.querySelector(".we-tabs__pill");
+    const positionPill = (immediate = false) => {
       const activeTab = tabsBar.querySelector(".we-tabs__tab--active");
-      if (!pill || !activeTab) return;
+      if (!activeTab) return;
       const left = activeTab.offsetLeft - 3;
       const width = activeTab.offsetWidth;
       if (width <= 0) return;
-      if (immediate) pill.style.transition = "none";
-      pill.style.width = `${width}px`;
-      pill.style.transform = `translateX(${left}px)`;
+      if (immediate) pillEl.style.transition = "none";
+      pillEl.style.width = `${width}px`;
+      pillEl.style.transform = `translateX(${left}px)`;
       if (immediate) {
-        void pill.offsetWidth;
-        pill.style.transition = "";
+        void pillEl.offsetWidth;
+        pillEl.style.transition = "";
       }
     };
+    if (typeof ResizeObserver === "function") {
+      resizeObserver = new ResizeObserver(() => {
+        if (tabsBar.style.display !== "none") positionPill(true);
+      });
+      resizeObserver.observe(tabsBar);
+    }
     const render = () => {
-      const { config, weItems, tab, toast } = store.state;
-      const focusSnap = captureFocusState(hostWrap);
-      hostWrap.innerHTML = "";
+      const { config, weItems, tab, toast, pickerOpen } = store.state;
+      const hasConfig = Boolean(config);
+      loadingEl.style.display = hasConfig ? "none" : "";
+      headerShell.style.display = hasConfig ? "" : "none";
+      bodyEl.style.display = hasConfig ? "" : "none";
       if (!config) {
-        hostWrap.appendChild(el(
-          "div",
-          { className: "we-picker__empty" },
-          el("div", { className: "we-picker__hint" }, "正在同步 Wallpaper Engine 状态…")
-        ));
+        tabsBar.style.display = "none";
+        footerEl.style.display = "none";
+        toastEl.style.display = "none";
         return;
       }
       const accent = /^#[0-9a-f]{6}$/i.test(config.accent || "") ? config.accent : "#4f8cff";
-      hostWrap.style.setProperty("--we-accent-src", accent);
-      hostWrap.style.setProperty("--we-accent-ink", weAccentInk(accent));
+      if (accent !== lastAccent) {
+        lastAccent = accent;
+        hostWrap.style.setProperty("--we-accent-src", accent);
+        hostWrap.style.setProperty("--we-accent-ink", weAccentInk(accent));
+      }
       const t = store.getT();
       const hiddenSet = new Set(config.hiddenWallpaperIds || []);
       const playableCount = weItems.filter((i) => !hiddenSet.has(i.id)).length;
       const activeTabDef = TABS.find((item) => item.id === tab) || TABS[0];
-      hostWrap.appendChild(el(
-        "div",
-        { className: "we-picker__card-shell" },
-        el(
-          "div",
-          { className: "we-picker__card-head" },
-          el("span", { className: "we-picker__card-name" }, t("wallpaperEngineTitle")),
-          el("span", { className: "we-picker__card-badge" }, t("playableBadge", playableCount)),
-          el("span", { className: "we-picker__card-desc" }, t("wallpaperEngineDesc"))
-        )
-      ));
-      if (!store.state.pickerOpen) {
-        const pill = el("span", { className: "we-tabs__pill", "aria-hidden": "true" });
-        const tabsBar = el(
-          "div",
-          { className: "we-tabs", role: "tablist" },
-          pill,
-          TABS.map((item) => el("button", {
-            type: "button",
-            role: "tab",
-            "aria-selected": item.id === activeTabDef.id ? "true" : "false",
-            className: `we-tabs__tab ${item.id === activeTabDef.id ? "we-tabs__tab--active" : ""}`,
-            onClick: () => {
-              if (store.state.tab === item.id) return;
-              store.state.tab = item.id;
-              store.state.armedConfirm = "";
-              store.notify();
-            }
-          }, t(item.key)))
-        );
-        hostWrap.appendChild(tabsBar);
-        lastTabsBar = tabsBar;
-        if (resizeObserver) resizeObserver.disconnect();
-        if (typeof ResizeObserver === "function") {
-          resizeObserver = new ResizeObserver(() => positionPill(lastTabsBar, true));
-          resizeObserver.observe(tabsBar);
-        }
-        requestAnimationFrame(() => positionPill(tabsBar, false));
+      const titleStr = t("wallpaperEngineTitle");
+      const badgeStr = t("playableBadge", playableCount);
+      const descStr = t("wallpaperEngineDesc");
+      if (cardNameEl.textContent !== titleStr) cardNameEl.textContent = titleStr;
+      if (headBadgeEl.textContent !== badgeStr) headBadgeEl.textContent = badgeStr;
+      if (cardDescEl.textContent !== descStr) cardDescEl.textContent = descStr;
+      const tabsVisible = !pickerOpen;
+      tabsBar.style.display = tabsVisible ? "" : "none";
+      if (tabsVisible) {
+        TABS.forEach((item, idx) => {
+          const btn = tabBtns[idx];
+          const label = t(item.key);
+          const active = item.id === activeTabDef.id;
+          if (btn.textContent !== label) btn.textContent = label;
+          btn.setAttribute("aria-selected", active ? "true" : "false");
+          btn.classList.toggle("we-tabs__tab--active", active);
+        });
+        requestAnimationFrame(() => positionPill(!lastTabsVisible));
       }
-      hostWrap.appendChild(activeTabDef.render(store));
-      if (!store.state.pickerOpen && TAB_RESET_KEYS[activeTabDef.id]) {
-        hostWrap.appendChild(renderTabReset(store, activeTabDef.id));
-      }
+      lastTabsVisible = tabsVisible;
       if (toast?.message) {
-        hostWrap.appendChild(el("div", { className: "we-picker__toast", role: "status" }, toast.message));
+        if (toastEl.textContent !== toast.message) toastEl.textContent = toast.message;
+        toastEl.style.display = "";
+      } else {
+        toastEl.style.display = "none";
       }
-      restoreFocusState(hostWrap, focusSnap);
+      const focusSnap = captureFocusState(bodyEl);
+      bodyEl.replaceChildren(activeTabDef.render(store));
+      if (!pickerOpen && TAB_RESET_KEYS[activeTabDef.id]) {
+        footerEl.style.display = "";
+        footerEl.replaceChildren(renderTabReset(store, activeTabDef.id));
+      } else {
+        footerEl.style.display = "none";
+        footerEl.replaceChildren();
+      }
+      if (focusSnap && lastRenderKey === activeTabDef.id) {
+        restoreFocusState(bodyEl, focusSnap);
+      }
+      lastRenderKey = activeTabDef.id;
     };
     const onKeyDown = (e) => {
       if (e.key === "Escape" && store.state.pickerOpen && rootEl.isConnected && rootEl.style.display !== "none") {
@@ -7976,19 +8388,23 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   var BACKDROP_ID = "agy-skins-studio-backdrop";
   var DIALOG_ID = "agy-skins-studio-dialog";
   var EXTRA_CSS_ID = "agy-skins-host-entries-css";
+  var NAV_BASE_CLASS = "flex items-center gap-1.5 w-full px-2 py-1 rounded-lg cursor-pointer border-none text-left transition-all outline-none";
+  var NAV_INACTIVE_CLASS = `${NAV_BASE_CLASS} hover:bg-sidebar-muted`;
+  var NAV_ACTIVE_CLASS = `${NAV_BASE_CLASS} bg-sidebar-secondary`;
+  var SPAN_INACTIVE_CLASS = "transition-colors select-none truncate flex-1 text-secondary-foreground group-hover/nav-item:text-foreground";
+  var SPAN_ACTIVE_CLASS = "transition-colors select-none truncate flex-1 text-foreground";
   var EXTRA_HOST_CSS = `
-#${NAV_ID}[data-agy-nav-active="true"] {
-  background: var(--we-layer-2, rgba(128, 128, 128, 0.16)) !important;
-  color: var(--foreground, inherit) !important;
-  font-weight: 600;
-}
 [data-agy-native-nav-muted="true"] {
   background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
 }
+[data-agy-native-nav-muted="true"] > span {
+  color: var(--secondary-foreground) !important;
+}
 #${PANE_ID} {
-  padding: 20px 24px 32px;
-  max-width: 820px;
+  padding: 20px 28px 36px;
+  max-width: 860px;
   margin: 0 auto;
   color: inherit;
 }
@@ -8000,27 +8416,27 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0, 0, 0, calc(0.32 * var(--we-mask-strength, 0.8)));
+  background: var(--we-modal-backdrop, rgba(15, 23, 42, 0.14));
   backdrop-filter: blur(calc(var(--we-settings-blur-px, 24px) * 0.45));
   -webkit-backdrop-filter: blur(calc(var(--we-settings-blur-px, 24px) * 0.45));
 }
 #${DIALOG_ID} {
-  width: min(860px, 92vw);
-  max-height: min(760px, 88vh);
+  width: min(880px, 92vw);
+  max-height: min(780px, 88vh);
   display: flex;
   flex-direction: column;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.28));
-  background-color: var(--we-settings-tint, rgba(24, 26, 32, 0.88));
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top, 0.08)), rgba(255, 255, 255, 0.03) 38%, rgba(255, 255, 255, 0.05));
+  background-color: var(--we-settings-tint, rgba(255, 255, 255, 0.78));
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top, 0.08)), rgba(255, 255, 255, 0.025) 38%, rgba(255, 255, 255, 0.04));
   backdrop-filter: var(--we-settings-frost, blur(24px) saturate(175%));
   -webkit-backdrop-filter: var(--we-settings-frost, blur(24px) saturate(175%));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha, 0.16)),
     inset 0 0 0 1px rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.28)),
-    0 24px 64px rgba(0, 0, 0, 0.36);
-  color: var(--foreground, #f8fafc);
+    0 24px 64px rgba(0, 0, 0, 0.30);
+  color: var(--foreground, #0f172a);
 }
 #${DIALOG_ID} .agy-studio-head {
   display: flex;
@@ -8028,7 +8444,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   justify-content: space-between;
   padding: 12px 18px;
   border-bottom: 1px solid rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.22));
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 #${DIALOG_ID} .agy-studio-close {
@@ -8043,7 +8459,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   line-height: 1;
 }
 #${DIALOG_ID} .agy-studio-close:hover {
-  background: rgba(128, 128, 128, 0.16);
+  background: rgba(128, 128, 128, 0.14);
 }
 #${DIALOG_ID} .agy-studio-body {
   flex: 1;
@@ -8062,8 +8478,15 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     let settingsPicker = null;
     let modalPicker = null;
     let observer = null;
+    let boundSidebar = null;
     let keyListenerAttached = false;
     let syncRaf = 0;
+    const onSidebarCaptureClick = (ev) => {
+      const targetBtn = ev.target?.closest?.("button");
+      if (targetBtn && targetBtn.id !== NAV_ID && settingsActive) {
+        deactivateSettingsPane();
+      }
+    };
     const getAuth = () => ({
       origin: authState.runtimeOrigin,
       studioToken: authState.studioToken,
@@ -8071,12 +8494,28 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     });
     const ensureExtraCss = () => {
       ensureWePickerStyles(document);
-      if (!document.getElementById(EXTRA_CSS_ID)) {
-        const s = document.createElement("style");
-        s.id = EXTRA_CSS_ID;
-        s.textContent = EXTRA_HOST_CSS;
-        document.head.appendChild(s);
+      let styleEl = document.getElementById(EXTRA_CSS_ID);
+      if (!styleEl) {
+        styleEl = document.createElement("style");
+        styleEl.id = EXTRA_CSS_ID;
+        styleEl.textContent = EXTRA_HOST_CSS;
+        document.head.appendChild(styleEl);
+      } else if (styleEl.textContent !== EXTRA_HOST_CSS) {
+        styleEl.textContent = EXTRA_HOST_CSS;
       }
+    };
+    const syncNavButtonClasses = (navBtn, active) => {
+      if (!navBtn) return;
+      const wantCls = active ? NAV_ACTIVE_CLASS : NAV_INACTIVE_CLASS;
+      const wantSpanCls = active ? SPAN_ACTIVE_CLASS : SPAN_INACTIVE_CLASS;
+      if (navBtn.className !== wantCls) navBtn.className = wantCls;
+      const span = navBtn.firstElementChild;
+      if (span) {
+        if (span.className !== wantSpanCls) span.className = wantSpanCls;
+        if (span.textContent !== SETTINGS_SIDEBAR_LABEL) span.textContent = SETTINGS_SIDEBAR_LABEL;
+      }
+      if (active) navBtn.dataset.agyNavActive = "true";
+      else delete navBtn.dataset.agyNavActive;
     };
     const findSettingsScroller = (sidebar) => {
       const modal = sidebar?.closest(".settings-modal-container") || sidebar?.parentElement?.parentElement;
@@ -8092,7 +8531,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           if (!child.dataset.agyPrevDisplay) {
             child.dataset.agyPrevDisplay = child.style.display || "__empty__";
           }
-          child.style.display = "none";
+          if (child.style.display !== "none") child.style.display = "none";
         } else if (child.dataset.agyPrevDisplay !== void 0) {
           const prev = child.dataset.agyPrevDisplay;
           child.style.display = prev === "__empty__" ? "" : prev;
@@ -8104,16 +8543,19 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       if (!sidebar) return;
       for (const btn of sidebar.querySelectorAll("button")) {
         if (btn.id === NAV_ID) continue;
-        if (mute) btn.dataset.agyNativeNavMuted = "true";
-        else delete btn.dataset.agyNativeNavMuted;
+        if (mute) {
+          if (btn.dataset.agyNativeNavMuted !== "true") btn.dataset.agyNativeNavMuted = "true";
+        } else if (btn.dataset.agyNativeNavMuted !== void 0) {
+          delete btn.dataset.agyNativeNavMuted;
+        }
       }
     };
     const deactivateSettingsPane = () => {
       settingsActive = false;
       const navBtn = document.getElementById(NAV_ID);
-      if (navBtn) delete navBtn.dataset.agyNavActive;
+      syncNavButtonClasses(navBtn, false);
       const pane = document.getElementById(PANE_ID);
-      if (pane) pane.style.display = "none";
+      if (pane && pane.style.display !== "none") pane.style.display = "none";
       const sidebar = document.querySelector('[data-testid="settings-sidebar"]');
       if (sidebar) {
         setNativeNavMuted(sidebar, false);
@@ -8125,8 +8567,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       const scroller = findSettingsScroller(sidebar);
       if (!scroller) return;
       settingsActive = true;
-      const navBtn = document.getElementById(NAV_ID);
-      if (navBtn) navBtn.dataset.agyNavActive = "true";
+      syncNavButtonClasses(document.getElementById(NAV_ID), true);
       setNativeNavMuted(sidebar, true);
       hideNativeChildren(scroller, true);
       let pane = document.getElementById(PANE_ID);
@@ -8139,7 +8580,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         pane.id = PANE_ID;
         scroller.appendChild(pane);
       }
-      pane.style.display = "";
+      if (pane.style.display === "none") pane.style.display = "";
       if (!settingsPicker) {
         settingsPicker = mountWePicker(pane, { embed: "settings", getAuth });
       }
@@ -8161,25 +8602,27 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         navBtn = document.createElement("button");
         navBtn.type = "button";
         navBtn.id = NAV_ID;
-        navBtn.setAttribute("data-testid", "settings-nav-item-WallpaperEngine");
-        navBtn.className = appearanceAnchor?.className || "";
-        navBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;opacity:0.86"><rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-4.5-4.5a1.5 1.5 0 0 0-2.1 0L7 18"/></svg><span></span>`;
-        navBtn.querySelector("span").textContent = SETTINGS_SIDEBAR_LABEL;
+        navBtn.setAttribute("data-testid", "settings-nav-item-Wallpaper");
+        const span = document.createElement("span");
+        span.textContent = SETTINGS_SIDEBAR_LABEL;
+        navBtn.appendChild(span);
+        syncNavButtonClasses(navBtn, settingsActive);
         navBtn.addEventListener("click", (e) => {
           e.preventDefault();
           e.stopPropagation();
           activateSettingsPane(sidebar);
         });
-        sidebar.addEventListener("click", (ev) => {
-          const targetBtn = ev.target?.closest?.("button");
-          if (targetBtn && targetBtn.id !== NAV_ID && settingsActive) {
-            deactivateSettingsPane();
-          }
-        }, true);
+        if (boundSidebar !== sidebar) {
+          boundSidebar?.removeEventListener?.("click", onSidebarCaptureClick, true);
+          sidebar.addEventListener?.("click", onSidebarCaptureClick, true);
+          boundSidebar = sidebar;
+        }
       } else {
-        const span = navBtn.querySelector("span");
-        if (span && span.textContent !== SETTINGS_SIDEBAR_LABEL) {
-          span.textContent = SETTINGS_SIDEBAR_LABEL;
+        syncNavButtonClasses(navBtn, settingsActive);
+        if (boundSidebar !== sidebar) {
+          boundSidebar?.removeEventListener?.("click", onSidebarCaptureClick, true);
+          sidebar.addEventListener?.("click", onSidebarCaptureClick, true);
+          boundSidebar = sidebar;
         }
       }
       if (!sidebar.contains(navBtn)) {
@@ -8187,7 +8630,10 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         else sidebar.appendChild(navBtn);
       }
       if (settingsActive) {
-        activateSettingsPane(sidebar);
+        const pane = document.getElementById(PANE_ID);
+        const scroller = findSettingsScroller(sidebar);
+        const needsSync = !pane || !pane.isConnected || pane.style.display === "none" || Boolean(scroller && [...scroller.children].some((c) => c.id !== PANE_ID && c.style.display !== "none"));
+        if (needsSync) activateSettingsPane(sidebar);
       }
     };
     const closeStudioDialog = () => {
@@ -8242,7 +8688,17 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         openStudioDialog();
       }
     };
-    const scheduleSync = () => {
+    const isInternalPluginMutation = (mutations) => {
+      const pane = document.getElementById(PANE_ID);
+      const studio = document.getElementById(BACKDROP_ID);
+      if (!pane && !studio) return false;
+      return mutations.every((m) => {
+        const t = m.target;
+        return Boolean(pane && pane.contains(t) || studio && studio.contains(t));
+      });
+    };
+    const scheduleSync = (mutations) => {
+      if (Array.isArray(mutations) && mutations.length && isInternalPluginMutation(mutations)) return;
       if (syncRaf) return;
       syncRaf = requestAnimationFrame(() => {
         syncRaf = 0;
@@ -8276,6 +8732,8 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         if (syncRaf) cancelAnimationFrame(syncRaf);
         observer?.disconnect();
         observer = null;
+        boundSidebar?.removeEventListener?.("click", onSidebarCaptureClick, true);
+        boundSidebar = null;
         if (keyListenerAttached) {
           window.removeEventListener("keydown", handleGlobalKeyDown);
           keyListenerAttached = false;
@@ -8283,7 +8741,11 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         deactivateSettingsPane();
         settingsPicker?.destroy();
         settingsPicker = null;
+        document.getElementById(NAV_ID)?.remove?.();
+        document.getElementById(PANE_ID)?.remove?.();
         closeStudioDialog();
+        document.getElementById(EXTRA_CSS_ID)?.remove();
+        document.getElementById("agy-skins-picker-css")?.remove();
       }
     };
   }
@@ -8391,15 +8853,17 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         });
       }
     });
-    const applyAll = (payload) => {
-      if (!payload || typeof payload !== "object") return;
-      lastPayload = payload;
-      const cfg = payload.config || {};
-      const res = payload.resolved || {};
+    let lastCoreVisualKey = "";
+    let lastVisualWasPreview = false;
+    const applyVisuals = (cfg, res, nowPlaying = null, { isPreview = false } = {}) => {
       const isDark = detectIsDark();
       currentIsDark = isDark;
+      const coreKey = JSON.stringify({ cfg, src: res.resolvedSrc || null, preview: res.previewUrl || null, isDark, np: nowPlaying?.title || "" });
+      if (coreKey === lastCoreVisualKey && (isPreview || !lastVisualWasPreview)) {
+        return;
+      }
       const active = cfg.wallpaperEnabled === true && Boolean(res.resolvedSrc);
-      backdrop.setMediaSnapshot(payload.nowPlaying || null);
+      backdrop.setMediaSnapshot(nowPlaying);
       backdrop.update({
         enabled: active,
         type: cfg.wallpaperType,
@@ -8488,6 +8952,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         sidebarContentColor: cfg.sidebarContentColor,
         conversationColor: cfg.conversationColor,
         settingsWindowColor: cfg.settingsWindowColor,
+        isPreview,
         isDark
       });
       fonts.update(cfg);
@@ -8499,6 +8964,17 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         isDark
       });
       titlebar.update({ enabled: active, isDark });
+      lastCoreVisualKey = coreKey;
+      lastVisualWasPreview = isPreview;
+    };
+    let previewRaf = 0;
+    let pendingPreviewCfg = null;
+    const applyAll = (payload, { isPreview = false } = {}) => {
+      if (!payload || typeof payload !== "object") return;
+      lastPayload = payload;
+      const cfg = payload.config || {};
+      const res = payload.resolved || {};
+      applyVisuals(cfg, res, payload.nowPlaying || null, { isPreview: Boolean(isPreview) });
       hostEntries.update({
         studioUrl: payload.studioUrl,
         runtimeOrigin: payload.runtimeOrigin,
@@ -8540,12 +9016,28 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         if (typeof callerOwner === "number" && callerOwner < OWNER) return "superseded";
         return { ok: true, owner: OWNER, hash: HASH, active: Boolean(lastPayload) };
       },
-      apply(payload, callerOwner) {
+      apply(payload, callerOwner, isPreview = false) {
         if (typeof callerOwner === "number" && callerOwner < OWNER) return "superseded";
-        applyAll(payload);
+        applyAll(payload, { isPreview: Boolean(isPreview) });
         return { ok: true, owner: OWNER };
       },
+      previewConfig(nextCfg) {
+        if (!lastPayload || !nextCfg || typeof nextCfg !== "object") return false;
+        pendingPreviewCfg = { ...lastPayload.config || {}, ...nextCfg };
+        lastPayload = { ...lastPayload, config: pendingPreviewCfg };
+        if (previewRaf) return true;
+        const schedule = typeof requestAnimationFrame === "function" ? requestAnimationFrame : (cb) => setTimeout(cb, 0);
+        previewRaf = schedule(() => {
+          previewRaf = 0;
+          const cfg = pendingPreviewCfg;
+          pendingPreviewCfg = null;
+          if (cfg && lastPayload) applyVisuals(cfg, lastPayload.resolved || {}, lastPayload.nowPlaying || null, { isPreview: true });
+        });
+        return true;
+      },
       dispose() {
+        if (previewRaf && typeof cancelAnimationFrame === "function") cancelAnimationFrame(previewRaf);
+        previewRaf = 0;
         watcher.destroy();
         hostEntries.destroy();
         titlebar.destroy();

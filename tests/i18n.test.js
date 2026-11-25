@@ -35,12 +35,12 @@ test('resolveLanguage defaults to Chinese when no OS/browser locale signals exis
   }
 })
 
-test('Settings sidebar label stays English Wallpaper Engine while inner UI defaults to Chinese', () => {
-  assert.equal(SETTINGS_SIDEBAR_LABEL, 'Wallpaper Engine')
+test('Settings sidebar label stays English Wallpaper while inner UI defaults to Chinese', () => {
+  assert.equal(SETTINGS_SIDEBAR_LABEL, 'Wallpaper')
   const tZh = createTranslator('zh', 'en-US')
   const tEn = createTranslator('en', 'zh-CN')
-  assert.equal(tZh('navSettingsLabel'), 'Wallpaper Engine')
-  assert.equal(tEn('navSettingsLabel'), 'Wallpaper Engine')
+  assert.equal(tZh('navSettingsLabel'), 'Wallpaper')
+  assert.equal(tEn('navSettingsLabel'), 'Wallpaper')
   assert.equal(tZh('wallpaperEngineTitle'), '壁纸引擎')
   assert.equal(tEn('wallpaperEngineTitle'), 'Wallpaper Engine')
   assert.equal(tZh('propSchemeColor'), '主题色')

@@ -1,4 +1,4 @@
-# Installing & Running `agy-skins` (v2.0.0)
+# Installing & Running `agy-skins` (v2.1.0)
 
 ## 1. Local Plugin Installation
 
@@ -16,7 +16,7 @@ Pass `node scripts/install.mjs --no-launch` when letting Antigravity's built-in 
 
 ## 2. Opening **Wallpaper Engine**
 
-1. **Antigravity Settings**: Open **Settings → Wallpaper Engine** (sidebar label intentionally uses English `Wallpaper Engine` to stay uniform with Antigravity's native navigation tabs; inner controls display in Chinese by default).
+1. **Antigravity Settings**: Open **Settings → Wallpaper** (sidebar label matches Antigravity's native iconless English nav style; inner controls display in Chinese by default).
 2. **Global Modal Shortcut**: Press **`Alt+Shift+W`** anywhere inside the Antigravity window for the frosted Studio dialog.
 3. **Antigravity Aux Sidecar Pane**: Open **Wallpaper Engine** in Antigravity's plugin sidebar.
 

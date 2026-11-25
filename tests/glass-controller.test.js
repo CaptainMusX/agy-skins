@@ -7,7 +7,6 @@ test('weClampSurfaceColor enforces readability floor >= 4.5 contrast and weAccen
   const darkTint = weClampSurfaceColor('#93c5fd', true, 100)
   const darkRgb = parseHexRgb(darkTint.hex)
   assert.ok(relativeLuminance(darkRgb) <= 0.025)
-  // Glass blend at READABILITY_FLOOR_DARK (0.59) + semi-transparent top coat (alpha 0.6) over worst-case white wallpaper
   const topLeak = (1 - READABILITY_FLOOR_DARK) * (1 - 0.6)
   const darkComposite = darkRgb.map(v => v * (1 - topLeak) + 255 * topLeak)
   assert.ok(contrastRatio(darkComposite, [248, 250, 252]) >= 4.5)
@@ -48,26 +47,32 @@ test('findXtermTerminal walks __reactFiber$ hooks for xterm and addon', () => {
   assert.equal(found?.addon, mockAddon)
 })
 
-test('GlassController emits unified seam-free CSS, --onyx-frame: transparent, thinkingMode, and updates CSSOM cleanly', () => {
-  const attrs = new Map()
-  const ruleSetCalls = []
-  const ruleProps = new Map()
+test('GlassController syncs html + body attrs, --color-card, unified side panel & overview gutter, and CSSOM fast-path', () => {
+  const rootAttrs = new Map()
+  const bodyAttrs = new Map()
+  const ruleCalls = []
+  const makeMockRule = idx => {
+    const props = new Map()
+    const priorities = new Map()
+    return {
+      style: {
+        getPropertyValue: k => props.get(k) || '',
+        getPropertyPriority: k => priorities.get(k) || '',
+        setProperty: (k, v, p = '') => {
+          props.set(k, v)
+          priorities.set(k, p)
+          ruleCalls.push([idx, k, v, p])
+        }
+      }
+    }
+  }
+  const mockRules = Array.from({ length: 14 }, (_, idx) => makeMockRule(idx))
   const styleEl = {
     id: '',
     dataset: {},
     isConnected: true,
     _text: '',
-    sheet: {
-      cssRules: [{
-        style: {
-          getPropertyValue: k => ruleProps.get(k) || '',
-          setProperty: (k, v) => {
-            ruleProps.set(k, v)
-            ruleSetCalls.push([k, v])
-          }
-        }
-      }]
-    },
+    sheet: { cssRules: mockRules },
     set textContent(v) { this._text = v },
     get textContent() { return this._text },
     remove() { this.isConnected = false }
@@ -76,12 +81,17 @@ test('GlassController emits unified seam-free CSS, --onyx-frame: transparent, th
   const prevCs = globalThis.getComputedStyle
   globalThis.getComputedStyle = () => ({ getPropertyValue: () => '#10141c' })
   globalThis.document = {
-    documentElement: { style: { cssText: '' } },
+    documentElement: {
+      style: { cssText: '' },
+      getAttribute: k => rootAttrs.get(k) ?? null,
+      setAttribute: (k, v) => rootAttrs.set(k, v),
+      removeAttribute: k => rootAttrs.delete(k)
+    },
     body: {
       className: 'dark',
-      getAttribute: k => attrs.get(k) ?? null,
-      setAttribute: (k, v) => attrs.set(k, v),
-      removeAttribute: k => attrs.delete(k),
+      getAttribute: k => bodyAttrs.get(k) ?? null,
+      setAttribute: (k, v) => bodyAttrs.set(k, v),
+      removeAttribute: k => bodyAttrs.delete(k),
       querySelectorAll: () => []
     },
     head: {
@@ -103,18 +113,28 @@ test('GlassController emits unified seam-free CSS, --onyx-frame: transparent, th
       thinkingMode: 'off',
       isDark: true
     })
-    assert.equal(attrs.get('data-agy-skins-active'), 'true')
-    assert.equal(attrs.get('data-agy-skins-wallpaper'), 'true')
-    assert.equal(attrs.get('data-agy-thinking-mode'), 'off')
+    assert.equal(rootAttrs.get('data-agy-skins-active'), 'true')
+    assert.equal(rootAttrs.get('data-agy-skins-wallpaper'), 'true')
+    assert.equal(bodyAttrs.get('data-agy-skins-active'), 'true')
+    assert.equal(bodyAttrs.get('data-agy-skins-wallpaper'), 'true')
+    assert.equal(bodyAttrs.get('data-agy-thinking-mode'), 'off')
+    assert.equal(Boolean(gc.rules?.settingsModal), true)
     assert.match(styleEl.textContent, /--onyx-frame:\s*transparent/)
+    assert.match(styleEl.textContent, /--color-card:\s*color-mix/)
+    assert.match(styleEl.textContent, /--we-inner-1:/)
+    assert.match(styleEl.textContent, /\[data-side-panel-focus-scope\]/)
+    assert.match(styleEl.textContent, /\[data-testid="overview-panel-host-gutter"\]/)
     assert.match(styleEl.textContent, /\.settings-modal-container/)
 
-    // Second update mutates CSSOM properties directly without rebuilding stylesheet text
     const initialCss = styleEl.textContent
+    ruleCalls.length = 0
+
+    // Preview drag: updates targeted surface CSSOM rules cleanly WITHOUT touching rootVars (rule 0)
     gc.update({
       enabled: true,
       wallpaperEnabled: true,
       glassEnabled: true,
+      isPreview: true,
       glassTransparency: 50,
       bubbleOpacity: 60,
       surfaceFrost: 12,
@@ -122,12 +142,32 @@ test('GlassController emits unified seam-free CSS, --onyx-frame: transparent, th
       isDark: true
     })
     assert.equal(styleEl.textContent, initialCss)
-    assert.equal(attrs.get('data-agy-thinking-mode'), 'glass')
-    assert.ok(ruleSetCalls.some(([k]) => k === '--agy-skins-chrome-tint'))
+    assert.equal(bodyAttrs.get('data-agy-thinking-mode'), 'glass')
+    assert.equal(ruleCalls.some(([idx]) => idx === 0), false)
+    assert.ok(ruleCalls.some(([idx, k]) => idx === 3 && k === 'background-color'))
+
+    // Commit update: syncs rootVars (rule 0) including --color-card (!important) without rewriting textContent
+    ruleCalls.length = 0
+    gc.update({
+      enabled: true,
+      wallpaperEnabled: true,
+      glassEnabled: true,
+      isPreview: false,
+      glassTransparency: 50,
+      bubbleOpacity: 60,
+      surfaceFrost: 12,
+      thinkingMode: 'glass',
+      isDark: true
+    })
+    assert.equal(styleEl.textContent, initialCss)
+    assert.ok(ruleCalls.some(([idx, k]) => idx === 0 && k === '--agy-skins-chrome-tint'))
+    assert.ok(ruleCalls.some(([idx, k, , p]) => idx === 0 && k === '--color-card' && p === 'important'))
 
     gc.destroy()
-    assert.equal(attrs.has('data-agy-skins-active'), false)
-    assert.equal(attrs.has('data-agy-skins-wallpaper'), false)
+    assert.equal(bodyAttrs.has('data-agy-skins-active'), false)
+    assert.equal(rootAttrs.has('data-agy-skins-active'), false)
+    assert.equal(bodyAttrs.has('data-agy-skins-wallpaper'), false)
+    assert.equal(rootAttrs.has('data-agy-skins-wallpaper'), false)
   } finally {
     globalThis.document = prevDoc
     globalThis.getComputedStyle = prevCs

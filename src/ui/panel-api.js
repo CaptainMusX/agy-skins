@@ -103,6 +103,10 @@ export function createPanelStore({ getAuth = null, embed = '' } = {}) {
     fontAdvanced: false,
     armedConfirm: '',
     search: '',
+    openMenus: {
+      rating: false,
+      type: false
+    },
     sectionsOpen: {
       glassPresets: true,
       glassUi: true,
@@ -115,9 +119,20 @@ export function createPanelStore({ getAuth = null, embed = '' } = {}) {
 
   const listeners = new Set()
   let deferFlushTimer = null
+  let deferSendTimer = null
+  let deferredPatch = null
+  let pendingSyncTimer = null
+  let mutationSeq = 0
+  let interactingUntil = 0
+  let initialLoading = false
 
   const notify = () => {
     for (const fn of listeners) fn(state)
+  }
+
+  const markInteracting = (ms = 550) => {
+    const until = Date.now() + ms
+    if (until > interactingUntil) interactingUntil = until
   }
 
   const rpc = (action, body = {}) => callBackend(action, body, auth())
@@ -148,17 +163,25 @@ export function createPanelStore({ getAuth = null, embed = '' } = {}) {
   const isZh = () => getLang() === 'zh'
 
   const loadInitial = async () => {
-    const data = await rpc('get-state')
-    if (data?.config) state.config = data.config
-    if (Array.isArray(data?.weItems)) state.weItems = data.weItems
-    if (data?.cdp) state.cdp = data.cdp
-    if (data?.mediaOrigin) state.mediaOrigin = data.mediaOrigin
-    if (data?.systemLocale) state.systemLocale = data.systemLocale
-    notify()
-    if (!state.weItems.length || state.weItems.every(i => !i.previewUrl && i.previewPath)) {
-      void rescanLibrary()
+    if (initialLoading) return
+    initialLoading = true
+    try {
+      const data = await rpc('get-state')
+      if (data?.config) state.config = data.config
+      if (Array.isArray(data?.weItems)) state.weItems = data.weItems
+      if (data?.cdp) state.cdp = data.cdp
+      if (data?.mediaOrigin) state.mediaOrigin = data.mediaOrigin
+      if (data?.systemLocale) state.systemLocale = data.systemLocale
+      notify()
+      if (!state.weItems.length || state.weItems.every(i => !i.previewUrl && i.previewPath)) {
+        void rescanLibrary()
+      }
+      void refreshSlots()
+    } catch {
+      // Transient startup/reload fetch errors retry automatically via syncExternal
+    } finally {
+      initialLoading = false
     }
-    void refreshSlots()
   }
 
   const refreshSlots = async () => {
@@ -181,27 +204,63 @@ export function createPanelStore({ getAuth = null, embed = '' } = {}) {
     return state.discoveredSlots
   }
 
+  const sendDeferredUpdate = async () => {
+    if (!deferredPatch) return
+    const patchToSend = deferredPatch
+    deferredPatch = null
+    const seq = ++mutationSeq
+    try {
+      const res = await rpc('update-config', { patch: patchToSend, defer: true })
+      if (res?.config && seq === mutationSeq) {
+        state.config = res.config
+      }
+      if (deferFlushTimer) clearTimeout(deferFlushTimer)
+      deferFlushTimer = setTimeout(() => {
+        deferFlushTimer = null
+        void rpc('flush-config').catch(() => {})
+      }, 320)
+    } catch {}
+  }
+
   const updateConfig = async (patch, { defer = false, rerender = true } = {}) => {
-    if (!state.config) return null
+    if (!state.config || !patch || typeof patch !== 'object') return null
     state.config = { ...state.config, ...patch }
+    const handledInProcess = Boolean(globalThis.__agySkinsRuntime?.previewConfig?.(state.config))
+
+    if (defer) {
+      markInteracting(600)
+      deferredPatch = { ...(deferredPatch || {}), ...patch }
+      if (rerender) notify()
+      if (handledInProcess) {
+        if (deferSendTimer) clearTimeout(deferSendTimer)
+        deferSendTimer = setTimeout(() => {
+          deferSendTimer = null
+          void sendDeferredUpdate()
+        }, 260)
+      } else if (!deferSendTimer) {
+        deferSendTimer = setTimeout(() => {
+          deferSendTimer = null
+          void sendDeferredUpdate()
+        }, 90)
+      }
+      return state.config
+    }
+
+    const combinedPatch = deferredPatch ? { ...deferredPatch, ...patch } : patch
+    deferredPatch = null
+    if (deferSendTimer) {
+      clearTimeout(deferSendTimer)
+      deferSendTimer = null
+    }
+
+    const seq = ++mutationSeq
     if (rerender) notify()
     try {
-      const res = await rpc('update-config', { patch, defer })
-      if (res?.config) {
-        // Avoid stomping live slider drags if rerender === false
-        if (rerender) {
-          state.config = res.config
-          notify()
-        } else {
-          state.config = res.config
-        }
-      }
-      if (defer) {
-        if (deferFlushTimer) clearTimeout(deferFlushTimer)
-        deferFlushTimer = setTimeout(() => {
-          deferFlushTimer = null
-          void rpc('flush-config').catch(() => {})
-        }, 320)
+      const res = await rpc('update-config', { patch: combinedPatch, defer: false })
+      if (res?.config && seq === mutationSeq) {
+        const selChanged = JSON.stringify(state.config.weSelection) !== JSON.stringify(res.config.weSelection)
+        state.config = res.config
+        if (rerender && selChanged) notify()
       }
     } catch (err) {
       if (rerender) showToast(String(err?.message || err), 'warn')
@@ -256,10 +315,41 @@ export function createPanelStore({ getAuth = null, embed = '' } = {}) {
 
   const syncExternal = payload => {
     if (!payload) return
+    if (!state.config && !initialLoading && auth()?.origin) {
+      void loadInitial()
+    }
     let changed = false
-    if (payload.cdp) { state.cdp = payload.cdp; changed = true }
-    if (payload.systemLocale) { state.systemLocale = payload.systemLocale; changed = true }
-    if (changed) notify()
+    const nextCdp = payload.cdp
+    if (nextCdp) {
+      const prev = state.cdp || {}
+      const cdpDiff =
+        prev.state !== nextCdp.state ||
+        prev.port !== nextCdp.port ||
+        prev.targets !== nextCdp.targets ||
+        prev.shortcutState !== nextCdp.shortcutState ||
+        prev.canFixShortcut !== nextCdp.canFixShortcut
+      if (cdpDiff) {
+        state.cdp = nextCdp
+        if (state.tab === 'advanced') changed = true
+      }
+    }
+    const nextLocale = payload.systemLocale || ''
+    if (nextLocale && nextLocale !== state.systemLocale) {
+      state.systemLocale = nextLocale
+      changed = true
+    }
+    if (!changed) return
+    const waitMs = interactingUntil - Date.now()
+    if (waitMs > 0) {
+      if (!pendingSyncTimer) {
+        pendingSyncTimer = setTimeout(() => {
+          pendingSyncTimer = null
+          if (Date.now() >= interactingUntil) notify()
+        }, waitMs + 40)
+      }
+      return
+    }
+    notify()
   }
 
   return {
@@ -270,6 +360,7 @@ export function createPanelStore({ getAuth = null, embed = '' } = {}) {
       return () => listeners.delete(fn)
     },
     notify,
+    markInteracting,
     showToast,
     getLang,
     getT,
@@ -424,22 +515,31 @@ export function configSlider(store, cfgKey, label, opts = {}) {
     defaultValue: opts.defaultValue ?? DEFAULT_CONFIG[cfgKey],
     numberEdit: Boolean(opts.numberEdit),
     onChange: v => void store.updateConfig({ [cfgKey]: v }, { defer: true, rerender: false }),
-    onCommit: v => void store.updateConfig({ [cfgKey]: v }, { defer: false, rerender: opts.rerenderOnCommit === true })
+    onCommit: v => void store.updateConfig({ [cfgKey]: v }, { defer: false, rerender: false })
   })
 }
 
-export function segRow({ label, hint = '', tooltip = '', items, value, onPick, chips = false, equalCorners = false }) {
+export function segRow({ label, hint = '', tooltip = '', items, value, onPick, chips = false, equalCorners = false, syncActive = false }) {
   const segClass = `we-picker__seg${chips ? ' we-picker__seg--chips' : ''}${equalCorners ? ' we-picker__seg--corners-eq' : ''}`
+  const btns = items.map(item => el('button', {
+    type: 'button',
+    dataset: { segId: String(item.id) },
+    className: `we-picker__btn we-picker__rate ${item.active !== undefined ? (item.active ? 'we-picker__rate--active' : '') : (value === item.id ? 'we-picker__rate--active' : '')}`,
+    title: item.hint || '',
+    onClick: e => {
+      if (syncActive) {
+        if (item.active !== undefined) {
+          e.currentTarget.classList.toggle('we-picker__rate--active')
+        } else {
+          for (const b of btns) b.classList.toggle('we-picker__rate--active', b === e.currentTarget)
+        }
+      }
+      onPick?.(item.id)
+    }
+  }, item.label))
   return el('div', { className: 'we-picker__ctl we-picker__ctl--wrap' },
     ctlText(label, hint, tooltip),
-    el('div', { className: segClass },
-      items.map(item => el('button', {
-        type: 'button',
-        className: `we-picker__btn we-picker__rate ${item.active !== undefined ? (item.active ? 'we-picker__rate--active' : '') : (value === item.id ? 'we-picker__rate--active' : '')}`,
-        title: item.hint || '',
-        onClick: () => onPick?.(item.id)
-      }, item.label))
-    )
+    el('div', { className: segClass }, btns)
   )
 }
 
@@ -458,29 +558,50 @@ export function selectRow({ label, hint = '', tooltip = '', value, options, disa
   )
 }
 
-export function swatchRow({ label, hint = '', tooltip = '', presets, value, colorValue = '', onPick, autoBtn = null, disabled = false }) {
+export function swatchRow({ label, hint = '', tooltip = '', presets, value, colorValue = '', onPick, autoBtn = null, disabled = false, syncActive = true }) {
   const norm = String(value || '').toLowerCase()
   const hexVal = /^#[0-9a-f]{6}$/i.test(colorValue || value || '') ? (colorValue || value) : '#4f8cff'
+  const wrap = el('div', { className: 'we-picker__swatches' })
+  const updateActiveRing = activeNode => {
+    if (!syncActive) return
+    for (const child of wrap.querySelectorAll('.we-picker__swatch')) {
+      child.classList.toggle('we-picker__swatch--active', child === activeNode)
+    }
+  }
+  const btns = presets.map(c => el('button', {
+    type: 'button',
+    className: `we-picker__swatch ${norm === c.toLowerCase() ? 'we-picker__swatch--active' : ''}`,
+    style: { backgroundColor: c },
+    title: c,
+    onClick: e => {
+      updateActiveRing(e.currentTarget)
+      onPick?.(c, false)
+    }
+  }))
+  if (autoBtn) {
+    autoBtn.addEventListener('click', () => updateActiveRing(autoBtn))
+    wrap.appendChild(autoBtn)
+  }
+  for (const b of btns) wrap.appendChild(b)
+  wrap.appendChild(
+    el('label', { className: 'we-picker__swatch-custom', title: '自定义颜色' },
+      el('input', {
+        type: 'color',
+        value: hexVal,
+        onInput: e => {
+          updateActiveRing(null)
+          onPick?.(e.target.value, true)
+        },
+        onChange: e => {
+          updateActiveRing(null)
+          onPick?.(e.target.value, false)
+        }
+      })
+    )
+  )
   return el('div', { className: `we-picker__ctl we-picker__ctl--wrap ${disabled ? 'we-picker__ctl--disabled' : ''}` },
     ctlText(label, hint, tooltip),
-    el('div', { className: 'we-picker__swatches' },
-      autoBtn,
-      presets.map(c => el('button', {
-        type: 'button',
-        className: `we-picker__swatch ${norm === c.toLowerCase() ? 'we-picker__swatch--active' : ''}`,
-        style: { backgroundColor: c },
-        title: c,
-        onClick: () => onPick?.(c, false)
-      })),
-      el('label', { className: 'we-picker__swatch-custom', title: '自定义颜色' },
-        el('input', {
-          type: 'color',
-          value: hexVal,
-          onInput: e => onPick?.(e.target.value, true),
-          onChange: e => onPick?.(e.target.value, false)
-        })
-      )
-    )
+    wrap
   )
 }
 

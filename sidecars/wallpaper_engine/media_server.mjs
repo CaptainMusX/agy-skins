@@ -205,6 +205,7 @@ function applyLoopbackCors(req, res, { allowOrigin = null, exposeRange = false }
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range, x-agy-studio-token, x-agy-runtime-token')
   res.setHeader('Access-Control-Allow-Private-Network', 'true')
+  res.setHeader('Access-Control-Max-Age', '86400')
   if (reqOrigin && originHeader !== '*') {
     res.setHeader('Vary', 'Origin')
   }

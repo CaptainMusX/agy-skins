@@ -122,7 +122,7 @@ function renderPropsEditor(store) {
           value: Number.isFinite(Number(curVal)) ? Number(curVal) : min,
           defaultValue: prop.default ?? min,
           onChange: v => setProp(v, { rerender: false }),
-          onCommit: v => setProp(v, { rerender: true })
+          onCommit: v => setProp(v, { rerender: false })
         })
       }
       return el('div', { className: 'we-picker__ctl' },
@@ -149,12 +149,15 @@ function renderPickerModal(store) {
   const ratingSet = new Set(config.contentRatingFilter || ['everyone'])
   const showHidden = store.state.modalView === 'hidden'
   const draftSet = isDraft ? new Set(store.state.editingGroup.wallpaperIds || []) : null
+  if (!store.state.openMenus) store.state.openMenus = { rating: false, type: false }
 
   const baseMatchesSearchAndList = item => {
-    if (showHidden !== hiddenSet.has(item.id)) return false
-    if (config.folderFilter && config.folderFilter !== 'all' && item.libraryRoot !== config.folderFilter) return false
-    if (config.orientationFilter === 'landscape' && item.width > 0 && item.height > 0 && item.width < item.height) return false
-    if (config.orientationFilter === 'portrait' && item.width > 0 && item.height > 0 && item.height <= item.width) return false
+    const curCfg = store.state.config || config
+    const curHidden = new Set(curCfg.hiddenWallpaperIds || [])
+    if (showHidden !== curHidden.has(item.id)) return false
+    if (curCfg.folderFilter && curCfg.folderFilter !== 'all' && item.libraryRoot !== curCfg.folderFilter) return false
+    if (curCfg.orientationFilter === 'landscape' && item.width > 0 && item.height > 0 && item.width < item.height) return false
+    if (curCfg.orientationFilter === 'portrait' && item.width > 0 && item.height > 0 && item.height <= item.width) return false
     const q = String(store.state.search || '').trim().toLowerCase()
     if (q) {
       const titleHit = String(item.title || '').toLowerCase().includes(q)
@@ -164,11 +167,14 @@ function renderPickerModal(store) {
     return true
   }
 
-  const filterItems = () => weItems
-    .filter(item => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(item.contentrating || 'everyone'))
-    .sort((a, b) => config.sortOrder === 'title'
-      ? String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' })
-      : (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0))
+  const filterItems = () => {
+    const curCfg = store.state.config || config
+    return weItems
+      .filter(item => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(item.contentrating || 'everyone'))
+      .sort((a, b) => curCfg.sortOrder === 'title'
+        ? String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' })
+        : (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0))
+  }
 
   const ratingCounts = {}
   const typeCounts = {}
@@ -184,25 +190,42 @@ function renderPickerModal(store) {
   const folders = [...new Set(weItems.map(i => i.libraryRoot).filter(Boolean))]
   const batchSet = new Set(store.state.batchSelected)
   const gridHost = el('div', { className: 'we-picker__grid' })
+  const ratingSummary = el('summary', { className: 'we-picker__rating-btn' },
+    isZh ? `分级 · ${ratingSet.size}/4 ▾` : `Rating · ${ratingSet.size}/4 ▾`
+  )
+  const typeSummary = el('summary', { className: 'we-picker__rating-btn' },
+    isZh ? `类型 · ${typeSet.size}/4 ▾` : `Type · ${typeSet.size}/4 ▾`
+  )
 
-  const toggleMultiFilter = (field, allowed, value) => {
-    const next = new Set(config[field] || allowed)
-    if (next.has(value)) {
-      if (next.size > 1) next.delete(value)
+  const toggleMultiFilter = (field, value, inputEl) => {
+    const targetSet = field === 'contentRatingFilter' ? ratingSet : typeSet
+    if (targetSet.has(value)) {
+      if (targetSet.size <= 1) {
+        if (inputEl) inputEl.checked = true
+        return
+      }
+      targetSet.delete(value)
     } else {
-      next.add(value)
+      targetSet.add(value)
     }
-    void store.updateConfig({ [field]: [...next] })
+    if (field === 'contentRatingFilter') {
+      ratingSummary.textContent = isZh ? `分级 · ${targetSet.size}/4 ▾` : `Rating · ${targetSet.size}/4 ▾`
+    } else {
+      typeSummary.textContent = isZh ? `类型 · ${targetSet.size}/4 ▾` : `Type · ${targetSet.size}/4 ▾`
+    }
+    renderGridCards()
+    void store.updateConfig({ [field]: [...targetSet] }, { rerender: false })
   }
 
   const renderGridCards = () => {
+    const cfg = store.state.config || config
     gridHost.innerHTML = ''
     const filtered = filterItems()
     if (!isDraft && !showHidden) {
-      const canResume = !config.wallpaperEnabled && Boolean(config.wallpaperSource || config.weSelection)
-      const label = config.wallpaperPaused
+      const canResume = !cfg.wallpaperEnabled && Boolean(cfg.wallpaperSource || cfg.weSelection)
+      const label = cfg.wallpaperPaused
         ? (isZh ? '▶ 播放' : '▶ Play')
-        : config.wallpaperEnabled
+        : cfg.wallpaperEnabled
           ? t('closeCard')
           : canResume
             ? (isZh ? '▶ 播放' : '▶ Play')
@@ -213,9 +236,11 @@ function renderPickerModal(store) {
         tabIndex: 0,
         title: isZh ? '开关或恢复当前壁纸' : 'Toggle active wallpaper',
         onClick: () => {
-          if (config.wallpaperPaused) void store.updateConfig({ wallpaperPaused: false })
-          else if (config.wallpaperEnabled) void store.updateConfig({ wallpaperEnabled: false })
-          else if (canResume) void store.updateConfig({ wallpaperEnabled: true, wallpaperPaused: false })
+          const cur = store.state.config || cfg
+          const canCurResume = !cur.wallpaperEnabled && Boolean(cur.wallpaperSource || cur.weSelection)
+          if (cur.wallpaperPaused) void store.updateConfig({ wallpaperPaused: false })
+          else if (cur.wallpaperEnabled) void store.updateConfig({ wallpaperEnabled: false })
+          else if (canCurResume) void store.updateConfig({ wallpaperEnabled: true, wallpaperPaused: false })
         }
       }, el('div', { className: 'we-picker__card-close' }, label)))
     }
@@ -429,37 +454,44 @@ function renderPickerModal(store) {
       el('select', {
         className: 'we-picker__select',
         value: config.sortOrder || 'newest',
-        onChange: e => void store.updateConfig({ sortOrder: e.target.value })
+        onChange: e => {
+          void store.updateConfig({ sortOrder: e.target.value }, { rerender: false })
+          renderGridCards()
+        }
       },
         el('option', { value: 'newest', selected: config.sortOrder === 'newest' }, isZh ? '最新排序' : 'Newest'),
         el('option', { value: 'title', selected: config.sortOrder === 'title' }, isZh ? '名称排序' : 'Title A-Z')
       ),
-      el('details', { className: 'we-picker__rating-menu' },
-        el('summary', { className: 'we-picker__rating-btn' },
-          isZh ? `分级 · ${ratingSet.size}/4 ▾` : `Rating · ${ratingSet.size}/4 ▾`
-        ),
+      el('details', {
+        className: 'we-picker__rating-menu',
+        open: Boolean(store.state.openMenus.rating),
+        onToggle: e => { store.state.openMenus.rating = e.currentTarget.open }
+      },
+        ratingSummary,
         el('div', { className: 'we-picker__rating-list' },
           CONTENT_RATINGS.map(r => el('label', { className: 'we-picker__rating-toggle' },
             el('input', {
               type: 'checkbox',
               checked: ratingSet.has(r),
-              onChange: () => toggleMultiFilter('contentRatingFilter', ['everyone'], r)
+              onChange: e => toggleMultiFilter('contentRatingFilter', r, e.currentTarget)
             }),
             el('span', { style: { flex: '1' } }, ratingLabelMap[r] || r),
             el('span', { className: 'we-picker__hint' }, String(ratingCounts[r] || 0))
           ))
         )
       ),
-      el('details', { className: 'we-picker__rating-menu' },
-        el('summary', { className: 'we-picker__rating-btn' },
-          isZh ? `类型 · ${typeSet.size}/4 ▾` : `Type · ${typeSet.size}/4 ▾`
-        ),
+      el('details', {
+        className: 'we-picker__rating-menu',
+        open: Boolean(store.state.openMenus.type),
+        onToggle: e => { store.state.openMenus.type = e.currentTarget.open }
+      },
+        typeSummary,
         el('div', { className: 'we-picker__rating-list' },
           WALLPAPER_TYPES.map(kind => el('label', { className: 'we-picker__rating-toggle' },
             el('input', {
               type: 'checkbox',
               checked: typeSet.has(kind),
-              onChange: () => toggleMultiFilter('typeFilter', WALLPAPER_TYPES, kind)
+              onChange: e => toggleMultiFilter('typeFilter', kind, e.currentTarget)
             }),
             el('span', { style: { flex: '1' } }, getKindBadge(kind, t)),
             el('span', { className: 'we-picker__hint' }, String(typeCounts[kind] || 0))
@@ -746,6 +778,15 @@ export function renderLibraryTab(store) {
     }),
 
     store.state.propsOpen ? renderPropsEditor(store) : null,
+
+    /* 1b. Quick Wallpaper Readability & Scrim Sliders */
+    el('div', { className: 'we-picker__section' },
+      sectionHead({
+        title: isZh ? '壁纸显示强度与护眼遮罩' : 'Wallpaper Visibility & Contrast Scrim'
+      }),
+      configSlider(store, 'wallpaperOpacity', t('wallpaperOpacity'), { tooltip: t('wallpaperOpacityDesc') }),
+      configSlider(store, 'maskOcclusion', t('maskOcclusion'), { tooltip: t('maskOcclusionDesc') })
+    ),
 
     /* 2. Transition Section */
     el('div', { className: 'we-picker__section' },

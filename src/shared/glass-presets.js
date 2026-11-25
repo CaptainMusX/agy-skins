@@ -182,10 +182,10 @@ export const FACTORY_GLASS_PRESETS = [
     nameEn: 'Crystal Default',
     values: {
       glassEnabled: true,
-      panelGlass: 72,
-      bubbleOpacity: 62,
+      panelGlass: 68,
+      bubbleOpacity: 65,
       composerFrost: 22,
-      surfaceFrost: 18,
+      surfaceFrost: 20,
       glassSaturation: 175,
       glassBorder: 32,
       glassHighlight: true,
@@ -193,17 +193,17 @@ export const FACTORY_GLASS_PRESETS = [
       glassDarkSeparate: true,
       glassFidelity: 100,
       chatGlassFidelity: 100,
-      settingsWindowTransparency: 24,
+      settingsWindowTransparency: 18,
       settingsWindowBlur: 24,
-      settingsMaskStrength: 80,
+      settingsMaskStrength: 55,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: true,
       sidebarFullClear: false,
-      titlebarGlass: false,
+      titlebarGlass: true,
       thinkingMode: 'glass',
       floaterSolidBase: true,
-      maskOcclusion: 12
+      maskOcclusion: 24
     }
   },
   {
@@ -226,7 +226,7 @@ export const FACTORY_GLASS_PRESETS = [
       chatGlassFidelity: 100,
       settingsWindowTransparency: 18,
       settingsWindowBlur: 36,
-      settingsMaskStrength: 85,
+      settingsMaskStrength: 60,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: true,
@@ -234,7 +234,7 @@ export const FACTORY_GLASS_PRESETS = [
       titlebarGlass: true,
       thinkingMode: 'glass',
       floaterSolidBase: true,
-      maskOcclusion: 16
+      maskOcclusion: 28
     }
   },
   {
@@ -244,7 +244,7 @@ export const FACTORY_GLASS_PRESETS = [
     nameEn: 'High Readability',
     values: {
       glassEnabled: true,
-      panelGlass: 38,
+      panelGlass: 35,
       bubbleOpacity: 82,
       composerFrost: 30,
       surfaceFrost: 28,
@@ -257,7 +257,7 @@ export const FACTORY_GLASS_PRESETS = [
       chatGlassFidelity: 100,
       settingsWindowTransparency: 12,
       settingsWindowBlur: 28,
-      settingsMaskStrength: 90,
+      settingsMaskStrength: 65,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: true,
@@ -265,7 +265,7 @@ export const FACTORY_GLASS_PRESETS = [
       titlebarGlass: true,
       thinkingMode: 'native',
       floaterSolidBase: true,
-      maskOcclusion: 22
+      maskOcclusion: 34
     }
   },
   {
@@ -288,7 +288,7 @@ export const FACTORY_GLASS_PRESETS = [
       chatGlassFidelity: 78,
       settingsWindowTransparency: 32,
       settingsWindowBlur: 20,
-      settingsMaskStrength: 65,
+      settingsMaskStrength: 45,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: false,
@@ -296,7 +296,7 @@ export const FACTORY_GLASS_PRESETS = [
       titlebarGlass: false,
       thinkingMode: 'off',
       floaterSolidBase: true,
-      maskOcclusion: 8
+      maskOcclusion: 18
     }
   },
   {
@@ -319,16 +319,16 @@ export const FACTORY_GLASS_PRESETS = [
       chatGlassFidelity: 95,
       settingsWindowTransparency: 22,
       settingsWindowBlur: 26,
-      settingsMaskStrength: 80,
+      settingsMaskStrength: 55,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: true,
       sidebarFullClear: false,
-      titlebarGlass: false,
+      titlebarGlass: true,
       thinkingMode: 'glass',
       floaterSolidBase: true,
       accent: '#4f8cff',
-      maskOcclusion: 12
+      maskOcclusion: 24
     }
   }
 ]

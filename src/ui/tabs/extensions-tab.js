@@ -32,31 +32,33 @@ export function renderExtensionsTab(store) {
       switchRow({
         label: t('fxEnabled'),
         checked: Boolean(config.fxEnabled),
-        onChange: v => void store.updateConfig({ fxEnabled: v })
+        onChange: v => void store.updateConfig({ fxEnabled: v }, { rerender: false })
       }),
       switchRow({
         label: t('fxClick'),
         checked: config.fxClick !== false,
-        onChange: v => void store.updateConfig({ fxClick: v })
+        onChange: v => void store.updateConfig({ fxClick: v }, { rerender: false })
       }),
       segRow({
         label: t('fxClickStyle'),
         value: config.fxClickStyle || 'ripple',
+        syncActive: true,
         items: FX_CLICK_STYLES.map(id => ({ id, label: clickLabel[id] || id })),
-        onPick: id => void store.updateConfig({ fxClickStyle: id })
+        onPick: id => void store.updateConfig({ fxClickStyle: id }, { rerender: false })
       }),
       configSlider(store, 'fxClickSize', t('fxClickSize')),
       configSlider(store, 'fxClickGlow', t('fxClickGlow')),
       switchRow({
         label: t('fxTrail'),
         checked: config.fxTrail !== false,
-        onChange: v => void store.updateConfig({ fxTrail: v })
+        onChange: v => void store.updateConfig({ fxTrail: v }, { rerender: false })
       }),
       segRow({
         label: t('fxTrailStyle'),
         value: config.fxTrailStyle || 'comet',
+        syncActive: true,
         items: FX_TRAIL_STYLES.map(id => ({ id, label: trailLabel[id] || id })),
-        onPick: id => void store.updateConfig({ fxTrailStyle: id })
+        onPick: id => void store.updateConfig({ fxTrailStyle: id }, { rerender: false })
       }),
       configSlider(store, 'fxTrailLength', t('fxTrailLength')),
       configSlider(store, 'fxTrailWidth', t('fxTrailWidth')),
@@ -66,7 +68,7 @@ export function renderExtensionsTab(store) {
         label: t('fxBlend'),
         value: config.fxBlend || 'screen',
         options: FX_BLEND_VALUES.map(v => ({ value: v, label: blendLabel[v] || v })),
-        onChange: v => void store.updateConfig({ fxBlend: v })
+        onChange: v => void store.updateConfig({ fxBlend: v }, { rerender: false })
       }),
       segRow({
         label: t('fxColorMode'),
@@ -79,7 +81,7 @@ export function renderExtensionsTab(store) {
         presets: ACCENT_PRESETS,
         value: config.fxColor || '#4f8cff',
         colorValue: config.fxColor || '#4f8cff',
-        onPick: (c, defer) => void store.updateConfig({ fxColor: c }, { defer, rerender: !defer })
+        onPick: (c, defer) => void store.updateConfig({ fxColor: c }, { defer, rerender: false })
       }) : null
     ),
 
@@ -93,14 +95,14 @@ export function renderExtensionsTab(store) {
       switchRow({
         label: t('parallaxEnabled'),
         checked: Boolean(config.parallaxEnabled),
-        onChange: v => void store.updateConfig({ parallaxEnabled: v })
+        onChange: v => void store.updateConfig({ parallaxEnabled: v }, { rerender: false })
       }),
       configSlider(store, 'parallaxBg', t('parallaxBgDepth'), { step: 0.1 }),
       configSlider(store, 'parallaxSmooth', t('parallaxSmooth')),
       switchRow({
         label: t('parallaxUi'),
         checked: Boolean(config.parallaxUi),
-        onChange: v => void store.updateConfig({ parallaxUi: v })
+        onChange: v => void store.updateConfig({ parallaxUi: v }, { rerender: false })
       }),
       configSlider(store, 'parallaxUiChatDepth', t('parallaxUiChat'), { step: 0.1 }),
       configSlider(store, 'parallaxUiComposerDepth', t('parallaxUiComposer'), { step: 0.1 }),
@@ -110,7 +112,7 @@ export function renderExtensionsTab(store) {
         switchRow({
           label: isZh ? '联动扩展槽位视差 ([data-slot])' : 'Follow extension UI slots ([data-slot])',
           checked: Boolean(config.parallaxPlugin),
-          onChange: v => void store.updateConfig({ parallaxPlugin: v })
+          onChange: v => void store.updateConfig({ parallaxPlugin: v }, { rerender: false })
         }),
         el('button', {
           type: 'button',
@@ -131,12 +133,14 @@ export function renderExtensionsTab(store) {
         defaultValue: 1,
         value: config.parallaxPluginDepths?.[slot] ?? 1,
         onChange: v => {
-          const next = { ...(config.parallaxPluginDepths || {}), [slot]: v }
+          const cur = store.state.config?.parallaxPluginDepths || {}
+          const next = { ...cur, [slot]: v }
           void store.updateConfig({ parallaxPluginDepths: next }, { defer: true, rerender: false })
         },
         onCommit: v => {
-          const next = { ...(config.parallaxPluginDepths || {}), [slot]: v }
-          void store.updateConfig({ parallaxPluginDepths: next })
+          const cur = store.state.config?.parallaxPluginDepths || {}
+          const next = { ...cur, [slot]: v }
+          void store.updateConfig({ parallaxPluginDepths: next }, { defer: false, rerender: false })
         }
       })) : el('div', { className: 'we-picker__hint' }, isZh ? '当前工作台未发现额外 [data-slot] 扩展面板。' : 'No extra [data-slot] panels detected right now.')
     )

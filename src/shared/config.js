@@ -38,7 +38,7 @@ export const COMPONENT_FONT_TARGETS = [
 ]
 
 export const DEFAULT_CONFIG = {
-  schemaVersion: 8,
+  schemaVersion: 9,
 
   wallpaperEnabled: false,
   wallpaperPaused: false,
@@ -48,8 +48,8 @@ export const DEFAULT_CONFIG = {
   wallpaperFit: 'cover',
   wallpaperSource: '',
   wallpaperBlur: 0,
-  maskOcclusion: 12,
-  wallpaperOpacity: 100,
+  maskOcclusion: 24,
+  wallpaperOpacity: 38,
   backgroundBrightness: 100,
   backgroundContrast: 100,
   backgroundSaturate: 100,
@@ -139,10 +139,10 @@ export const DEFAULT_CONFIG = {
   layerScale: 100,
 
   glassEnabled: true,
-  panelGlass: 72,
-  bubbleOpacity: 62,
+  panelGlass: 68,
+  bubbleOpacity: 65,
   composerFrost: 22,
-  surfaceFrost: 18,
+  surfaceFrost: 20,
   glassSaturation: 175,
   glassBorder: 32,
   glassHighlight: true,
@@ -150,9 +150,9 @@ export const DEFAULT_CONFIG = {
   glassDarkSeparate: true,
   glassFidelity: 100,
   chatGlassFidelity: 100,
-  settingsWindowTransparency: 24,
+  settingsWindowTransparency: 18,
   settingsWindowBlur: 24,
-  settingsMaskStrength: 80,
+  settingsMaskStrength: 55,
   sidebarGlass: true,
   sidebarFollowGlobal: true,
   sidebarBlur: 18,
@@ -170,7 +170,7 @@ export const DEFAULT_CONFIG = {
   rightSidebarSquareTR: false,
   rightSidebarSquareBR: false,
   rightSidebarSquareBL: false,
-  titlebarGlass: false,
+  titlebarGlass: true,
   thinkingMode: 'glass',
   floaterSolidBase: true,
 
@@ -513,9 +513,10 @@ export function normalizeConfig(value) {
   const rawSchemaNum = Number(raw.schemaVersion) || 0
   const hasRawKeys = Object.keys(raw).length > 0
   const fromPreV8 = rawSchemaNum > 0 && rawSchemaNum < 8
+  const fromPreV9 = rawSchemaNum > 0 && rawSchemaNum < 9
   const untouchedV7Glass = fromPreV8 && raw.panelGlass === 65 && raw.surfaceFrost === 8 && raw.composerFrost === 10
 
-  const schemaVersion = Math.max(8, rawSchemaNum)
+  const schemaVersion = Math.max(9, rawSchemaNum)
   const rotationGroups = normalizeRotationGroups(raw.rotationGroups)
   const rotationGroupId = rotationGroups.some(group => group.id === raw.rotationGroupId)
     ? raw.rotationGroupId : ''
@@ -582,7 +583,15 @@ export function normalizeConfig(value) {
     : paramInRange('glassBorder', dshBorder)
   const titlebarGlassVal = untouchedV7Glass
     ? DEFAULT_CONFIG.titlebarGlass
-    : (typeof raw.titlebarGlass === 'boolean' ? raw.titlebarGlass : DEFAULT_CONFIG.titlebarGlass)
+    : (fromPreV9 && raw.titlebarGlass === false && (!raw.activePresetId || raw.activePresetId === 'factory-default'))
+      ? true
+      : (typeof raw.titlebarGlass === 'boolean' ? raw.titlebarGlass : DEFAULT_CONFIG.titlebarGlass)
+  const maskOcclusionVal = (fromPreV9 && (dshOcclusion === undefined || Number(dshOcclusion) <= 16))
+    ? DEFAULT_CONFIG.maskOcclusion
+    : paramInRange('maskOcclusion', dshOcclusion)
+  const wallpaperOpacityVal = (fromPreV9 && (raw.wallpaperOpacity === undefined || Number(raw.wallpaperOpacity) >= 95))
+    ? DEFAULT_CONFIG.wallpaperOpacity
+    : paramInRange('wallpaperOpacity', raw.wallpaperOpacity)
   const glassDarkSeparateVal = untouchedV7Glass
     ? DEFAULT_CONFIG.glassDarkSeparate
     : (typeof raw.glassDarkSeparate === 'boolean' ? raw.glassDarkSeparate : DEFAULT_CONFIG.glassDarkSeparate)
@@ -604,8 +613,8 @@ export function normalizeConfig(value) {
     wallpaperFit: fit,
     wallpaperSource: text(raw.wallpaperSource, 16384),
     wallpaperBlur: paramInRange('wallpaperBlur', raw.wallpaperBlur),
-    maskOcclusion: paramInRange('maskOcclusion', dshOcclusion),
-    wallpaperOpacity: paramInRange('wallpaperOpacity', raw.wallpaperOpacity),
+    maskOcclusion: maskOcclusionVal,
+    wallpaperOpacity: wallpaperOpacityVal,
     backgroundBrightness: paramInRange('backgroundBrightness', raw.backgroundBrightness),
     backgroundContrast: paramInRange('backgroundContrast', raw.backgroundContrast),
     backgroundSaturate: paramInRange('backgroundSaturate', raw.backgroundSaturate),

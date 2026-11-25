@@ -20,15 +20,16 @@ export function renderSystemTab(store) {
       segRow({
         label: isZh ? '壁纸库卡片排布' : 'Library card style',
         value: config.pickerLayout || 'fixed',
+        syncActive: true,
         items: [
           { id: 'fixed', label: isZh ? '常规网格' : 'Fixed Grid' },
           { id: 'classic', label: isZh ? 'CD 架叠放' : 'CD Rack' }
         ],
-        onPick: id => void store.updateConfig({ pickerLayout: id })
+        onPick: id => void store.updateConfig({ pickerLayout: id }, { rerender: false })
       }),
       selectRow({
         label: isZh ? '插件内部界面语言' : 'Inner UI language',
-        hint: isZh ? '注：Antigravity Settings 左侧菜单条目始终保持英文 "Wallpaper Engine"。' : 'Note: Antigravity Settings left nav label always stays English "Wallpaper Engine".',
+        hint: isZh ? '注：Antigravity Settings 左侧菜单条目始终保持英文 "Wallpaper"。' : 'Note: Antigravity Settings left nav label always stays English "Wallpaper".',
         value: config.uiLanguage || 'zh',
         options: [
           { value: 'zh', label: '简体中文（推荐）' },
@@ -45,13 +46,13 @@ export function renderSystemTab(store) {
         label: t('browserHoleCutout'),
         hint: t('browserHoleCutoutDesc'),
         checked: config.browserHoleCutout !== false,
-        onChange: v => void store.updateConfig({ browserHoleCutout: v })
+        onChange: v => void store.updateConfig({ browserHoleCutout: v }, { rerender: false })
       }),
       switchRow({
         label: t('studioShortcut'),
         hint: t('studioShortcutDesc'),
         checked: config.studioShortcut !== false,
-        onChange: v => void store.updateConfig({ studioShortcut: v })
+        onChange: v => void store.updateConfig({ studioShortcut: v }, { rerender: false })
       }),
       el('div', { className: 'we-picker__ctl' },
         el('div', { className: 'we-picker__ctl-text' },
@@ -92,23 +93,23 @@ export function renderSystemTab(store) {
       switchRow({
         label: t('pauseOnHidden'),
         checked: config.pauseOnHidden !== false,
-        onChange: v => void store.updateConfig({ pauseOnHidden: v })
+        onChange: v => void store.updateConfig({ pauseOnHidden: v }, { rerender: false })
       }),
       switchRow({
         label: t('pauseOnBlur'),
         checked: Boolean(config.pauseOnBlur),
-        onChange: v => void store.updateConfig({ pauseOnBlur: v })
+        onChange: v => void store.updateConfig({ pauseOnBlur: v }, { rerender: false })
       }),
       switchRow({
         label: t('pauseOnBattery'),
         checked: Boolean(config.pauseOnBattery),
-        onChange: v => void store.updateConfig({ pauseOnBattery: v })
+        onChange: v => void store.updateConfig({ pauseOnBattery: v }, { rerender: false })
       }),
       switchRow({
         label: t('startPaused'),
         hint: isZh ? '开启后每次冷启动时默认暂停动态渲染，按需再播放。' : 'Start wallpaper paused after each cold launch.',
         checked: Boolean(config.startPaused),
-        onChange: v => void store.updateConfig({ startPaused: v })
+        onChange: v => void store.updateConfig({ startPaused: v }, { rerender: false })
       })
     ),
 

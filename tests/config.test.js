@@ -2,10 +2,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { DEFAULT_CONFIG, normalizeConfig, paramInRange, PARAM_RANGES } from '../src/shared/config.js'
 
-test('normalizeConfig returns schema v8 defaults', () => {
+test('normalizeConfig returns schema v9 defaults with readable wallpaper opacity', () => {
   const cfg = normalizeConfig({})
-  assert.equal(cfg.schemaVersion, 8)
+  assert.equal(cfg.schemaVersion, 9)
   assert.equal(cfg.wallpaperEnabled, false)
+  assert.equal(cfg.wallpaperOpacity, 38)
+  assert.equal(cfg.maskOcclusion, 24)
+  assert.equal(cfg.titlebarGlass, true)
+  assert.equal(cfg.panelGlass, 68)
   assert.equal(cfg.glassEnabled, true)
   assert.equal(cfg.browserHoleCutout, true)
   assert.equal(cfg.studioShortcut, true)
@@ -16,24 +20,29 @@ test('normalizeConfig returns schema v8 defaults', () => {
   assert.equal(cfg.bubbleOpacity, DEFAULT_CONFIG.bubbleOpacity)
 })
 
-test('normalizeConfig clamps ranges and migrates legacy transitions, fontFamily & dsh preset keys', () => {
+test('normalizeConfig clamps ranges, migrates pre-v9 unreadable defaults, transitions, fontFamily & dsh preset keys', () => {
   const cfg = normalizeConfig({
     schemaVersion: 3,
     bubbleOpacity: 100,
     wallpaperTransition: 'slide',
     wallpaperBlur: 999,
     panelGlass: -20,
+    wallpaperOpacity: 100,
+    maskOcclusion: 12,
+    titlebarGlass: false,
     fontFamily: 'Fira Code',
     fxTrailStyle: 'sparkle',
     thinkingNative: true,
     blur: 32,
     border: 0.45,
-    scrim: 0.25,
     flip: true,
     weRoots: ['C:\\Steam\\workshop', 'relative/bad', 'C:\\Steam\\workshop']
   })
-  assert.equal(cfg.schemaVersion, 8)
-  assert.equal(cfg.bubbleOpacity, 62)
+  assert.equal(cfg.schemaVersion, 9)
+  assert.equal(cfg.bubbleOpacity, 65)
+  assert.equal(cfg.wallpaperOpacity, 38)
+  assert.equal(cfg.maskOcclusion, 24)
+  assert.equal(cfg.titlebarGlass, true)
   assert.equal(cfg.wallpaperTransition, 'push')
   assert.equal(cfg.wallpaperBlur, PARAM_RANGES.wallpaperBlur.max)
   assert.equal(cfg.panelGlass, PARAM_RANGES.panelGlass.min)
@@ -42,13 +51,20 @@ test('normalizeConfig clamps ranges and migrates legacy transitions, fontFamily 
   assert.equal(cfg.thinkingMode, 'native')
   assert.equal(cfg.surfaceFrost, 32)
   assert.equal(cfg.glassBorder, 45)
-  assert.equal(cfg.maskOcclusion, 25)
   assert.equal(cfg.wallpaperFlip, true)
   assert.deepEqual(cfg.weRoots, ['C:\\Steam\\workshop'])
 
-  const cfgDshAlpha = normalizeConfig({ glassAlpha: 55, thinkingGlass: false })
-  assert.equal(cfgDshAlpha.panelGlass, 55)
-  assert.equal(cfgDshAlpha.thinkingMode, 'off')
+  const cfgCustomOpacity = normalizeConfig({
+    schemaVersion: 8,
+    wallpaperOpacity: 70,
+    maskOcclusion: 30,
+    scrim: 0.25,
+    glassAlpha: 55,
+    thinkingGlass: false
+  })
+  assert.equal(cfgCustomOpacity.wallpaperOpacity, 70)
+  assert.equal(cfgCustomOpacity.panelGlass, 55)
+  assert.equal(cfgCustomOpacity.thinkingMode, 'off')
 })
 
 test('normalizeConfig preserves rotationGroups, fontSets, userPresets (max 8, blocks factory-*), and web weSelection.file', () => {

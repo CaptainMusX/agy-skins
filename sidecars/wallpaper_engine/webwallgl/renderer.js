@@ -1,7 +1,7 @@
 /**
  * Antigravity WebWallGL renderer page.
  *
- * Adapted from elysia395/dsh-wallpaper-engine (MIT) and CaptainMusX/hermes-skins (MIT).
+ * Adapted from elysia395/dsh-wallpaper-engine (MIT).
  * Rendering engine: oneincase/webwallgl 3.0.1 (MIT).
  */
 if (!globalThis.WebWallGL) throw new Error('WebWallGL engine was not loaded')

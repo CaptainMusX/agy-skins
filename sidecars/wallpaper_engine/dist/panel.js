@@ -112,10 +112,10 @@ var FACTORY_GLASS_PRESETS = [
     nameEn: "Crystal Default",
     values: {
       glassEnabled: true,
-      panelGlass: 72,
-      bubbleOpacity: 62,
+      panelGlass: 68,
+      bubbleOpacity: 65,
       composerFrost: 22,
-      surfaceFrost: 18,
+      surfaceFrost: 20,
       glassSaturation: 175,
       glassBorder: 32,
       glassHighlight: true,
@@ -123,17 +123,17 @@ var FACTORY_GLASS_PRESETS = [
       glassDarkSeparate: true,
       glassFidelity: 100,
       chatGlassFidelity: 100,
-      settingsWindowTransparency: 24,
+      settingsWindowTransparency: 18,
       settingsWindowBlur: 24,
-      settingsMaskStrength: 80,
+      settingsMaskStrength: 55,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: true,
       sidebarFullClear: false,
-      titlebarGlass: false,
+      titlebarGlass: true,
       thinkingMode: "glass",
       floaterSolidBase: true,
-      maskOcclusion: 12
+      maskOcclusion: 24
     }
   },
   {
@@ -156,7 +156,7 @@ var FACTORY_GLASS_PRESETS = [
       chatGlassFidelity: 100,
       settingsWindowTransparency: 18,
       settingsWindowBlur: 36,
-      settingsMaskStrength: 85,
+      settingsMaskStrength: 60,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: true,
@@ -164,7 +164,7 @@ var FACTORY_GLASS_PRESETS = [
       titlebarGlass: true,
       thinkingMode: "glass",
       floaterSolidBase: true,
-      maskOcclusion: 16
+      maskOcclusion: 28
     }
   },
   {
@@ -174,7 +174,7 @@ var FACTORY_GLASS_PRESETS = [
     nameEn: "High Readability",
     values: {
       glassEnabled: true,
-      panelGlass: 38,
+      panelGlass: 35,
       bubbleOpacity: 82,
       composerFrost: 30,
       surfaceFrost: 28,
@@ -187,7 +187,7 @@ var FACTORY_GLASS_PRESETS = [
       chatGlassFidelity: 100,
       settingsWindowTransparency: 12,
       settingsWindowBlur: 28,
-      settingsMaskStrength: 90,
+      settingsMaskStrength: 65,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: true,
@@ -195,7 +195,7 @@ var FACTORY_GLASS_PRESETS = [
       titlebarGlass: true,
       thinkingMode: "native",
       floaterSolidBase: true,
-      maskOcclusion: 22
+      maskOcclusion: 34
     }
   },
   {
@@ -218,7 +218,7 @@ var FACTORY_GLASS_PRESETS = [
       chatGlassFidelity: 78,
       settingsWindowTransparency: 32,
       settingsWindowBlur: 20,
-      settingsMaskStrength: 65,
+      settingsMaskStrength: 45,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: false,
@@ -226,7 +226,7 @@ var FACTORY_GLASS_PRESETS = [
       titlebarGlass: false,
       thinkingMode: "off",
       floaterSolidBase: true,
-      maskOcclusion: 8
+      maskOcclusion: 18
     }
   },
   {
@@ -249,16 +249,16 @@ var FACTORY_GLASS_PRESETS = [
       chatGlassFidelity: 95,
       settingsWindowTransparency: 22,
       settingsWindowBlur: 26,
-      settingsMaskStrength: 80,
+      settingsMaskStrength: 55,
       sidebarGlass: true,
       sidebarFollowGlobal: true,
       leftSidebarGlass: true,
       sidebarFullClear: false,
-      titlebarGlass: false,
+      titlebarGlass: true,
       thinkingMode: "glass",
       floaterSolidBase: true,
       accent: "#4f8cff",
-      maskOcclusion: 12
+      maskOcclusion: 24
     }
   }
 ];
@@ -333,7 +333,7 @@ var COMPONENT_FONT_TARGETS = [
   { id: "table", label: "表格", labelEn: "Tables" }
 ];
 var DEFAULT_CONFIG = {
-  schemaVersion: 8,
+  schemaVersion: 9,
   wallpaperEnabled: false,
   wallpaperPaused: false,
   startPaused: false,
@@ -342,8 +342,8 @@ var DEFAULT_CONFIG = {
   wallpaperFit: "cover",
   wallpaperSource: "",
   wallpaperBlur: 0,
-  maskOcclusion: 12,
-  wallpaperOpacity: 100,
+  maskOcclusion: 24,
+  wallpaperOpacity: 38,
   backgroundBrightness: 100,
   backgroundContrast: 100,
   backgroundSaturate: 100,
@@ -424,10 +424,10 @@ var DEFAULT_CONFIG = {
   layerPositionY: 50,
   layerScale: 100,
   glassEnabled: true,
-  panelGlass: 72,
-  bubbleOpacity: 62,
+  panelGlass: 68,
+  bubbleOpacity: 65,
   composerFrost: 22,
-  surfaceFrost: 18,
+  surfaceFrost: 20,
   glassSaturation: 175,
   glassBorder: 32,
   glassHighlight: true,
@@ -435,9 +435,9 @@ var DEFAULT_CONFIG = {
   glassDarkSeparate: true,
   glassFidelity: 100,
   chatGlassFidelity: 100,
-  settingsWindowTransparency: 24,
+  settingsWindowTransparency: 18,
   settingsWindowBlur: 24,
-  settingsMaskStrength: 80,
+  settingsMaskStrength: 55,
   sidebarGlass: true,
   sidebarFollowGlobal: true,
   sidebarBlur: 18,
@@ -455,7 +455,7 @@ var DEFAULT_CONFIG = {
   rightSidebarSquareTR: false,
   rightSidebarSquareBR: false,
   rightSidebarSquareBL: false,
-  titlebarGlass: false,
+  titlebarGlass: true,
   thinkingMode: "glass",
   floaterSolidBase: true,
   glassMode: {
@@ -667,25 +667,39 @@ var WE_PICKER_CSS = `
 .we-picker {
   --we-accent: var(--we-accent-src, #4f8cff);
   --we-accent-ink: var(--we-accent-ink, #ffffff);
-  --we-ui-h: 30px;
+  --we-ui-h: 34px;
   --we-ui-radius: 8px;
   --we-ink: var(--foreground, #0f172a);
   --we-ink-2: var(--secondary-foreground, rgba(100, 110, 125, 0.92));
   --we-ink-3: var(--muted-foreground, rgba(120, 128, 140, 0.72));
   --we-border-line: rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.28));
-  --we-hover-bg: rgba(128, 128, 128, 0.12);
+  --we-hover-bg: var(--we-inner-2, rgba(128, 128, 128, 0.10));
   --we-ease: cubic-bezier(0.16, 1, 0.3, 1);
   --we-dur-fast: 120ms;
   --we-dur: 200ms;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  contain: layout style;
   color: var(--we-ink);
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 15.5px;
+  line-height: 1.5;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
+}
+.we-picker__body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.we-picker[data-we-embed="aux"] {
+  font-size: 14px;
+  line-height: 1.45;
+  gap: 12px;
+  --we-ui-h: 32px;
 }
 .we-picker *, .we-picker *::before, .we-picker *::after {
   box-sizing: border-box;
@@ -696,26 +710,33 @@ var WE_PICKER_CSS = `
 .we-picker__card-head {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  padding-bottom: 10px;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--we-border-line);
 }
 .we-picker__card-name {
-  font-size: 15px;
-  font-weight: 600;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 30px;
   color: var(--we-ink);
   white-space: nowrap;
 }
-.we-picker__card-badge {
-  font-size: 11px;
+.we-picker__head-badge {
+  position: static;
+  font-size: 12.5px;
   font-weight: 500;
   color: var(--we-ink-2);
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
+  border: 1px solid var(--we-border-line);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 .we-picker__card-desc {
   margin-left: auto;
-  font-size: 12px;
+  font-size: 14px;
   color: var(--we-ink-3);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -729,7 +750,7 @@ var WE_PICKER_CSS = `
   flex: 0 0 auto;
   padding: 3px;
   border-radius: 10px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.10));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
   border: 1px solid var(--we-border-line);
   overflow: hidden;
 }
@@ -739,10 +760,10 @@ var WE_PICKER_CSS = `
   left: 3px;
   bottom: 3px;
   border-radius: 8px;
-  background: var(--we-layer-3, rgba(255, 255, 255, 0.22));
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  background: var(--we-inner-3, rgba(255, 255, 255, 0.24));
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   transition: transform 220ms var(--we-ease), width 220ms var(--we-ease);
-  will-change: transform;
+  will-change: transform, width;
   pointer-events: none;
 }
 .we-tabs__tab {
@@ -750,15 +771,15 @@ var WE_PICKER_CSS = `
   z-index: 1;
   flex: 1 1 0;
   min-width: 0;
-  height: 28px;
-  padding: 0 4px;
+  height: 34px;
+  padding: 0 6px;
   border: 0;
   background: transparent;
   border-radius: 8px;
   cursor: pointer;
   white-space: nowrap;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1;
   color: var(--we-ink-2);
   transition: color var(--we-dur-fast) var(--we-ease), transform var(--we-dur-fast) var(--we-ease);
@@ -804,10 +825,10 @@ var WE_PICKER_CSS = `
   background: var(--we-hover-bg);
 }
 .we-picker__section-label {
-  font-size: 1.06em;
+  font-size: 16px;
   font-weight: 600;
-  letter-spacing: 0.02em;
-  color: var(--we-ink-2);
+  letter-spacing: 0.01em;
+  color: var(--we-ink);
 }
 .we-picker__section-caret {
   margin-left: auto;
@@ -850,11 +871,11 @@ var WE_PICKER_CSS = `
 .we-picker__current {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
+  gap: 14px;
+  padding: 12px 14px;
   border-radius: 12px;
   border: 1px solid var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.06));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-vinyl {
   position: relative;
@@ -864,6 +885,9 @@ var WE_PICKER_CSS = `
   border-radius: 50%;
   background: repeating-radial-gradient(circle at center, #191920 0 2px, #242530 2px 4px);
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.42), inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  will-change: transform;
+  transform: translateZ(0);
+  contain: layout paint;
   animation: we-vinyl-spin 8s linear infinite;
   animation-play-state: paused;
 }
@@ -918,7 +942,7 @@ var WE_PICKER_CSS = `
   min-width: 0;
 }
 .we-picker__current-title {
-  font-size: 0.95em;
+  font-size: 16px;
   font-weight: 600;
   color: var(--we-ink);
   overflow: hidden;
@@ -927,7 +951,7 @@ var WE_PICKER_CSS = `
 }
 .we-picker__current-meta {
   display: block;
-  font-size: 0.78em;
+  font-size: 13.5px;
   color: var(--we-ink-2);
   margin-top: 2px;
 }
@@ -944,32 +968,34 @@ var WE_PICKER_CSS = `
   gap: 8px;
 }
 
-/* Uniform Setting Row (32px touch height) */
+/* Uniform Setting Row (40px spacious touch height) */
 .we-picker__ctl {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 32px;
+  gap: 16px;
+  min-height: 40px;
 }
 .we-picker__ctl--wrap { flex-wrap: wrap; row-gap: 8px; }
 .we-picker__ctl--disabled { opacity: 0.45; pointer-events: none; }
 .we-picker__ctl-text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 2px;
   min-width: 0;
   flex: 1 1 auto;
 }
 .we-picker__ctl-label {
-  font-size: 0.88em;
+  font-size: 15.5px;
+  font-weight: 400;
   color: var(--we-ink);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .we-picker__ctl-hint {
-  font-size: 0.72em;
+  font-size: 13.5px;
+  line-height: 1.45;
   color: var(--we-ink-3);
   overflow-wrap: anywhere;
   max-width: 100%;
@@ -988,13 +1014,13 @@ var WE_PICKER_CSS = `
   justify-content: center;
   vertical-align: middle;
   height: var(--we-ui-h);
-  padding: 0 12px;
+  padding: 0 14px;
   border: 1px solid var(--we-border-line);
   border-radius: var(--we-ui-radius);
   background: transparent;
   color: var(--we-ink);
   font: inherit;
-  font-size: 0.82em;
+  font-size: 14px;
   line-height: 1;
   text-decoration: none;
   white-space: nowrap;
@@ -1002,7 +1028,7 @@ var WE_PICKER_CSS = `
   transition: background-color var(--we-dur-fast) var(--we-ease), border-color var(--we-dur-fast) var(--we-ease), color var(--we-dur-fast) var(--we-ease), transform var(--we-dur-fast) var(--we-ease);
 }
 .we-picker__btn:hover:not(:disabled) {
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.12));
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
 }
 .we-picker__btn:disabled { opacity: 0.45; cursor: default; }
 .we-picker__btn.is-on {
@@ -1041,16 +1067,16 @@ var WE_PICKER_CSS = `
   appearance: none;
   -webkit-appearance: none;
   height: var(--we-ui-h);
-  padding: 0 24px 0 8px;
+  padding: 0 26px 0 10px;
   border: 1px solid var(--we-border-line);
   border-radius: var(--we-ui-radius);
   background-color: transparent;
   background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M1 1l3 3 3-3' fill='none' stroke='%23888' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
-  background-position: right 8px center;
+  background-position: right 9px center;
   color: var(--we-ink);
   font: inherit;
-  font-size: 0.82em;
+  font-size: 14px;
   cursor: pointer;
   max-width: 100%;
 }
@@ -1062,13 +1088,13 @@ var WE_PICKER_CSS = `
 
 .we-picker__text {
   height: var(--we-ui-h);
-  padding: 0 9px;
+  padding: 0 10px;
   border: 1px solid var(--we-border-line);
   border-radius: var(--we-ui-radius);
   background: transparent;
   color: var(--we-ink);
   font: inherit;
-  font-size: 0.82em;
+  font-size: 14px;
   flex: 1;
   min-width: 0;
 }
@@ -1088,10 +1114,10 @@ var WE_PICKER_CSS = `
 .we-picker__seg--corners-eq { grid-auto-columns: minmax(max-content, 1fr); }
 .we-picker__seg--chips { display: flex; flex-wrap: wrap; justify-content: flex-start; gap: 6px; }
 .we-picker__rate {
-  min-width: 52px;
+  min-width: 58px;
   height: var(--we-ui-h);
-  padding: 0 10px;
-  font-size: 0.78em;
+  padding: 0 12px;
+  font-size: 13.5px;
   color: var(--we-ink-2);
 }
 .we-picker__rate--active {
@@ -1116,10 +1142,10 @@ var WE_PICKER_CSS = `
 }
 .we-picker__switch-track {
   position: relative;
-  width: 36px;
-  height: 20px;
+  width: 40px;
+  height: 22px;
   border-radius: 999px;
-  background: var(--we-layer-3, rgba(128, 128, 128, 0.35));
+  background: var(--we-inner-3, rgba(128, 128, 128, 0.28));
   border: 1px solid var(--we-border-line);
   transition: background-color 180ms var(--we-ease), border-color 180ms var(--we-ease);
   box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.14);
@@ -1132,30 +1158,30 @@ var WE_PICKER_CSS = `
   position: absolute;
   left: 2px;
   top: 2px;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
   transition: transform 180ms var(--we-ease);
 }
 .we-picker__switch input:checked + .we-picker__switch-track .we-picker__switch-thumb {
-  transform: translateX(16px);
+  transform: translateX(18px);
 }
 
 /* Range Sliders */
 .we-picker__slider-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 28px;
+  gap: 12px;
+  min-height: 36px;
 }
 .we-picker__label {
-  min-width: 90px;
-  max-width: 170px;
+  min-width: 118px;
+  max-width: 220px;
   flex: 0 0 auto;
   color: var(--we-ink);
-  font-size: 0.85em;
+  font-size: 15.5px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1180,9 +1206,9 @@ var WE_PICKER_CSS = `
 .we-picker__slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 15px;
-  height: 15px;
-  margin-top: -5.5px;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
   border-radius: 50%;
   background: #ffffff;
   border: 2px solid var(--we-accent);
@@ -1191,14 +1217,14 @@ var WE_PICKER_CSS = `
 }
 .we-picker__slider:hover::-webkit-slider-thumb { transform: scale(1.12); }
 .we-picker__value {
-  min-width: 52px;
+  min-width: 60px;
   text-align: right;
   flex: 0 0 auto;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 999px;
-  font-size: 0.74em;
+  font-size: 13px;
   font-variant-numeric: tabular-nums;
-  background: var(--we-layer-2, rgba(128, 128, 128, 0.14));
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
   color: var(--we-ink-2);
   display: inline-flex;
   align-items: center;
@@ -1226,8 +1252,8 @@ var WE_PICKER_CSS = `
   flex: 1 0 100%;
 }
 .we-picker__swatch {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border-radius: 50%;
   border: 0;
@@ -1239,15 +1265,16 @@ var WE_PICKER_CSS = `
 .we-picker__swatch--active {
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.65),
-    0 0 0 2px var(--we-layer-2, rgba(128, 128, 128, 0.3)),
+    0 0 0 2px var(--we-inner-2, rgba(128, 128, 128, 0.25)),
     0 0 0 4px var(--we-accent);
 }
 .we-picker__swatch--auto {
   width: auto;
-  min-width: 34px;
-  padding: 0 7px;
+  height: 26px;
+  min-width: 42px;
+  padding: 0 10px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
   color: #1f2937;
   background: linear-gradient(135deg, #d1d5db 0 50%, #f9fafb 50% 100%);
@@ -1262,8 +1289,8 @@ var WE_PICKER_CSS = `
   cursor: pointer;
 }
 .we-picker__swatch-custom input[type="color"] {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   padding: 0;
   border: 0;
   border-radius: 50%;
@@ -1279,12 +1306,12 @@ var WE_PICKER_CSS = `
 /* Theme Preset 4-Col Grid */
 .we-picker__preset-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
-  gap: 6px;
-  padding: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--we-border-line);
   border-radius: 10px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.05));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-picker__preset-cell {
   display: flex;
@@ -1372,11 +1399,11 @@ var WE_PICKER_CSS = `
   justify-content: space-between;
   gap: 6px;
   height: var(--we-ui-h);
-  padding: 0 10px;
+  padding: 0 12px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: 13.5px;
   border: 1px solid var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.10));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
   color: var(--we-ink);
   white-space: nowrap;
 }
@@ -1413,21 +1440,21 @@ var WE_PICKER_CSS = `
 /* Grid: Fixed 16:9 & Classic CD-Rack */
 .we-picker__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(136px, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 10px;
   padding: 2px;
   overflow-x: clip;
 }
 .we-picker__card {
   position: relative;
-  height: 92px;
+  height: 98px;
   padding: 0;
   cursor: pointer;
   display: block;
   overflow: hidden;
   border: 1px solid var(--we-border-line);
   border-radius: 8px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.14));
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
   transition: border-color var(--we-dur-fast) ease, box-shadow var(--we-dur-fast) ease, transform var(--we-dur-fast) ease;
 }
 .we-picker__card img {
@@ -1559,26 +1586,26 @@ var WE_PICKER_CSS = `
 .we-picker__props, .we-picker__uploads, .we-picker__editor {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px;
+  gap: 10px;
+  padding: 12px;
   border-radius: 10px;
   border: 1px solid var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.05));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-picker__uploads-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  max-height: 160px;
+  gap: 6px;
+  max-height: 180px;
   overflow-y: auto;
 }
 .we-picker__uploads-item {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 8px;
+  padding: 6px 10px;
   border-radius: 6px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.08));
+  background: var(--we-inner-2, rgba(128, 128, 128, 0.10));
 }
 .we-picker__uploads-name, .we-picker__uploads-path {
   flex: 1;
@@ -1586,7 +1613,7 @@ var WE_PICKER_CSS = `
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 0.8em;
+  font-size: 13.5px;
 }
 .we-picker__font-table {
   width: 100%;
@@ -1595,12 +1622,12 @@ var WE_PICKER_CSS = `
 .we-picker__font-table th {
   font-weight: 500;
   text-align: left;
-  padding: 4px;
-  font-size: 12px;
+  padding: 6px;
+  font-size: 13.5px;
   color: var(--we-ink-3);
 }
 .we-picker__font-table td {
-  padding: 3px 4px;
+  padding: 4px 6px;
   vertical-align: middle;
 }
 .we-picker__font-table th:nth-child(n+2),
@@ -1613,32 +1640,32 @@ var WE_PICKER_CSS = `
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  padding: 8px 10px;
+  padding: 10px 12px;
   border-radius: 8px;
   border: 1px dashed var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.08));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-picker__empty {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
-  padding: 36px 16px;
+  gap: 12px;
+  padding: 40px 18px;
   text-align: center;
 }
 .we-picker__empty-title {
-  font-size: 0.96em;
+  font-size: 17px;
   font-weight: 600;
   color: var(--we-ink);
 }
-.we-picker__hint { font-size: 0.78em; color: var(--we-ink-3); }
+.we-picker__hint { font-size: 13.5px; line-height: 1.45; color: var(--we-ink-3); }
 .we-picker__toast {
   position: sticky;
   bottom: 8px;
   align-self: center;
-  padding: 6px 14px;
+  padding: 7px 16px;
   border-radius: 999px;
-  font-size: 0.8em;
+  font-size: 13.5px;
   background: var(--we-accent);
   color: var(--we-accent-ink, #ffffff);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
@@ -1646,42 +1673,42 @@ var WE_PICKER_CSS = `
 }
 
 /* Extension Module Cards & About */
-.we-ext { display: flex; flex-direction: column; gap: 10px; }
+.we-ext { display: flex; flex-direction: column; gap: 12px; }
 .we-ext__module {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 12px;
+  gap: 10px;
+  padding: 14px;
   border: 1px solid var(--we-border-line);
   border-radius: 12px;
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.06));
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
 }
 .we-ext__module-head { display: flex; align-items: center; gap: 8px; }
-.we-ext__module-title { font-size: 0.9em; font-weight: 600; color: var(--we-ink); }
-.we-about__lead { display: flex; flex-direction: column; gap: 8px; }
-.we-about__p { margin: 0; font-size: 0.82em; line-height: 1.65; color: var(--we-ink-2); }
+.we-ext__module-title { font-size: 16px; font-weight: 600; color: var(--we-ink); }
+.we-about__lead { display: flex; flex-direction: column; gap: 10px; }
+.we-about__p { margin: 0; font-size: 14.5px; line-height: 1.65; color: var(--we-ink-2); }
 .we-about__url {
   display: block;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border-radius: 8px;
   border: 1px dashed var(--we-border-line);
-  background: var(--we-layer-1, rgba(128, 128, 128, 0.08));
-  font-size: 0.8em;
+  background: var(--we-inner-1, rgba(128, 128, 128, 0.06));
+  font-size: 13.5px;
   color: var(--we-ink-2);
   user-select: text;
   word-break: break-all;
 }
 .we-log-pre {
   margin: 0;
-  padding: 10px;
+  padding: 12px;
   border-radius: 8px;
   border: 1px solid var(--we-border-line);
-  background: var(--we-layer-1, rgba(0, 0, 0, 0.14));
+  background: var(--we-inner-1, rgba(0, 0, 0, 0.08));
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.74em;
+  font-size: 13px;
   line-height: 1.5;
   white-space: pre-wrap;
-  max-height: 200px;
+  max-height: 220px;
   overflow: auto;
   color: var(--we-ink-2);
 }
@@ -1695,7 +1722,7 @@ var WE_PICKER_CSS = `
 `;
 
 // src/shared/i18n.js
-var SETTINGS_SIDEBAR_LABEL = "Wallpaper Engine";
+var SETTINGS_SIDEBAR_LABEL = "Wallpaper";
 var I18N_DICTIONARY = {
   en: {
     pluginName: "Wallpaper Engine",
@@ -1863,8 +1890,8 @@ var I18N_DICTIONARY = {
     speedFast: "Fast",
     speedNormal: "Normal",
     speedSlow: "Slow",
-    wallpaperOpacity: "Wallpaper Transparency",
-    wallpaperOpacityDesc: "Fades wallpaper toward theme base while keeping glass backdrop valid",
+    wallpaperOpacity: "Wallpaper Opacity",
+    wallpaperOpacityDesc: "Lower values make the wallpaper subtler so text stays crisp (default 38%)",
     pauseOnHidden: "Pause when minimized/hidden",
     pauseOnBlur: "Pause when unfocused",
     pauseOnBattery: "Pause on battery power",
@@ -2077,8 +2104,8 @@ var I18N_DICTIONARY = {
     speedFast: "快",
     speedNormal: "标准",
     speedSlow: "慢",
-    wallpaperOpacity: "壁纸透明度",
-    wallpaperOpacityDesc: "0% 为完全不透；调高向主题底色淡出以保持玻璃模糊不断裂",
+    wallpaperOpacity: "壁纸不透明度（浓度）",
+    wallpaperOpacityDesc: "数值越低壁纸越淡柔和、文字越清晰（默认 38%）",
     pauseOnHidden: "最小化/切页时暂停",
     pauseOnBlur: "窗口失焦时暂停",
     pauseOnBattery: "使用电池时暂停",
@@ -2247,6 +2274,10 @@ function createPanelStore({ getAuth = null, embed = "" } = {}) {
     fontAdvanced: false,
     armedConfirm: "",
     search: "",
+    openMenus: {
+      rating: false,
+      type: false
+    },
     sectionsOpen: {
       glassPresets: true,
       glassUi: true,
@@ -2258,8 +2289,18 @@ function createPanelStore({ getAuth = null, embed = "" } = {}) {
   };
   const listeners = /* @__PURE__ */ new Set();
   let deferFlushTimer = null;
+  let deferSendTimer = null;
+  let deferredPatch = null;
+  let pendingSyncTimer = null;
+  let mutationSeq = 0;
+  let interactingUntil = 0;
+  let initialLoading = false;
   const notify = () => {
     for (const fn of listeners) fn(state);
+  };
+  const markInteracting = (ms = 550) => {
+    const until = Date.now() + ms;
+    if (until > interactingUntil) interactingUntil = until;
   };
   const rpc = (action, body = {}) => callBackend(action, body, auth());
   const showToast = (message, kind = "info") => {
@@ -2284,17 +2325,24 @@ function createPanelStore({ getAuth = null, embed = "" } = {}) {
   );
   const isZh = () => getLang() === "zh";
   const loadInitial = async () => {
-    const data = await rpc("get-state");
-    if (data?.config) state.config = data.config;
-    if (Array.isArray(data?.weItems)) state.weItems = data.weItems;
-    if (data?.cdp) state.cdp = data.cdp;
-    if (data?.mediaOrigin) state.mediaOrigin = data.mediaOrigin;
-    if (data?.systemLocale) state.systemLocale = data.systemLocale;
-    notify();
-    if (!state.weItems.length || state.weItems.every((i) => !i.previewUrl && i.previewPath)) {
-      void rescanLibrary();
+    if (initialLoading) return;
+    initialLoading = true;
+    try {
+      const data = await rpc("get-state");
+      if (data?.config) state.config = data.config;
+      if (Array.isArray(data?.weItems)) state.weItems = data.weItems;
+      if (data?.cdp) state.cdp = data.cdp;
+      if (data?.mediaOrigin) state.mediaOrigin = data.mediaOrigin;
+      if (data?.systemLocale) state.systemLocale = data.systemLocale;
+      notify();
+      if (!state.weItems.length || state.weItems.every((i) => !i.previewUrl && i.previewPath)) {
+        void rescanLibrary();
+      }
+      void refreshSlots();
+    } catch {
+    } finally {
+      initialLoading = false;
     }
-    void refreshSlots();
   };
   const refreshSlots = async () => {
     if (typeof document !== "undefined") {
@@ -2319,27 +2367,61 @@ function createPanelStore({ getAuth = null, embed = "" } = {}) {
     }
     return state.discoveredSlots;
   };
+  const sendDeferredUpdate = async () => {
+    if (!deferredPatch) return;
+    const patchToSend = deferredPatch;
+    deferredPatch = null;
+    const seq = ++mutationSeq;
+    try {
+      const res = await rpc("update-config", { patch: patchToSend, defer: true });
+      if (res?.config && seq === mutationSeq) {
+        state.config = res.config;
+      }
+      if (deferFlushTimer) clearTimeout(deferFlushTimer);
+      deferFlushTimer = setTimeout(() => {
+        deferFlushTimer = null;
+        void rpc("flush-config").catch(() => {
+        });
+      }, 320);
+    } catch {
+    }
+  };
   const updateConfig = async (patch, { defer = false, rerender = true } = {}) => {
-    if (!state.config) return null;
+    if (!state.config || !patch || typeof patch !== "object") return null;
     state.config = { ...state.config, ...patch };
+    const handledInProcess = Boolean(globalThis.__agySkinsRuntime?.previewConfig?.(state.config));
+    if (defer) {
+      markInteracting(600);
+      deferredPatch = { ...deferredPatch || {}, ...patch };
+      if (rerender) notify();
+      if (handledInProcess) {
+        if (deferSendTimer) clearTimeout(deferSendTimer);
+        deferSendTimer = setTimeout(() => {
+          deferSendTimer = null;
+          void sendDeferredUpdate();
+        }, 260);
+      } else if (!deferSendTimer) {
+        deferSendTimer = setTimeout(() => {
+          deferSendTimer = null;
+          void sendDeferredUpdate();
+        }, 90);
+      }
+      return state.config;
+    }
+    const combinedPatch = deferredPatch ? { ...deferredPatch, ...patch } : patch;
+    deferredPatch = null;
+    if (deferSendTimer) {
+      clearTimeout(deferSendTimer);
+      deferSendTimer = null;
+    }
+    const seq = ++mutationSeq;
     if (rerender) notify();
     try {
-      const res = await rpc("update-config", { patch, defer });
-      if (res?.config) {
-        if (rerender) {
-          state.config = res.config;
-          notify();
-        } else {
-          state.config = res.config;
-        }
-      }
-      if (defer) {
-        if (deferFlushTimer) clearTimeout(deferFlushTimer);
-        deferFlushTimer = setTimeout(() => {
-          deferFlushTimer = null;
-          void rpc("flush-config").catch(() => {
-          });
-        }, 320);
+      const res = await rpc("update-config", { patch: combinedPatch, defer: false });
+      if (res?.config && seq === mutationSeq) {
+        const selChanged = JSON.stringify(state.config.weSelection) !== JSON.stringify(res.config.weSelection);
+        state.config = res.config;
+        if (rerender && selChanged) notify();
       }
     } catch (err) {
       if (rerender) showToast(String(err?.message || err), "warn");
@@ -2389,16 +2471,36 @@ function createPanelStore({ getAuth = null, embed = "" } = {}) {
   };
   const syncExternal = (payload) => {
     if (!payload) return;
+    if (!state.config && !initialLoading && auth()?.origin) {
+      void loadInitial();
+    }
     let changed = false;
-    if (payload.cdp) {
-      state.cdp = payload.cdp;
+    const nextCdp = payload.cdp;
+    if (nextCdp) {
+      const prev = state.cdp || {};
+      const cdpDiff = prev.state !== nextCdp.state || prev.port !== nextCdp.port || prev.targets !== nextCdp.targets || prev.shortcutState !== nextCdp.shortcutState || prev.canFixShortcut !== nextCdp.canFixShortcut;
+      if (cdpDiff) {
+        state.cdp = nextCdp;
+        if (state.tab === "advanced") changed = true;
+      }
+    }
+    const nextLocale = payload.systemLocale || "";
+    if (nextLocale && nextLocale !== state.systemLocale) {
+      state.systemLocale = nextLocale;
       changed = true;
     }
-    if (payload.systemLocale) {
-      state.systemLocale = payload.systemLocale;
-      changed = true;
+    if (!changed) return;
+    const waitMs = interactingUntil - Date.now();
+    if (waitMs > 0) {
+      if (!pendingSyncTimer) {
+        pendingSyncTimer = setTimeout(() => {
+          pendingSyncTimer = null;
+          if (Date.now() >= interactingUntil) notify();
+        }, waitMs + 40);
+      }
+      return;
     }
-    if (changed) notify();
+    notify();
   };
   return {
     state,
@@ -2408,6 +2510,7 @@ function createPanelStore({ getAuth = null, embed = "" } = {}) {
       return () => listeners.delete(fn);
     },
     notify,
+    markInteracting,
     showToast,
     getLang,
     getT,
@@ -2566,25 +2669,32 @@ function configSlider(store, cfgKey, label, opts = {}) {
     defaultValue: opts.defaultValue ?? DEFAULT_CONFIG[cfgKey],
     numberEdit: Boolean(opts.numberEdit),
     onChange: (v) => void store.updateConfig({ [cfgKey]: v }, { defer: true, rerender: false }),
-    onCommit: (v) => void store.updateConfig({ [cfgKey]: v }, { defer: false, rerender: opts.rerenderOnCommit === true })
+    onCommit: (v) => void store.updateConfig({ [cfgKey]: v }, { defer: false, rerender: false })
   });
 }
-function segRow({ label, hint = "", tooltip = "", items, value, onPick, chips = false, equalCorners = false }) {
+function segRow({ label, hint = "", tooltip = "", items, value, onPick, chips = false, equalCorners = false, syncActive = false }) {
   const segClass = `we-picker__seg${chips ? " we-picker__seg--chips" : ""}${equalCorners ? " we-picker__seg--corners-eq" : ""}`;
+  const btns = items.map((item) => el("button", {
+    type: "button",
+    dataset: { segId: String(item.id) },
+    className: `we-picker__btn we-picker__rate ${item.active !== void 0 ? item.active ? "we-picker__rate--active" : "" : value === item.id ? "we-picker__rate--active" : ""}`,
+    title: item.hint || "",
+    onClick: (e) => {
+      if (syncActive) {
+        if (item.active !== void 0) {
+          e.currentTarget.classList.toggle("we-picker__rate--active");
+        } else {
+          for (const b of btns) b.classList.toggle("we-picker__rate--active", b === e.currentTarget);
+        }
+      }
+      onPick?.(item.id);
+    }
+  }, item.label));
   return el(
     "div",
     { className: "we-picker__ctl we-picker__ctl--wrap" },
     ctlText(label, hint, tooltip),
-    el(
-      "div",
-      { className: segClass },
-      items.map((item) => el("button", {
-        type: "button",
-        className: `we-picker__btn we-picker__rate ${item.active !== void 0 ? item.active ? "we-picker__rate--active" : "" : value === item.id ? "we-picker__rate--active" : ""}`,
-        title: item.hint || "",
-        onClick: () => onPick?.(item.id)
-      }, item.label))
-    )
+    el("div", { className: segClass }, btns)
   );
 }
 function selectRow({ label, hint = "", tooltip = "", value, options, disabled = false, onChange }) {
@@ -2603,35 +2713,54 @@ function selectRow({ label, hint = "", tooltip = "", value, options, disabled = 
     }, opt.label)))
   );
 }
-function swatchRow({ label, hint = "", tooltip = "", presets, value, colorValue = "", onPick, autoBtn = null, disabled = false }) {
+function swatchRow({ label, hint = "", tooltip = "", presets, value, colorValue = "", onPick, autoBtn = null, disabled = false, syncActive = true }) {
   const norm = String(value || "").toLowerCase();
   const hexVal = /^#[0-9a-f]{6}$/i.test(colorValue || value || "") ? colorValue || value : "#4f8cff";
+  const wrap = el("div", { className: "we-picker__swatches" });
+  const updateActiveRing = (activeNode) => {
+    if (!syncActive) return;
+    for (const child of wrap.querySelectorAll(".we-picker__swatch")) {
+      child.classList.toggle("we-picker__swatch--active", child === activeNode);
+    }
+  };
+  const btns = presets.map((c) => el("button", {
+    type: "button",
+    className: `we-picker__swatch ${norm === c.toLowerCase() ? "we-picker__swatch--active" : ""}`,
+    style: { backgroundColor: c },
+    title: c,
+    onClick: (e) => {
+      updateActiveRing(e.currentTarget);
+      onPick?.(c, false);
+    }
+  }));
+  if (autoBtn) {
+    autoBtn.addEventListener("click", () => updateActiveRing(autoBtn));
+    wrap.appendChild(autoBtn);
+  }
+  for (const b of btns) wrap.appendChild(b);
+  wrap.appendChild(
+    el(
+      "label",
+      { className: "we-picker__swatch-custom", title: "自定义颜色" },
+      el("input", {
+        type: "color",
+        value: hexVal,
+        onInput: (e) => {
+          updateActiveRing(null);
+          onPick?.(e.target.value, true);
+        },
+        onChange: (e) => {
+          updateActiveRing(null);
+          onPick?.(e.target.value, false);
+        }
+      })
+    )
+  );
   return el(
     "div",
     { className: `we-picker__ctl we-picker__ctl--wrap ${disabled ? "we-picker__ctl--disabled" : ""}` },
     ctlText(label, hint, tooltip),
-    el(
-      "div",
-      { className: "we-picker__swatches" },
-      autoBtn,
-      presets.map((c) => el("button", {
-        type: "button",
-        className: `we-picker__swatch ${norm === c.toLowerCase() ? "we-picker__swatch--active" : ""}`,
-        style: { backgroundColor: c },
-        title: c,
-        onClick: () => onPick?.(c, false)
-      })),
-      el(
-        "label",
-        { className: "we-picker__swatch-custom", title: "自定义颜色" },
-        el("input", {
-          type: "color",
-          value: hexVal,
-          onInput: (e) => onPick?.(e.target.value, true),
-          onChange: (e) => onPick?.(e.target.value, false)
-        })
-      )
-    )
+    wrap
   );
 }
 function renderConfirmRow({ armedToken, token, question, confirmLabel = "确认", cancelLabel = "取消", onConfirm, onCancel, danger = false }) {
@@ -2801,7 +2930,7 @@ function renderPropsEditor(store) {
           value: Number.isFinite(Number(curVal)) ? Number(curVal) : min,
           defaultValue: prop.default ?? min,
           onChange: (v) => setProp(v, { rerender: false }),
-          onCommit: (v) => setProp(v, { rerender: true })
+          onCommit: (v) => setProp(v, { rerender: false })
         });
       }
       return el(
@@ -2829,11 +2958,14 @@ function renderPickerModal(store) {
   const ratingSet = new Set(config.contentRatingFilter || ["everyone"]);
   const showHidden = store.state.modalView === "hidden";
   const draftSet = isDraft ? new Set(store.state.editingGroup.wallpaperIds || []) : null;
+  if (!store.state.openMenus) store.state.openMenus = { rating: false, type: false };
   const baseMatchesSearchAndList = (item) => {
-    if (showHidden !== hiddenSet.has(item.id)) return false;
-    if (config.folderFilter && config.folderFilter !== "all" && item.libraryRoot !== config.folderFilter) return false;
-    if (config.orientationFilter === "landscape" && item.width > 0 && item.height > 0 && item.width < item.height) return false;
-    if (config.orientationFilter === "portrait" && item.width > 0 && item.height > 0 && item.height <= item.width) return false;
+    const curCfg = store.state.config || config;
+    const curHidden = new Set(curCfg.hiddenWallpaperIds || []);
+    if (showHidden !== curHidden.has(item.id)) return false;
+    if (curCfg.folderFilter && curCfg.folderFilter !== "all" && item.libraryRoot !== curCfg.folderFilter) return false;
+    if (curCfg.orientationFilter === "landscape" && item.width > 0 && item.height > 0 && item.width < item.height) return false;
+    if (curCfg.orientationFilter === "portrait" && item.width > 0 && item.height > 0 && item.height <= item.width) return false;
     const q = String(store.state.search || "").trim().toLowerCase();
     if (q) {
       const titleHit = String(item.title || "").toLowerCase().includes(q);
@@ -2842,7 +2974,10 @@ function renderPickerModal(store) {
     }
     return true;
   };
-  const filterItems = () => weItems.filter((item) => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(item.contentrating || "everyone")).sort((a, b) => config.sortOrder === "title" ? String(a.title || "").localeCompare(String(b.title || ""), void 0, { sensitivity: "base" }) : (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0));
+  const filterItems = () => {
+    const curCfg = store.state.config || config;
+    return weItems.filter((item) => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(item.contentrating || "everyone")).sort((a, b) => curCfg.sortOrder === "title" ? String(a.title || "").localeCompare(String(b.title || ""), void 0, { sensitivity: "base" }) : (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0));
+  };
   const ratingCounts = {};
   const typeCounts = {};
   for (const item of weItems) {
@@ -2856,30 +2991,53 @@ function renderPickerModal(store) {
   const folders = [...new Set(weItems.map((i) => i.libraryRoot).filter(Boolean))];
   const batchSet = new Set(store.state.batchSelected);
   const gridHost = el("div", { className: "we-picker__grid" });
-  const toggleMultiFilter = (field, allowed, value) => {
-    const next = new Set(config[field] || allowed);
-    if (next.has(value)) {
-      if (next.size > 1) next.delete(value);
+  const ratingSummary = el(
+    "summary",
+    { className: "we-picker__rating-btn" },
+    isZh ? `分级 · ${ratingSet.size}/4 ▾` : `Rating · ${ratingSet.size}/4 ▾`
+  );
+  const typeSummary = el(
+    "summary",
+    { className: "we-picker__rating-btn" },
+    isZh ? `类型 · ${typeSet.size}/4 ▾` : `Type · ${typeSet.size}/4 ▾`
+  );
+  const toggleMultiFilter = (field, value, inputEl) => {
+    const targetSet = field === "contentRatingFilter" ? ratingSet : typeSet;
+    if (targetSet.has(value)) {
+      if (targetSet.size <= 1) {
+        if (inputEl) inputEl.checked = true;
+        return;
+      }
+      targetSet.delete(value);
     } else {
-      next.add(value);
+      targetSet.add(value);
     }
-    void store.updateConfig({ [field]: [...next] });
+    if (field === "contentRatingFilter") {
+      ratingSummary.textContent = isZh ? `分级 · ${targetSet.size}/4 ▾` : `Rating · ${targetSet.size}/4 ▾`;
+    } else {
+      typeSummary.textContent = isZh ? `类型 · ${targetSet.size}/4 ▾` : `Type · ${targetSet.size}/4 ▾`;
+    }
+    renderGridCards();
+    void store.updateConfig({ [field]: [...targetSet] }, { rerender: false });
   };
   const renderGridCards = () => {
+    const cfg = store.state.config || config;
     gridHost.innerHTML = "";
     const filtered = filterItems();
     if (!isDraft && !showHidden) {
-      const canResume = !config.wallpaperEnabled && Boolean(config.wallpaperSource || config.weSelection);
-      const label = config.wallpaperPaused ? isZh ? "▶ 播放" : "▶ Play" : config.wallpaperEnabled ? t("closeCard") : canResume ? isZh ? "▶ 播放" : "▶ Play" : isZh ? "✕ 关闭" : "✕ Off";
+      const canResume = !cfg.wallpaperEnabled && Boolean(cfg.wallpaperSource || cfg.weSelection);
+      const label = cfg.wallpaperPaused ? isZh ? "▶ 播放" : "▶ Play" : cfg.wallpaperEnabled ? t("closeCard") : canResume ? isZh ? "▶ 播放" : "▶ Play" : isZh ? "✕ 关闭" : "✕ Off";
       gridHost.appendChild(el("div", {
         className: "we-picker__card",
         role: "button",
         tabIndex: 0,
         title: isZh ? "开关或恢复当前壁纸" : "Toggle active wallpaper",
         onClick: () => {
-          if (config.wallpaperPaused) void store.updateConfig({ wallpaperPaused: false });
-          else if (config.wallpaperEnabled) void store.updateConfig({ wallpaperEnabled: false });
-          else if (canResume) void store.updateConfig({ wallpaperEnabled: true, wallpaperPaused: false });
+          const cur = store.state.config || cfg;
+          const canCurResume = !cur.wallpaperEnabled && Boolean(cur.wallpaperSource || cur.weSelection);
+          if (cur.wallpaperPaused) void store.updateConfig({ wallpaperPaused: false });
+          else if (cur.wallpaperEnabled) void store.updateConfig({ wallpaperEnabled: false });
+          else if (canCurResume) void store.updateConfig({ wallpaperEnabled: true, wallpaperPaused: false });
         }
       }, el("div", { className: "we-picker__card-close" }, label)));
     }
@@ -3103,19 +3261,24 @@ function renderPickerModal(store) {
         {
           className: "we-picker__select",
           value: config.sortOrder || "newest",
-          onChange: (e) => void store.updateConfig({ sortOrder: e.target.value })
+          onChange: (e) => {
+            void store.updateConfig({ sortOrder: e.target.value }, { rerender: false });
+            renderGridCards();
+          }
         },
         el("option", { value: "newest", selected: config.sortOrder === "newest" }, isZh ? "最新排序" : "Newest"),
         el("option", { value: "title", selected: config.sortOrder === "title" }, isZh ? "名称排序" : "Title A-Z")
       ),
       el(
         "details",
-        { className: "we-picker__rating-menu" },
-        el(
-          "summary",
-          { className: "we-picker__rating-btn" },
-          isZh ? `分级 · ${ratingSet.size}/4 ▾` : `Rating · ${ratingSet.size}/4 ▾`
-        ),
+        {
+          className: "we-picker__rating-menu",
+          open: Boolean(store.state.openMenus.rating),
+          onToggle: (e) => {
+            store.state.openMenus.rating = e.currentTarget.open;
+          }
+        },
+        ratingSummary,
         el(
           "div",
           { className: "we-picker__rating-list" },
@@ -3125,7 +3288,7 @@ function renderPickerModal(store) {
             el("input", {
               type: "checkbox",
               checked: ratingSet.has(r),
-              onChange: () => toggleMultiFilter("contentRatingFilter", ["everyone"], r)
+              onChange: (e) => toggleMultiFilter("contentRatingFilter", r, e.currentTarget)
             }),
             el("span", { style: { flex: "1" } }, ratingLabelMap[r] || r),
             el("span", { className: "we-picker__hint" }, String(ratingCounts[r] || 0))
@@ -3134,12 +3297,14 @@ function renderPickerModal(store) {
       ),
       el(
         "details",
-        { className: "we-picker__rating-menu" },
-        el(
-          "summary",
-          { className: "we-picker__rating-btn" },
-          isZh ? `类型 · ${typeSet.size}/4 ▾` : `Type · ${typeSet.size}/4 ▾`
-        ),
+        {
+          className: "we-picker__rating-menu",
+          open: Boolean(store.state.openMenus.type),
+          onToggle: (e) => {
+            store.state.openMenus.type = e.currentTarget.open;
+          }
+        },
+        typeSummary,
         el(
           "div",
           { className: "we-picker__rating-list" },
@@ -3149,7 +3314,7 @@ function renderPickerModal(store) {
             el("input", {
               type: "checkbox",
               checked: typeSet.has(kind),
-              onChange: () => toggleMultiFilter("typeFilter", WALLPAPER_TYPES, kind)
+              onChange: (e) => toggleMultiFilter("typeFilter", kind, e.currentTarget)
             }),
             el("span", { style: { flex: "1" } }, getKindBadge(kind, t)),
             el("span", { className: "we-picker__hint" }, String(typeCounts[kind] || 0))
@@ -3475,6 +3640,16 @@ function renderLibraryTab(store) {
       }
     }),
     store.state.propsOpen ? renderPropsEditor(store) : null,
+    /* 1b. Quick Wallpaper Readability & Scrim Sliders */
+    el(
+      "div",
+      { className: "we-picker__section" },
+      sectionHead({
+        title: isZh ? "壁纸显示强度与护眼遮罩" : "Wallpaper Visibility & Contrast Scrim"
+      }),
+      configSlider(store, "wallpaperOpacity", t("wallpaperOpacity"), { tooltip: t("wallpaperOpacityDesc") }),
+      configSlider(store, "maskOcclusion", t("maskOcclusion"), { tooltip: t("maskOcclusionDesc") })
+    ),
     /* 2. Transition Section */
     el(
       "div",
@@ -3833,6 +4008,7 @@ function cornerButtons(store, prefix, label, equalCorners) {
     label,
     chips: !equalCorners,
     equalCorners,
+    syncActive: true,
     items: items.map((it) => ({
       id: it.id,
       label: it.label,
@@ -3840,7 +4016,10 @@ function cornerButtons(store, prefix, label, equalCorners) {
     })),
     onPick: (id) => {
       const target = items.find((it) => it.id === id);
-      if (target) void store.updateConfig({ [target.key]: !cfg[target.key] });
+      if (target) {
+        const curVal = Boolean(store.state.config?.[target.key]);
+        void store.updateConfig({ [target.key]: !curVal }, { rerender: false });
+      }
     }
   });
 }
@@ -4088,7 +4267,8 @@ function renderGlassSection(store) {
   const open = store.state.sectionsOpen.glassUi !== false;
   const glassColor = config.glassColor || { light: "#ffffff", dark: "#0d1524" };
   const withSurfaceCustom = (surface, patch, opts) => {
-    const nextMode = { ...config.glassMode || {}, [surface]: "custom" };
+    const curMode = store.state.config?.glassMode || config.glassMode || {};
+    const nextMode = { ...curMode, [surface]: "custom" };
     void store.updateConfig({ ...patch, glassMode: nextMode, activePresetId: "" }, opts);
   };
   const surfaceSlider = (surface, cfgKey, label) => {
@@ -4102,7 +4282,7 @@ function renderGlassSection(store) {
       value: config[cfgKey],
       defaultValue: DEFAULT_CONFIG[cfgKey],
       onChange: (v) => withSurfaceCustom(surface, { [cfgKey]: v }, { defer: true, rerender: false }),
-      onCommit: (v) => withSurfaceCustom(surface, { [cfgKey]: v }, { defer: false, rerender: true })
+      onCommit: (v) => withSurfaceCustom(surface, { [cfgKey]: v }, { defer: false, rerender: false })
     });
   };
   const autoFollowBtn = (surface, cfgKey) => {
@@ -4111,9 +4291,10 @@ function renderGlassSection(store) {
       type: "button",
       className: `we-picker__swatch we-picker__swatch--auto ${isInherited ? "we-picker__swatch--active" : ""}`,
       onClick: () => {
-        const nextMode = { ...config.glassMode || {} };
+        const curMode = store.state.config?.glassMode || config.glassMode || {};
+        const nextMode = { ...curMode };
         if (surface) nextMode[surface] = "inherit";
-        void store.updateConfig({ [cfgKey]: "", glassMode: nextMode, activePresetId: "" });
+        void store.updateConfig({ [cfgKey]: "", glassMode: nextMode, activePresetId: "" }, { rerender: false });
       }
     }, isZh ? "跟随" : "Auto");
   };
@@ -4131,7 +4312,7 @@ function renderGlassSection(store) {
         label: isZh ? "启用液态玻璃 UI" : "Enable Liquid Glass UI",
         hint: isZh ? "开启后对顶栏、侧栏、输入卡、对话区与设置弹窗应用统一两段可读性玻璃。" : "Unified two-stage readability glass across workbench & Settings.",
         checked: config.glassEnabled !== false,
-        onChange: (v) => void store.updateConfig({ glassEnabled: v, activePresetId: "" })
+        onChange: (v) => void store.updateConfig({ glassEnabled: v, activePresetId: "" }, { rerender: false })
       }),
       switchRow({
         label: isZh ? "深浅色分别配置玻璃底色" : "Separate light/dark glass tints",
@@ -4144,21 +4325,21 @@ function renderGlassSection(store) {
           presets: GLASS_COLOR_PRESETS,
           value: glassColor.light,
           colorValue: glassColor.light,
-          onPick: (c, defer) => void store.updateConfig({ glassColor: { ...glassColor, light: c }, activePresetId: "" }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ glassColor: { ...store.state.config?.glassColor || glassColor, light: c }, activePresetId: "" }, { defer, rerender: false })
         }),
         swatchRow({
           label: isZh ? "深色模式玻璃底色" : "Dark tint color",
           presets: GLASS_COLOR_PRESETS,
           value: glassColor.dark,
           colorValue: glassColor.dark,
-          onPick: (c, defer) => void store.updateConfig({ glassColor: { ...glassColor, dark: c }, activePresetId: "" }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ glassColor: { ...store.state.config?.glassColor || glassColor, dark: c }, activePresetId: "" }, { defer, rerender: false })
         })
       ] : swatchRow({
         label: isZh ? "玻璃底色" : "Glass tint color",
         presets: GLASS_COLOR_PRESETS,
         value: glassColor.light,
         colorValue: glassColor.light,
-        onPick: (c, defer) => void store.updateConfig({ glassColor: { light: c, dark: c }, activePresetId: "" }, { defer, rerender: !defer })
+        onPick: (c, defer) => void store.updateConfig({ glassColor: { light: c, dark: c }, activePresetId: "" }, { defer, rerender: false })
       }),
       configSlider(store, "panelGlass", t("panelGlass")),
       configSlider(store, "surfaceFrost", t("surfaceFrost")),
@@ -4169,38 +4350,39 @@ function renderGlassSection(store) {
         label: isZh ? "思考过程块外观" : "Thinking Block",
         hint: isZh ? "三档独立控制，避免长文思考卡片过透或生硬白框。" : "Three-mode glass/off/native style for reasoning blocks.",
         value: config.thinkingMode || "glass",
+        syncActive: true,
         items: [
           { id: "off", label: isZh ? "关" : "Off" },
           { id: "glass", label: isZh ? "液态玻璃" : "Liquid Glass" },
           { id: "native", label: isZh ? "原生" : "Native" }
         ],
-        onPick: (id) => void store.updateConfig({ thinkingMode: id, activePresetId: "" })
+        onPick: (id) => void store.updateConfig({ thinkingMode: id, activePresetId: "" }, { rerender: false })
       }),
       switchRow({
         label: isZh ? "左侧边栏液态玻璃" : "Left sidebar glass",
         checked: config.leftSidebarGlass !== false,
-        onChange: (v) => void store.updateConfig({ leftSidebarGlass: v, activePresetId: "" })
+        onChange: (v) => void store.updateConfig({ leftSidebarGlass: v, activePresetId: "" }, { rerender: false })
       }),
       switchRow({
         label: isZh ? "顶部标题栏液态玻璃" : "Titlebar glass",
         checked: Boolean(config.titlebarGlass),
-        onChange: (v) => void store.updateConfig({ titlebarGlass: v, activePresetId: "" })
+        onChange: (v) => void store.updateConfig({ titlebarGlass: v, activePresetId: "" }, { rerender: false })
       }),
       switchRow({
         label: isZh ? "辅助/右侧栏液态玻璃" : "Aux sidebar glass",
         checked: config.sidebarGlass !== false,
-        onChange: (v) => void store.updateConfig({ sidebarGlass: v, activePresetId: "" })
+        onChange: (v) => void store.updateConfig({ sidebarGlass: v, activePresetId: "" }, { rerender: false })
       }),
       switchRow({
         label: isZh ? "全透侧栏模式" : "Full-clear sidebar",
         hint: isZh ? "移除侧栏毛玻璃雾化层，使左侧导航直通壁纸层。" : "Removes frost layer so sidebar sits straight over wallpaper.",
         checked: Boolean(config.sidebarFullClear),
-        onChange: (v) => void store.updateConfig({ sidebarFullClear: v, activePresetId: "" })
+        onChange: (v) => void store.updateConfig({ sidebarFullClear: v, activePresetId: "" }, { rerender: false })
       }),
       switchRow({
         label: isZh ? "浮层保留底层可读衬底" : "Floater readable base",
         checked: config.floaterSolidBase !== false,
-        onChange: (v) => void store.updateConfig({ floaterSolidBase: v, activePresetId: "" })
+        onChange: (v) => void store.updateConfig({ floaterSolidBase: v, activePresetId: "" }, { rerender: false })
       }),
       el(
         "div",
@@ -4226,7 +4408,7 @@ function renderGlassSection(store) {
           value: config.conversationColor,
           colorValue: config.conversationColor || glassColor.light,
           autoBtn: autoFollowBtn("conversation", "conversationColor"),
-          onPick: (c, defer) => withSurfaceCustom("conversation", { conversationColor: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => withSurfaceCustom("conversation", { conversationColor: c }, { defer, rerender: false })
         }),
         surfaceSlider("leftSidebar", "leftSidebarTransparency", isZh ? "左侧栏透明度" : "Left sidebar transparency"),
         surfaceSlider("leftSidebar", "leftSidebarBlur", isZh ? "左侧栏模糊" : "Left sidebar blur"),
@@ -4235,7 +4417,7 @@ function renderGlassSection(store) {
         switchRow({
           label: isZh ? "辅助侧栏跟随全局参数" : "Aux sidebar follows global glass",
           checked: config.sidebarFollowGlobal !== false,
-          onChange: (v) => void store.updateConfig({ sidebarFollowGlobal: v })
+          onChange: (v) => void store.updateConfig({ sidebarFollowGlobal: v }, { rerender: false })
         }),
         configSlider(store, "sidebarAlpha", isZh ? "辅助侧栏透明度" : "Aux sidebar transparency"),
         configSlider(store, "sidebarBlur", isZh ? "辅助侧栏模糊" : "Aux sidebar blur"),
@@ -4246,7 +4428,7 @@ function renderGlassSection(store) {
           value: config.sidebarContentColor,
           colorValue: config.sidebarContentColor || glassColor.light,
           autoBtn: autoFollowBtn("sidebarContent", "sidebarContentColor"),
-          onPick: (c, defer) => withSurfaceCustom("sidebarContent", { sidebarContentColor: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => withSurfaceCustom("sidebarContent", { sidebarContentColor: c }, { defer, rerender: false })
         }),
         surfaceSlider("settingsWindow", "settingsWindowTransparency", isZh ? "设置弹窗透明度" : "Settings transparency"),
         surfaceSlider("settingsWindow", "settingsWindowBlur", isZh ? "设置弹窗模糊" : "Settings blur"),
@@ -4256,7 +4438,7 @@ function renderGlassSection(store) {
           value: config.settingsWindowColor,
           colorValue: config.settingsWindowColor || glassColor.light,
           autoBtn: autoFollowBtn("settingsWindow", "settingsWindowColor"),
-          onPick: (c, defer) => withSurfaceCustom("settingsWindow", { settingsWindowColor: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => withSurfaceCustom("settingsWindow", { settingsWindowColor: c }, { defer, rerender: false })
         })
       ) : null
     ] : null
@@ -4603,7 +4785,7 @@ function renderAppearanceTab(store) {
   const autoColorBtn = (cfgKey, autoText) => el("button", {
     type: "button",
     className: `we-picker__swatch we-picker__swatch--auto ${!config[cfgKey] ? "we-picker__swatch--active" : ""}`,
-    onClick: () => void store.updateConfig({ [cfgKey]: "" })
+    onClick: () => void store.updateConfig({ [cfgKey]: "" }, { rerender: false })
   }, autoText);
   const uiElements = [
     { key: "uiColorSend", label: isZh ? "发送按钮与主 CTA" : "Send & CTA button" },
@@ -4627,7 +4809,7 @@ function renderAppearanceTab(store) {
       switchRow({
         label: isZh ? "从当前壁纸自动取色作为强调色" : "Extract accent color from wallpaper",
         checked: Boolean(config.themeFollow),
-        onChange: (v) => void store.updateConfig({ themeFollow: v })
+        onChange: (v) => void store.updateConfig({ themeFollow: v }, { rerender: false })
       })
     ),
     /* Detail */
@@ -4645,7 +4827,7 @@ function renderAppearanceTab(store) {
         switchRow({
           label: t("glassHighlight"),
           checked: config.glassHighlight !== false,
-          onChange: (v) => void store.updateConfig({ glassHighlight: v, activePresetId: "" })
+          onChange: (v) => void store.updateConfig({ glassHighlight: v, activePresetId: "" }, { rerender: false })
         })
       ] : null
     ),
@@ -4664,15 +4846,17 @@ function renderAppearanceTab(store) {
         segRow({
           label: isZh ? "左侧边栏统一圆角" : "Left sidebar radius",
           value: config.leftSidebarCornerRadius || "native",
+          syncActive: true,
           items: radiusItems,
-          onPick: (id) => void store.updateConfig({ leftSidebarCornerRadius: id, activePresetId: "" })
+          onPick: (id) => void store.updateConfig({ leftSidebarCornerRadius: id, activePresetId: "" }, { rerender: false })
         }),
         cornerButtons(store, "leftSidebar", isZh ? "左侧边栏单独改直角" : "Left sidebar square corners", equalCorners),
         segRow({
           label: isZh ? "右侧栏统一圆角" : "Right sidebar radius",
           value: config.rightSidebarCornerRadius || "native",
+          syncActive: true,
           items: radiusItems,
-          onPick: (id) => void store.updateConfig({ rightSidebarCornerRadius: id, activePresetId: "" })
+          onPick: (id) => void store.updateConfig({ rightSidebarCornerRadius: id, activePresetId: "" }, { rerender: false })
         }),
         cornerButtons(store, "rightSidebar", isZh ? "右侧栏单独改直角" : "Right sidebar square corners", equalCorners)
       ] : null
@@ -4694,7 +4878,7 @@ function renderAppearanceTab(store) {
           presets: ACCENT_PRESETS,
           value: config.accent || "#4f8cff",
           colorValue: COLOR_HEX_RE.test(config.accent || "") ? config.accent : "#4f8cff",
-          onPick: (c, defer) => void store.updateConfig({ accent: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ accent: c }, { defer, rerender: false })
         }),
         switchRow({
           label: isZh ? "分元素自定义界面配色" : "Customize per-element colors",
@@ -4708,7 +4892,7 @@ function renderAppearanceTab(store) {
           value: config[item.key],
           colorValue: COLOR_HEX_RE.test(config[item.key] || "") ? config[item.key] : config.accent || "#4f8cff",
           autoBtn: autoColorBtn(item.key, isZh ? "跟随" : "Auto"),
-          onPick: (c, defer) => void store.updateConfig({ [item.key]: c, uiColorCustom: true }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ [item.key]: c, uiColorCustom: true }, { defer, rerender: false })
         })),
         swatchRow({
           label: t("caretColor"),
@@ -4716,7 +4900,7 @@ function renderAppearanceTab(store) {
           value: config.caretColor,
           colorValue: COLOR_HEX_RE.test(config.caretColor || "") ? config.caretColor : "#4f8cff",
           autoBtn: autoColorBtn("caretColor", isZh ? "自动" : "Auto"),
-          onPick: (c, defer) => void store.updateConfig({ caretColor: c }, { defer, rerender: !defer })
+          onPick: (c, defer) => void store.updateConfig({ caretColor: c }, { defer, rerender: false })
         })
       ] : null
     ),
@@ -4764,13 +4948,14 @@ function renderPlaybackTab(store) {
       segRow({
         label: t("wallpaperFit"),
         value: config.wallpaperFit || "cover",
+        syncActive: true,
         items: [
           { id: "cover", label: isZh ? "铺满" : "Cover" },
           { id: "contain", label: isZh ? "适应" : "Contain" },
           { id: "fill", label: isZh ? "拉伸" : "Fill" },
           { id: "center", label: isZh ? "居中" : "Center" }
         ],
-        onPick: (id) => void store.updateConfig({ wallpaperFit: id })
+        onPick: (id) => void store.updateConfig({ wallpaperFit: id }, { rerender: false })
       }),
       configSlider(store, "wallpaperBlur", t("wallpaperBlur")),
       configSlider(store, "maskOcclusion", t("maskOcclusion")),
@@ -4781,7 +4966,7 @@ function renderPlaybackTab(store) {
       switchRow({
         label: isZh ? "水平镜像翻转" : "Horizontal flip",
         checked: Boolean(config.wallpaperFlip),
-        onChange: (v) => void store.updateConfig({ wallpaperFlip: v })
+        onChange: (v) => void store.updateConfig({ wallpaperFlip: v }, { rerender: false })
       }),
       configSlider(store, "layerPositionX", isZh ? "水平构图偏移" : "Horizontal position"),
       configSlider(store, "layerPositionY", isZh ? "垂直构图偏移" : "Vertical position"),
@@ -4797,76 +4982,82 @@ function renderPlaybackTab(store) {
       segRow({
         label: t("wallpaperMode"),
         value: config.wallpaperMode || "live",
+        syncActive: true,
         items: [
           { id: "live", label: t("wallpaperModeLive") },
           { id: "frame", label: t("wallpaperModeFrame") }
         ],
-        onPick: (id) => void store.updateConfig({ wallpaperMode: id })
+        onPick: (id) => void store.updateConfig({ wallpaperMode: id }, { rerender: false })
       }),
       segRow({
         label: t("videoPlaybackRate"),
         value: String(config.videoPlaybackRate ?? 1),
+        syncActive: true,
         items: [
           { id: "0.5", label: "0.5×" },
           { id: "1", label: "1×" },
           { id: "1.5", label: "1.5×" },
           { id: "2", label: "2×" }
         ],
-        onPick: (id) => void store.updateConfig({ videoPlaybackRate: Number(id) })
+        onPick: (id) => void store.updateConfig({ videoPlaybackRate: Number(id) }, { rerender: false })
       }),
       switchRow({
         label: t("sceneLive"),
         hint: t("sceneLiveDesc"),
         checked: config.sceneLive !== false,
-        onChange: (v) => void store.updateConfig({ sceneLive: v })
+        onChange: (v) => void store.updateConfig({ sceneLive: v }, { rerender: false })
       }),
       segRow({
         label: t("sceneLiveFps"),
         value: String(config.sceneLiveFps ?? 30),
+        syncActive: true,
         items: [
           { id: "15", label: "15 FPS" },
           { id: "30", label: "30 FPS" },
           { id: "60", label: "60 FPS" }
         ],
-        onPick: (id) => void store.updateConfig({ sceneLiveFps: Number(id) })
+        onPick: (id) => void store.updateConfig({ sceneLiveFps: Number(id) }, { rerender: false })
       }),
       switchRow({
         label: t("sceneAutoQuality"),
         hint: t("sceneAutoQualityDesc"),
         checked: config.sceneAutoQuality !== false,
-        onChange: (v) => void store.updateConfig({ sceneAutoQuality: v })
+        onChange: (v) => void store.updateConfig({ sceneAutoQuality: v }, { rerender: false })
       }),
       segRow({
         label: t("sceneRenderDpr"),
         value: String(config.sceneRenderDpr ?? 0),
+        syncActive: true,
         items: [
           { id: "0", label: t("sceneRenderDprAuto") },
           { id: "1", label: "1×" },
           { id: "1.5", label: "1.5×" },
           { id: "2", label: "2×" }
         ],
-        onPick: (id) => void store.updateConfig({ sceneRenderDpr: Number(id) })
+        onPick: (id) => void store.updateConfig({ sceneRenderDpr: Number(id) }, { rerender: false })
       }),
       segRow({
         label: t("sceneVideoTexScale"),
         value: String(config.sceneVideoTexScale ?? 0),
+        syncActive: true,
         items: [
           { id: "0", label: t("sceneVideoTexScaleAuto") },
           { id: "0.5", label: t("sceneVideoTexScaleHalf") },
           { id: "1", label: t("sceneVideoTexScaleFull") }
         ],
-        onPick: (id) => void store.updateConfig({ sceneVideoTexScale: Number(id) })
+        onPick: (id) => void store.updateConfig({ sceneVideoTexScale: Number(id) }, { rerender: false })
       }),
       segRow({
         label: isZh ? "实时壁纸延迟激活" : "Live boot delay",
         value: String(config.liveBootDelay ?? 3),
+        syncActive: true,
         items: [
           { id: "0", label: "0s" },
           { id: "1", label: "1s" },
           { id: "3", label: "3s" },
           { id: "5", label: "5s" }
         ],
-        onPick: (id) => void store.updateConfig({ liveBootDelay: Number(id) })
+        onPick: (id) => void store.updateConfig({ liveBootDelay: Number(id) }, { rerender: false })
       })
     )
   );
@@ -4920,15 +5111,16 @@ function renderSystemTab(store) {
       segRow({
         label: isZh ? "壁纸库卡片排布" : "Library card style",
         value: config.pickerLayout || "fixed",
+        syncActive: true,
         items: [
           { id: "fixed", label: isZh ? "常规网格" : "Fixed Grid" },
           { id: "classic", label: isZh ? "CD 架叠放" : "CD Rack" }
         ],
-        onPick: (id) => void store.updateConfig({ pickerLayout: id })
+        onPick: (id) => void store.updateConfig({ pickerLayout: id }, { rerender: false })
       }),
       selectRow({
         label: isZh ? "插件内部界面语言" : "Inner UI language",
-        hint: isZh ? '注：Antigravity Settings 左侧菜单条目始终保持英文 "Wallpaper Engine"。' : 'Note: Antigravity Settings left nav label always stays English "Wallpaper Engine".',
+        hint: isZh ? '注：Antigravity Settings 左侧菜单条目始终保持英文 "Wallpaper"。' : 'Note: Antigravity Settings left nav label always stays English "Wallpaper".',
         value: config.uiLanguage || "zh",
         options: [
           { value: "zh", label: "简体中文（推荐）" },
@@ -4946,13 +5138,13 @@ function renderSystemTab(store) {
         label: t("browserHoleCutout"),
         hint: t("browserHoleCutoutDesc"),
         checked: config.browserHoleCutout !== false,
-        onChange: (v) => void store.updateConfig({ browserHoleCutout: v })
+        onChange: (v) => void store.updateConfig({ browserHoleCutout: v }, { rerender: false })
       }),
       switchRow({
         label: t("studioShortcut"),
         hint: t("studioShortcutDesc"),
         checked: config.studioShortcut !== false,
-        onChange: (v) => void store.updateConfig({ studioShortcut: v })
+        onChange: (v) => void store.updateConfig({ studioShortcut: v }, { rerender: false })
       }),
       el(
         "div",
@@ -4998,23 +5190,23 @@ function renderSystemTab(store) {
       switchRow({
         label: t("pauseOnHidden"),
         checked: config.pauseOnHidden !== false,
-        onChange: (v) => void store.updateConfig({ pauseOnHidden: v })
+        onChange: (v) => void store.updateConfig({ pauseOnHidden: v }, { rerender: false })
       }),
       switchRow({
         label: t("pauseOnBlur"),
         checked: Boolean(config.pauseOnBlur),
-        onChange: (v) => void store.updateConfig({ pauseOnBlur: v })
+        onChange: (v) => void store.updateConfig({ pauseOnBlur: v }, { rerender: false })
       }),
       switchRow({
         label: t("pauseOnBattery"),
         checked: Boolean(config.pauseOnBattery),
-        onChange: (v) => void store.updateConfig({ pauseOnBattery: v })
+        onChange: (v) => void store.updateConfig({ pauseOnBattery: v }, { rerender: false })
       }),
       switchRow({
         label: t("startPaused"),
         hint: isZh ? "开启后每次冷启动时默认暂停动态渲染，按需再播放。" : "Start wallpaper paused after each cold launch.",
         checked: Boolean(config.startPaused),
-        onChange: (v) => void store.updateConfig({ startPaused: v })
+        onChange: (v) => void store.updateConfig({ startPaused: v }, { rerender: false })
       })
     ),
     el(
@@ -5121,31 +5313,33 @@ function renderExtensionsTab(store) {
       switchRow({
         label: t("fxEnabled"),
         checked: Boolean(config.fxEnabled),
-        onChange: (v) => void store.updateConfig({ fxEnabled: v })
+        onChange: (v) => void store.updateConfig({ fxEnabled: v }, { rerender: false })
       }),
       switchRow({
         label: t("fxClick"),
         checked: config.fxClick !== false,
-        onChange: (v) => void store.updateConfig({ fxClick: v })
+        onChange: (v) => void store.updateConfig({ fxClick: v }, { rerender: false })
       }),
       segRow({
         label: t("fxClickStyle"),
         value: config.fxClickStyle || "ripple",
+        syncActive: true,
         items: FX_CLICK_STYLES.map((id) => ({ id, label: clickLabel[id] || id })),
-        onPick: (id) => void store.updateConfig({ fxClickStyle: id })
+        onPick: (id) => void store.updateConfig({ fxClickStyle: id }, { rerender: false })
       }),
       configSlider(store, "fxClickSize", t("fxClickSize")),
       configSlider(store, "fxClickGlow", t("fxClickGlow")),
       switchRow({
         label: t("fxTrail"),
         checked: config.fxTrail !== false,
-        onChange: (v) => void store.updateConfig({ fxTrail: v })
+        onChange: (v) => void store.updateConfig({ fxTrail: v }, { rerender: false })
       }),
       segRow({
         label: t("fxTrailStyle"),
         value: config.fxTrailStyle || "comet",
+        syncActive: true,
         items: FX_TRAIL_STYLES.map((id) => ({ id, label: trailLabel[id] || id })),
-        onPick: (id) => void store.updateConfig({ fxTrailStyle: id })
+        onPick: (id) => void store.updateConfig({ fxTrailStyle: id }, { rerender: false })
       }),
       configSlider(store, "fxTrailLength", t("fxTrailLength")),
       configSlider(store, "fxTrailWidth", t("fxTrailWidth")),
@@ -5155,7 +5349,7 @@ function renderExtensionsTab(store) {
         label: t("fxBlend"),
         value: config.fxBlend || "screen",
         options: FX_BLEND_VALUES.map((v) => ({ value: v, label: blendLabel[v] || v })),
-        onChange: (v) => void store.updateConfig({ fxBlend: v })
+        onChange: (v) => void store.updateConfig({ fxBlend: v }, { rerender: false })
       }),
       segRow({
         label: t("fxColorMode"),
@@ -5168,7 +5362,7 @@ function renderExtensionsTab(store) {
         presets: ACCENT_PRESETS,
         value: config.fxColor || "#4f8cff",
         colorValue: config.fxColor || "#4f8cff",
-        onPick: (c, defer) => void store.updateConfig({ fxColor: c }, { defer, rerender: !defer })
+        onPick: (c, defer) => void store.updateConfig({ fxColor: c }, { defer, rerender: false })
       }) : null
     ),
     /* Module 2: 3D Parallax */
@@ -5185,14 +5379,14 @@ function renderExtensionsTab(store) {
       switchRow({
         label: t("parallaxEnabled"),
         checked: Boolean(config.parallaxEnabled),
-        onChange: (v) => void store.updateConfig({ parallaxEnabled: v })
+        onChange: (v) => void store.updateConfig({ parallaxEnabled: v }, { rerender: false })
       }),
       configSlider(store, "parallaxBg", t("parallaxBgDepth"), { step: 0.1 }),
       configSlider(store, "parallaxSmooth", t("parallaxSmooth")),
       switchRow({
         label: t("parallaxUi"),
         checked: Boolean(config.parallaxUi),
-        onChange: (v) => void store.updateConfig({ parallaxUi: v })
+        onChange: (v) => void store.updateConfig({ parallaxUi: v }, { rerender: false })
       }),
       configSlider(store, "parallaxUiChatDepth", t("parallaxUiChat"), { step: 0.1 }),
       configSlider(store, "parallaxUiComposerDepth", t("parallaxUiComposer"), { step: 0.1 }),
@@ -5204,7 +5398,7 @@ function renderExtensionsTab(store) {
         switchRow({
           label: isZh ? "联动扩展槽位视差 ([data-slot])" : "Follow extension UI slots ([data-slot])",
           checked: Boolean(config.parallaxPlugin),
-          onChange: (v) => void store.updateConfig({ parallaxPlugin: v })
+          onChange: (v) => void store.updateConfig({ parallaxPlugin: v }, { rerender: false })
         }),
         el("button", {
           type: "button",
@@ -5225,12 +5419,14 @@ function renderExtensionsTab(store) {
         defaultValue: 1,
         value: config.parallaxPluginDepths?.[slot] ?? 1,
         onChange: (v) => {
-          const next = { ...config.parallaxPluginDepths || {}, [slot]: v };
+          const cur = store.state.config?.parallaxPluginDepths || {};
+          const next = { ...cur, [slot]: v };
           void store.updateConfig({ parallaxPluginDepths: next }, { defer: true, rerender: false });
         },
         onCommit: (v) => {
-          const next = { ...config.parallaxPluginDepths || {}, [slot]: v };
-          void store.updateConfig({ parallaxPluginDepths: next });
+          const cur = store.state.config?.parallaxPluginDepths || {};
+          const next = { ...cur, [slot]: v };
+          void store.updateConfig({ parallaxPluginDepths: next }, { defer: false, rerender: false });
         }
       })) : el("div", { className: "we-picker__hint" }, isZh ? "当前工作台未发现额外 [data-slot] 扩展面板。" : "No extra [data-slot] panels detected right now.")
     )
@@ -5247,7 +5443,7 @@ function renderAboutTab(store) {
     el(
       "p",
       { className: "we-about__p" },
-      isZh ? "Wallpaper Engine (agy-skins) v2.0.0 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.0.0 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
+      isZh ? "Wallpaper Engine (agy-skins) v2.1.0 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.1.0 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
     ),
     el(
       "p",
@@ -5307,8 +5503,11 @@ function ensureWePickerStyles(doc = document) {
   if (!styleEl) {
     styleEl = doc.createElement("style");
     styleEl.id = PICKER_STYLE_ID;
-    styleEl.textContent = WE_PICKER_CSS;
+    styleEl.dataset.plugin = "agy-skins";
     doc.head.appendChild(styleEl);
+  }
+  if (styleEl.textContent !== WE_PICKER_CSS) {
+    styleEl.textContent = WE_PICKER_CSS;
   }
   return styleEl;
 }
@@ -5348,92 +5547,127 @@ function mountWePicker(rootEl, { embed = "settings", getAuth = null } = {}) {
   ensureWePickerStyles(doc);
   const store = createPanelStore({ getAuth, embed });
   const hostWrap = el("div", { className: "we-picker", dataset: { weEmbed: embed } });
+  const bumpInteract = () => store.markInteracting(650);
+  hostWrap.addEventListener("pointerdown", bumpInteract, true);
+  hostWrap.addEventListener("input", bumpInteract, true);
+  hostWrap.addEventListener("change", bumpInteract, true);
+  const loadingEl = el(
+    "div",
+    { className: "we-picker__empty" },
+    el("div", { className: "we-picker__hint" }, "正在同步 Wallpaper Engine 状态…")
+  );
+  const cardNameEl = el("span", { className: "we-picker__card-name" });
+  const headBadgeEl = el("span", { className: "we-picker__head-badge" });
+  const cardDescEl = el("span", { className: "we-picker__card-desc" });
+  const headerShell = el(
+    "div",
+    { className: "we-picker__card-shell" },
+    el("div", { className: "we-picker__card-head" }, cardNameEl, headBadgeEl, cardDescEl)
+  );
+  const pillEl = el("span", { className: "we-tabs__pill", "aria-hidden": "true" });
+  const tabBtns = TABS.map((item) => el("button", {
+    type: "button",
+    role: "tab",
+    className: "we-tabs__tab",
+    onClick: () => {
+      if (store.state.tab === item.id) return;
+      store.state.tab = item.id;
+      store.state.armedConfirm = "";
+      store.notify();
+    }
+  }, ""));
+  const tabsBar = el("div", { className: "we-tabs", role: "tablist" }, pillEl, tabBtns);
+  const bodyEl = el("div", { className: "we-picker__body" });
+  const footerEl = el("div", { className: "we-picker__footer" });
+  const toastEl = el("div", { className: "we-picker__toast", role: "status", style: { display: "none" } });
+  hostWrap.replaceChildren(loadingEl, headerShell, tabsBar, bodyEl, footerEl, toastEl);
   rootEl.innerHTML = "";
   rootEl.appendChild(hostWrap);
+  let lastAccent = "";
+  let lastTabsVisible = false;
+  let lastRenderKey = "";
   let resizeObserver = null;
-  let lastTabsBar = null;
-  const positionPill = (tabsBar, immediate = false) => {
-    if (!tabsBar) return;
-    const pill = tabsBar.querySelector(".we-tabs__pill");
+  const positionPill = (immediate = false) => {
     const activeTab = tabsBar.querySelector(".we-tabs__tab--active");
-    if (!pill || !activeTab) return;
+    if (!activeTab) return;
     const left = activeTab.offsetLeft - 3;
     const width = activeTab.offsetWidth;
     if (width <= 0) return;
-    if (immediate) pill.style.transition = "none";
-    pill.style.width = `${width}px`;
-    pill.style.transform = `translateX(${left}px)`;
+    if (immediate) pillEl.style.transition = "none";
+    pillEl.style.width = `${width}px`;
+    pillEl.style.transform = `translateX(${left}px)`;
     if (immediate) {
-      void pill.offsetWidth;
-      pill.style.transition = "";
+      void pillEl.offsetWidth;
+      pillEl.style.transition = "";
     }
   };
+  if (typeof ResizeObserver === "function") {
+    resizeObserver = new ResizeObserver(() => {
+      if (tabsBar.style.display !== "none") positionPill(true);
+    });
+    resizeObserver.observe(tabsBar);
+  }
   const render = () => {
-    const { config, weItems, tab, toast } = store.state;
-    const focusSnap = captureFocusState(hostWrap);
-    hostWrap.innerHTML = "";
+    const { config, weItems, tab, toast, pickerOpen } = store.state;
+    const hasConfig = Boolean(config);
+    loadingEl.style.display = hasConfig ? "none" : "";
+    headerShell.style.display = hasConfig ? "" : "none";
+    bodyEl.style.display = hasConfig ? "" : "none";
     if (!config) {
-      hostWrap.appendChild(el(
-        "div",
-        { className: "we-picker__empty" },
-        el("div", { className: "we-picker__hint" }, "正在同步 Wallpaper Engine 状态…")
-      ));
+      tabsBar.style.display = "none";
+      footerEl.style.display = "none";
+      toastEl.style.display = "none";
       return;
     }
     const accent = /^#[0-9a-f]{6}$/i.test(config.accent || "") ? config.accent : "#4f8cff";
-    hostWrap.style.setProperty("--we-accent-src", accent);
-    hostWrap.style.setProperty("--we-accent-ink", weAccentInk(accent));
+    if (accent !== lastAccent) {
+      lastAccent = accent;
+      hostWrap.style.setProperty("--we-accent-src", accent);
+      hostWrap.style.setProperty("--we-accent-ink", weAccentInk(accent));
+    }
     const t = store.getT();
     const hiddenSet = new Set(config.hiddenWallpaperIds || []);
     const playableCount = weItems.filter((i) => !hiddenSet.has(i.id)).length;
     const activeTabDef = TABS.find((item) => item.id === tab) || TABS[0];
-    hostWrap.appendChild(el(
-      "div",
-      { className: "we-picker__card-shell" },
-      el(
-        "div",
-        { className: "we-picker__card-head" },
-        el("span", { className: "we-picker__card-name" }, t("wallpaperEngineTitle")),
-        el("span", { className: "we-picker__card-badge" }, t("playableBadge", playableCount)),
-        el("span", { className: "we-picker__card-desc" }, t("wallpaperEngineDesc"))
-      )
-    ));
-    if (!store.state.pickerOpen) {
-      const pill = el("span", { className: "we-tabs__pill", "aria-hidden": "true" });
-      const tabsBar = el(
-        "div",
-        { className: "we-tabs", role: "tablist" },
-        pill,
-        TABS.map((item) => el("button", {
-          type: "button",
-          role: "tab",
-          "aria-selected": item.id === activeTabDef.id ? "true" : "false",
-          className: `we-tabs__tab ${item.id === activeTabDef.id ? "we-tabs__tab--active" : ""}`,
-          onClick: () => {
-            if (store.state.tab === item.id) return;
-            store.state.tab = item.id;
-            store.state.armedConfirm = "";
-            store.notify();
-          }
-        }, t(item.key)))
-      );
-      hostWrap.appendChild(tabsBar);
-      lastTabsBar = tabsBar;
-      if (resizeObserver) resizeObserver.disconnect();
-      if (typeof ResizeObserver === "function") {
-        resizeObserver = new ResizeObserver(() => positionPill(lastTabsBar, true));
-        resizeObserver.observe(tabsBar);
-      }
-      requestAnimationFrame(() => positionPill(tabsBar, false));
+    const titleStr = t("wallpaperEngineTitle");
+    const badgeStr = t("playableBadge", playableCount);
+    const descStr = t("wallpaperEngineDesc");
+    if (cardNameEl.textContent !== titleStr) cardNameEl.textContent = titleStr;
+    if (headBadgeEl.textContent !== badgeStr) headBadgeEl.textContent = badgeStr;
+    if (cardDescEl.textContent !== descStr) cardDescEl.textContent = descStr;
+    const tabsVisible = !pickerOpen;
+    tabsBar.style.display = tabsVisible ? "" : "none";
+    if (tabsVisible) {
+      TABS.forEach((item, idx) => {
+        const btn = tabBtns[idx];
+        const label = t(item.key);
+        const active = item.id === activeTabDef.id;
+        if (btn.textContent !== label) btn.textContent = label;
+        btn.setAttribute("aria-selected", active ? "true" : "false");
+        btn.classList.toggle("we-tabs__tab--active", active);
+      });
+      requestAnimationFrame(() => positionPill(!lastTabsVisible));
     }
-    hostWrap.appendChild(activeTabDef.render(store));
-    if (!store.state.pickerOpen && TAB_RESET_KEYS[activeTabDef.id]) {
-      hostWrap.appendChild(renderTabReset(store, activeTabDef.id));
-    }
+    lastTabsVisible = tabsVisible;
     if (toast?.message) {
-      hostWrap.appendChild(el("div", { className: "we-picker__toast", role: "status" }, toast.message));
+      if (toastEl.textContent !== toast.message) toastEl.textContent = toast.message;
+      toastEl.style.display = "";
+    } else {
+      toastEl.style.display = "none";
     }
-    restoreFocusState(hostWrap, focusSnap);
+    const focusSnap = captureFocusState(bodyEl);
+    bodyEl.replaceChildren(activeTabDef.render(store));
+    if (!pickerOpen && TAB_RESET_KEYS[activeTabDef.id]) {
+      footerEl.style.display = "";
+      footerEl.replaceChildren(renderTabReset(store, activeTabDef.id));
+    } else {
+      footerEl.style.display = "none";
+      footerEl.replaceChildren();
+    }
+    if (focusSnap && lastRenderKey === activeTabDef.id) {
+      restoreFocusState(bodyEl, focusSnap);
+    }
+    lastRenderKey = activeTabDef.id;
   };
   const onKeyDown = (e) => {
     if (e.key === "Escape" && store.state.pickerOpen && rootEl.isConnected && rootEl.style.display !== "none") {

@@ -200,7 +200,7 @@ export function startCdpInjector({
     }
   }
 
-  const applyToEntry = async entry => {
+  const applyToEntry = async (entry, { isPreview = false } = {}) => {
     if (!entry.context || !bundleSource) return false
     const run = expr => evaluate(entry, entry.context, expr)
     let state = await run(`globalThis.__agySkinsRuntime?.readState?.(${instanceTs}) ?? null`)
@@ -218,11 +218,12 @@ export function startCdpInjector({
         return false
       }
       entry.lastPayload = ''
+      entry.lastWasPreview = false
     }
     const payload = getPayloadState()
     const payloadJson = JSON.stringify(payload)
-    if (entry.lastPayload !== payloadJson) {
-      const ok = await run(`globalThis.__agySkinsRuntime?.apply?.(${payloadJson}, ${instanceTs}) ?? false`)
+    if (entry.lastPayload !== payloadJson || (!isPreview && entry.lastWasPreview)) {
+      const ok = await run(`globalThis.__agySkinsRuntime?.apply?.(${payloadJson}, ${instanceTs}, ${Boolean(isPreview)}) ?? false`)
       if (ok === 'superseded') {
         await stop()
         onRuntimeClosed?.('superseded by newer instance')
@@ -230,16 +231,37 @@ export function startCdpInjector({
       }
       if (ok) {
         entry.lastPayload = payloadJson
+        entry.lastWasPreview = Boolean(isPreview)
         hasEverAttached = true
       }
     }
     return true
   }
 
-  const pushImmediate = async () => {
+  let pushing = false
+  let pushQueued = false
+  let queuedPreview = true
+
+  const pushImmediate = async ({ isPreview = false } = {}) => {
     if (stopped) return
-    for (const entry of sockets.values()) {
-      try { await applyToEntry(entry) } catch {}
+    queuedPreview = queuedPreview && Boolean(isPreview)
+    if (pushing) {
+      pushQueued = true
+      return
+    }
+    pushing = true
+    try {
+      do {
+        const usePreview = queuedPreview
+        queuedPreview = true
+        pushQueued = false
+        for (const entry of sockets.values()) {
+          if (stopped) break
+          try { await applyToEntry(entry, { isPreview: usePreview }) } catch {}
+        }
+      } while (pushQueued && !stopped)
+    } finally {
+      pushing = false
     }
   }
 
@@ -257,7 +279,7 @@ export function startCdpInjector({
         if (stopped) break
         try {
           const entry = sockets.get(target.id) || await connect(target)
-          await applyToEntry(entry)
+          await applyToEntry(entry, { isPreview: Boolean(entry.lastWasPreview) })
         } catch (err) {
           const existing = sockets.get(target.id)
           if (existing) retire(existing, target.id)

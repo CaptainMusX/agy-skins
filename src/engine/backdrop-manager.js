@@ -184,9 +184,9 @@ export class BackdropManager {
     this.root.setAttribute('aria-hidden', 'true')
     this.root.style.cssText = 'position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;contain:strict;'
     this.layers = document.createElement('div')
-    this.layers.style.cssText = 'position:absolute;inset:0;overflow:hidden;'
+    this.layers.style.cssText = 'position:absolute;inset:0;overflow:hidden;will-change:transform;'
     this.scrim = document.createElement('div')
-    this.scrim.style.cssText = 'position:absolute;inset:0;pointer-events:none;'
+    this.scrim.style.cssText = 'position:absolute;inset:0;pointer-events:none;will-change:background-color;'
     this.root.replaceChildren(this.layers, this.scrim)
     document.body.prepend(this.root)
     this.ensureListeners()
@@ -440,11 +440,24 @@ export class BackdropManager {
   applyOptionsToLayer(layer) {
     const options = this.currentOptions
     const blur = clamp(options.blur, 0, 60, 0)
-    const surface = layer._surface
-    const media = layer._media
     const brightness = clamp(options.brightness, 40, 160, 100)
     const contrast = clamp(options.contrast, 40, 200, 100)
     const saturate = clamp(options.saturate, 0, 200, 100)
+    const posX = clamp(options.layerPositionX, 0, 100, 50)
+    const posY = clamp(options.layerPositionY, 0, 100, 50)
+    const layerScalePct = clamp(options.layerScale, 50, 150, 100)
+    const opacityPct = clamp(options.opacity, 0, 100, 100)
+    const objectFit = options.fit === 'center' ? 'none' : options.fit
+    const sound = Boolean(options.sound)
+    const volumePct = clamp(options.volume, 0, 100, 100)
+    const playbackRate = clamp(options.playbackRate, 0.25, 2, 1)
+    const loop = options.loop !== false
+    const media = layer._media
+    const optKey = `${blur}|${brightness}|${contrast}|${saturate}|${posX}|${posY}|${layerScalePct}|${Boolean(options.flip)}|${opacityPct}|${objectFit}|${sound}|${volumePct}|${playbackRate}|${loop}|${media.childElementCount}`
+    if (layer._lastOptKey === optKey) return
+    layer._lastOptKey = optKey
+
+    const surface = layer._surface
     const filters = []
     if (blur > 0) filters.push(`blur(${blur}px)`)
     if (brightness !== 100) filters.push(`brightness(${brightness}%)`)
@@ -452,15 +465,15 @@ export class BackdropManager {
     if (saturate !== 100) filters.push(`saturate(${saturate}%)`)
     surface.style.filter = filters.length ? filters.join(' ') : 'none'
     surface.style.inset = blur > 0 ? `-${blur + 8}px` : '0'
-    const x = (50 - clamp(options.layerPositionX, 0, 100, 50)) / 2
-    const y = (50 - clamp(options.layerPositionY, 0, 100, 50)) / 2
-    const scale = clamp(options.layerScale, 50, 150, 100) / 100
+    const x = (50 - posX) / 2
+    const y = (50 - posY) / 2
+    const scale = layerScalePct / 100
     const flip = options.flip ? ' scaleX(-1)' : ''
     layer.style.transform = 'none'
     surface.style.transform = `translate3d(${x.toFixed(2)}%, ${y.toFixed(2)}%, 0) scale(${scale.toFixed(3)})${flip}`
-    media.style.opacity = String(clamp(options.opacity, 0, 100, 100) / 100)
-    layer._poster.style.opacity = String(clamp(options.opacity, 0, 100, 100) / 100)
-    const objectFit = options.fit === 'center' ? 'none' : options.fit
+    const opacityStr = String(opacityPct / 100)
+    media.style.opacity = opacityStr
+    layer._poster.style.opacity = opacityStr
     for (const image of media.querySelectorAll('img')) {
       image.style.objectFit = objectFit
       image.style.objectPosition = 'center'
@@ -469,10 +482,10 @@ export class BackdropManager {
     if (video) {
       video.style.objectFit = objectFit
       video.style.objectPosition = 'center'
-      video.muted = !options.sound
-      video.volume = clamp(options.volume, 0, 100, 100) / 100
-      video.playbackRate = clamp(options.playbackRate, 0.25, 2, 1)
-      video.loop = options.loop !== false
+      video.muted = !sound
+      video.volume = volumePct / 100
+      video.playbackRate = playbackRate
+      video.loop = loop
     }
   }
 

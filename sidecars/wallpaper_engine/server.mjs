@@ -300,6 +300,7 @@ export async function startRuntime(options = {}) {
   }
 
   const systemLocale = detectSystemLocale(env)
+  let nextPushPreview = false
 
   const handlers = {
     'get-state': async () => ({
@@ -316,11 +317,13 @@ export async function startRuntime(options = {}) {
     'update-config': async body => {
       const defer = body?.defer === true
       const patch = body?.patch && typeof body.patch === 'object' ? body.patch : {}
+      nextPushPreview = defer
       const config = store.updateConfig(patch, { deferPersistence: defer })
       return { ok: true, config }
     },
     'flush-config': async () => {
       store.flush()
+      void injector?.pushImmediate({ isPreview: false })
       return { ok: true, config: store.getConfig() }
     },
     'we-scan': async () => await refreshLibrary(),
@@ -433,7 +436,9 @@ export async function startRuntime(options = {}) {
   })
 
   store.subscribe(() => {
-    void injector?.pushImmediate()
+    const isPreview = nextPushPreview
+    nextPushPreview = false
+    void injector?.pushImmediate({ isPreview })
   })
 
   let sidecarApp = null

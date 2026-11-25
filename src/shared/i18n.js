@@ -1,4 +1,4 @@
-export const SETTINGS_SIDEBAR_LABEL = 'Wallpaper Engine'
+export const SETTINGS_SIDEBAR_LABEL = 'Wallpaper'
 
 export const I18N_DICTIONARY = {
   en: {
@@ -167,8 +167,8 @@ export const I18N_DICTIONARY = {
     speedFast: 'Fast',
     speedNormal: 'Normal',
     speedSlow: 'Slow',
-    wallpaperOpacity: 'Wallpaper Transparency',
-    wallpaperOpacityDesc: 'Fades wallpaper toward theme base while keeping glass backdrop valid',
+    wallpaperOpacity: 'Wallpaper Opacity',
+    wallpaperOpacityDesc: 'Lower values make the wallpaper subtler so text stays crisp (default 38%)',
     pauseOnHidden: 'Pause when minimized/hidden',
     pauseOnBlur: 'Pause when unfocused',
     pauseOnBattery: 'Pause on battery power',
@@ -381,8 +381,8 @@ export const I18N_DICTIONARY = {
     speedFast: '快',
     speedNormal: '标准',
     speedSlow: '慢',
-    wallpaperOpacity: '壁纸透明度',
-    wallpaperOpacityDesc: '0% 为完全不透；调高向主题底色淡出以保持玻璃模糊不断裂',
+    wallpaperOpacity: '壁纸不透明度（浓度）',
+    wallpaperOpacityDesc: '数值越低壁纸越淡柔和、文字越清晰（默认 38%）',
     pauseOnHidden: '最小化/切页时暂停',
     pauseOnBlur: '窗口失焦时暂停',
     pauseOnBattery: '使用电池时暂停',

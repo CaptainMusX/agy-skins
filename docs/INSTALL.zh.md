@@ -15,7 +15,7 @@ npm run install:agy
 
 ## 2. 打开壁纸引擎控制面板的方式
 
-1. **Antigravity 原生 Settings（推荐）**：打开设置对话框，点击左侧与英文设置项整齐统一的 **`Wallpaper Engine`** 入口，右侧原生 DOM 直接展开 `we-picker` 中文控制界面（无 iframe 割裂感）。
+1. **Antigravity 原生 Settings（推荐）**：打开设置对话框，点击左侧与英文设置项样式一致（无图标）的 **`Wallpaper`** 入口，右侧原生 DOM 直接展开 `we-picker` 中文控制界面（无 iframe 割裂感）。
 2. **全局快捷悬浮窗**：在 Antigravity 主窗口任意处按 **`Alt+Shift+W`**，弹出整块 iOS 磨砂工作台窗口。
 3. **插件侧边栏（Aux Pane）**：在 Antigravity 插件栏直接打开 `Wallpaper Engine`。
 

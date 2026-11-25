@@ -1,7 +1,8 @@
 /**
  * Native Antigravity host integration entries (pure host DOM, zero embedded frames):
- *  1) English sidebar item "Wallpaper Engine" in [data-testid="settings-sidebar"]
- *     mounting #agy-skins-settings-pane directly inside Settings' scrollable pane.
+ *  1) Exact-styled English sidebar item "Wallpaper" (no icon) in
+ *     [data-testid="settings-sidebar"], mounting #agy-skins-settings-pane
+ *     directly inside Settings' scrollable pane.
  *  2) Global Alt+Shift+W Studio dialog (#agy-skins-studio-dialog) with unified glass.
  */
 import { SETTINGS_SIDEBAR_LABEL } from '../shared/i18n.js'
@@ -13,19 +14,24 @@ const BACKDROP_ID = 'agy-skins-studio-backdrop'
 const DIALOG_ID = 'agy-skins-studio-dialog'
 const EXTRA_CSS_ID = 'agy-skins-host-entries-css'
 
+const NAV_BASE_CLASS = 'flex items-center gap-1.5 w-full px-2 py-1 rounded-lg cursor-pointer border-none text-left transition-all outline-none'
+const NAV_INACTIVE_CLASS = `${NAV_BASE_CLASS} hover:bg-sidebar-muted`
+const NAV_ACTIVE_CLASS = `${NAV_BASE_CLASS} bg-sidebar-secondary`
+const SPAN_INACTIVE_CLASS = 'transition-colors select-none truncate flex-1 text-secondary-foreground group-hover/nav-item:text-foreground'
+const SPAN_ACTIVE_CLASS = 'transition-colors select-none truncate flex-1 text-foreground'
+
 const EXTRA_HOST_CSS = `
-#${NAV_ID}[data-agy-nav-active="true"] {
-  background: var(--we-layer-2, rgba(128, 128, 128, 0.16)) !important;
-  color: var(--foreground, inherit) !important;
-  font-weight: 600;
-}
 [data-agy-native-nav-muted="true"] {
   background: transparent !important;
+  background-color: transparent !important;
   box-shadow: none !important;
 }
+[data-agy-native-nav-muted="true"] > span {
+  color: var(--secondary-foreground) !important;
+}
 #${PANE_ID} {
-  padding: 20px 24px 32px;
-  max-width: 820px;
+  padding: 20px 28px 36px;
+  max-width: 860px;
   margin: 0 auto;
   color: inherit;
 }
@@ -37,27 +43,27 @@ const EXTRA_HOST_CSS = `
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: rgba(0, 0, 0, calc(0.32 * var(--we-mask-strength, 0.8)));
+  background: var(--we-modal-backdrop, rgba(15, 23, 42, 0.14));
   backdrop-filter: blur(calc(var(--we-settings-blur-px, 24px) * 0.45));
   -webkit-backdrop-filter: blur(calc(var(--we-settings-blur-px, 24px) * 0.45));
 }
 #${DIALOG_ID} {
-  width: min(860px, 92vw);
-  max-height: min(760px, 88vh);
+  width: min(880px, 92vw);
+  max-height: min(780px, 88vh);
   display: flex;
   flex-direction: column;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.28));
-  background-color: var(--we-settings-tint, rgba(24, 26, 32, 0.88));
-  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top, 0.08)), rgba(255, 255, 255, 0.03) 38%, rgba(255, 255, 255, 0.05));
+  background-color: var(--we-settings-tint, rgba(255, 255, 255, 0.78));
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top, 0.08)), rgba(255, 255, 255, 0.025) 38%, rgba(255, 255, 255, 0.04));
   backdrop-filter: var(--we-settings-frost, blur(24px) saturate(175%));
   -webkit-backdrop-filter: var(--we-settings-frost, blur(24px) saturate(175%));
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha, 0.16)),
     inset 0 0 0 1px rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.28)),
-    0 24px 64px rgba(0, 0, 0, 0.36);
-  color: var(--foreground, #f8fafc);
+    0 24px 64px rgba(0, 0, 0, 0.30);
+  color: var(--foreground, #0f172a);
 }
 #${DIALOG_ID} .agy-studio-head {
   display: flex;
@@ -65,7 +71,7 @@ const EXTRA_HOST_CSS = `
   justify-content: space-between;
   padding: 12px 18px;
   border-bottom: 1px solid rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.22));
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 #${DIALOG_ID} .agy-studio-close {
@@ -80,7 +86,7 @@ const EXTRA_HOST_CSS = `
   line-height: 1;
 }
 #${DIALOG_ID} .agy-studio-close:hover {
-  background: rgba(128, 128, 128, 0.16);
+  background: rgba(128, 128, 128, 0.14);
 }
 #${DIALOG_ID} .agy-studio-body {
   flex: 1;
@@ -101,8 +107,16 @@ export function createHostEntries() {
   let settingsPicker = null
   let modalPicker = null
   let observer = null
+  let boundSidebar = null
   let keyListenerAttached = false
   let syncRaf = 0
+
+  const onSidebarCaptureClick = ev => {
+    const targetBtn = ev.target?.closest?.('button')
+    if (targetBtn && targetBtn.id !== NAV_ID && settingsActive) {
+      deactivateSettingsPane()
+    }
+  }
 
   const getAuth = () => ({
     origin: authState.runtimeOrigin,
@@ -112,12 +126,29 @@ export function createHostEntries() {
 
   const ensureExtraCss = () => {
     ensureWePickerStyles(document)
-    if (!document.getElementById(EXTRA_CSS_ID)) {
-      const s = document.createElement('style')
-      s.id = EXTRA_CSS_ID
-      s.textContent = EXTRA_HOST_CSS
-      document.head.appendChild(s)
+    let styleEl = document.getElementById(EXTRA_CSS_ID)
+    if (!styleEl) {
+      styleEl = document.createElement('style')
+      styleEl.id = EXTRA_CSS_ID
+      styleEl.textContent = EXTRA_HOST_CSS
+      document.head.appendChild(styleEl)
+    } else if (styleEl.textContent !== EXTRA_HOST_CSS) {
+      styleEl.textContent = EXTRA_HOST_CSS
     }
+  }
+
+  const syncNavButtonClasses = (navBtn, active) => {
+    if (!navBtn) return
+    const wantCls = active ? NAV_ACTIVE_CLASS : NAV_INACTIVE_CLASS
+    const wantSpanCls = active ? SPAN_ACTIVE_CLASS : SPAN_INACTIVE_CLASS
+    if (navBtn.className !== wantCls) navBtn.className = wantCls
+    const span = navBtn.firstElementChild
+    if (span) {
+      if (span.className !== wantSpanCls) span.className = wantSpanCls
+      if (span.textContent !== SETTINGS_SIDEBAR_LABEL) span.textContent = SETTINGS_SIDEBAR_LABEL
+    }
+    if (active) navBtn.dataset.agyNavActive = 'true'
+    else delete navBtn.dataset.agyNavActive
   }
 
   const findSettingsScroller = sidebar => {
@@ -135,7 +166,7 @@ export function createHostEntries() {
         if (!child.dataset.agyPrevDisplay) {
           child.dataset.agyPrevDisplay = child.style.display || '__empty__'
         }
-        child.style.display = 'none'
+        if (child.style.display !== 'none') child.style.display = 'none'
       } else if (child.dataset.agyPrevDisplay !== undefined) {
         const prev = child.dataset.agyPrevDisplay
         child.style.display = prev === '__empty__' ? '' : prev
@@ -148,17 +179,20 @@ export function createHostEntries() {
     if (!sidebar) return
     for (const btn of sidebar.querySelectorAll('button')) {
       if (btn.id === NAV_ID) continue
-      if (mute) btn.dataset.agyNativeNavMuted = 'true'
-      else delete btn.dataset.agyNativeNavMuted
+      if (mute) {
+        if (btn.dataset.agyNativeNavMuted !== 'true') btn.dataset.agyNativeNavMuted = 'true'
+      } else if (btn.dataset.agyNativeNavMuted !== undefined) {
+        delete btn.dataset.agyNativeNavMuted
+      }
     }
   }
 
   const deactivateSettingsPane = () => {
     settingsActive = false
     const navBtn = document.getElementById(NAV_ID)
-    if (navBtn) delete navBtn.dataset.agyNavActive
+    syncNavButtonClasses(navBtn, false)
     const pane = document.getElementById(PANE_ID)
-    if (pane) pane.style.display = 'none'
+    if (pane && pane.style.display !== 'none') pane.style.display = 'none'
     const sidebar = document.querySelector('[data-testid="settings-sidebar"]')
     if (sidebar) {
       setNativeNavMuted(sidebar, false)
@@ -172,8 +206,7 @@ export function createHostEntries() {
     if (!scroller) return
 
     settingsActive = true
-    const navBtn = document.getElementById(NAV_ID)
-    if (navBtn) navBtn.dataset.agyNavActive = 'true'
+    syncNavButtonClasses(document.getElementById(NAV_ID), true)
     setNativeNavMuted(sidebar, true)
     hideNativeChildren(scroller, true)
 
@@ -187,7 +220,7 @@ export function createHostEntries() {
       pane.id = PANE_ID
       scroller.appendChild(pane)
     }
-    pane.style.display = ''
+    if (pane.style.display === 'none') pane.style.display = ''
     if (!settingsPicker) {
       settingsPicker = mountWePicker(pane, { embed: 'settings', getAuth })
     }
@@ -212,10 +245,11 @@ export function createHostEntries() {
       navBtn = document.createElement('button')
       navBtn.type = 'button'
       navBtn.id = NAV_ID
-      navBtn.setAttribute('data-testid', 'settings-nav-item-WallpaperEngine')
-      navBtn.className = appearanceAnchor?.className || ''
-      navBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;opacity:0.86"><rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-4.5-4.5a1.5 1.5 0 0 0-2.1 0L7 18"/></svg><span></span>`
-      navBtn.querySelector('span').textContent = SETTINGS_SIDEBAR_LABEL
+      navBtn.setAttribute('data-testid', 'settings-nav-item-Wallpaper')
+      const span = document.createElement('span')
+      span.textContent = SETTINGS_SIDEBAR_LABEL
+      navBtn.appendChild(span)
+      syncNavButtonClasses(navBtn, settingsActive)
 
       navBtn.addEventListener('click', e => {
         e.preventDefault()
@@ -223,16 +257,17 @@ export function createHostEntries() {
         activateSettingsPane(sidebar)
       })
 
-      sidebar.addEventListener('click', ev => {
-        const targetBtn = ev.target?.closest?.('button')
-        if (targetBtn && targetBtn.id !== NAV_ID && settingsActive) {
-          deactivateSettingsPane()
-        }
-      }, true)
+      if (boundSidebar !== sidebar) {
+        boundSidebar?.removeEventListener?.('click', onSidebarCaptureClick, true)
+        sidebar.addEventListener?.('click', onSidebarCaptureClick, true)
+        boundSidebar = sidebar
+      }
     } else {
-      const span = navBtn.querySelector('span')
-      if (span && span.textContent !== SETTINGS_SIDEBAR_LABEL) {
-        span.textContent = SETTINGS_SIDEBAR_LABEL
+      syncNavButtonClasses(navBtn, settingsActive)
+      if (boundSidebar !== sidebar) {
+        boundSidebar?.removeEventListener?.('click', onSidebarCaptureClick, true)
+        sidebar.addEventListener?.('click', onSidebarCaptureClick, true)
+        boundSidebar = sidebar
       }
     }
 
@@ -242,7 +277,11 @@ export function createHostEntries() {
     }
 
     if (settingsActive) {
-      activateSettingsPane(sidebar)
+      const pane = document.getElementById(PANE_ID)
+      const scroller = findSettingsScroller(sidebar)
+      const needsSync = !pane || !pane.isConnected || pane.style.display === 'none' ||
+        Boolean(scroller && [...scroller.children].some(c => c.id !== PANE_ID && c.style.display !== 'none'))
+      if (needsSync) activateSettingsPane(sidebar)
     }
   }
 
@@ -305,7 +344,18 @@ export function createHostEntries() {
     }
   }
 
-  const scheduleSync = () => {
+  const isInternalPluginMutation = mutations => {
+    const pane = document.getElementById(PANE_ID)
+    const studio = document.getElementById(BACKDROP_ID)
+    if (!pane && !studio) return false
+    return mutations.every(m => {
+      const t = m.target
+      return Boolean((pane && pane.contains(t)) || (studio && studio.contains(t)))
+    })
+  }
+
+  const scheduleSync = mutations => {
+    if (Array.isArray(mutations) && mutations.length && isInternalPluginMutation(mutations)) return
     if (syncRaf) return
     syncRaf = requestAnimationFrame(() => {
       syncRaf = 0
@@ -341,6 +391,8 @@ export function createHostEntries() {
       if (syncRaf) cancelAnimationFrame(syncRaf)
       observer?.disconnect()
       observer = null
+      boundSidebar?.removeEventListener?.('click', onSidebarCaptureClick, true)
+      boundSidebar = null
       if (keyListenerAttached) {
         window.removeEventListener('keydown', handleGlobalKeyDown)
         keyListenerAttached = false
@@ -348,7 +400,11 @@ export function createHostEntries() {
       deactivateSettingsPane()
       settingsPicker?.destroy()
       settingsPicker = null
+      document.getElementById(NAV_ID)?.remove?.()
+      document.getElementById(PANE_ID)?.remove?.()
       closeStudioDialog()
+      document.getElementById(EXTRA_CSS_ID)?.remove()
+      document.getElementById('agy-skins-picker-css')?.remove()
     }
   }
 }

@@ -95,16 +95,19 @@ function createRuntime() {
     }
   })
 
-  const applyAll = payload => {
-    if (!payload || typeof payload !== 'object') return
-    lastPayload = payload
-    const cfg = payload.config || {}
-    const res = payload.resolved || {}
+  let lastCoreVisualKey = ''
+  let lastVisualWasPreview = false
+
+  const applyVisuals = (cfg, res, nowPlaying = null, { isPreview = false } = {}) => {
     const isDark = detectIsDark()
     currentIsDark = isDark
+    const coreKey = JSON.stringify({ cfg, src: res.resolvedSrc || null, preview: res.previewUrl || null, isDark, np: nowPlaying?.title || '' })
+    if (coreKey === lastCoreVisualKey && (isPreview || !lastVisualWasPreview)) {
+      return
+    }
     const active = cfg.wallpaperEnabled === true && Boolean(res.resolvedSrc)
 
-    backdrop.setMediaSnapshot(payload.nowPlaying || null)
+    backdrop.setMediaSnapshot(nowPlaying)
     backdrop.update({
       enabled: active,
       type: cfg.wallpaperType,
@@ -194,6 +197,7 @@ function createRuntime() {
       sidebarContentColor: cfg.sidebarContentColor,
       conversationColor: cfg.conversationColor,
       settingsWindowColor: cfg.settingsWindowColor,
+      isPreview,
       isDark
     })
 
@@ -206,6 +210,19 @@ function createRuntime() {
       isDark
     })
     titlebar.update({ enabled: active, isDark })
+    lastCoreVisualKey = coreKey
+    lastVisualWasPreview = isPreview
+  }
+
+  let previewRaf = 0
+  let pendingPreviewCfg = null
+
+  const applyAll = (payload, { isPreview = false } = {}) => {
+    if (!payload || typeof payload !== 'object') return
+    lastPayload = payload
+    const cfg = payload.config || {}
+    const res = payload.resolved || {}
+    applyVisuals(cfg, res, payload.nowPlaying || null, { isPreview: Boolean(isPreview) })
     hostEntries.update({
       studioUrl: payload.studioUrl,
       runtimeOrigin: payload.runtimeOrigin,
@@ -251,12 +268,28 @@ function createRuntime() {
       if (typeof callerOwner === 'number' && callerOwner < OWNER) return 'superseded'
       return { ok: true, owner: OWNER, hash: HASH, active: Boolean(lastPayload) }
     },
-    apply(payload, callerOwner) {
+    apply(payload, callerOwner, isPreview = false) {
       if (typeof callerOwner === 'number' && callerOwner < OWNER) return 'superseded'
-      applyAll(payload)
+      applyAll(payload, { isPreview: Boolean(isPreview) })
       return { ok: true, owner: OWNER }
     },
+    previewConfig(nextCfg) {
+      if (!lastPayload || !nextCfg || typeof nextCfg !== 'object') return false
+      pendingPreviewCfg = { ...(lastPayload.config || {}), ...nextCfg }
+      lastPayload = { ...lastPayload, config: pendingPreviewCfg }
+      if (previewRaf) return true
+      const schedule = typeof requestAnimationFrame === 'function' ? requestAnimationFrame : cb => setTimeout(cb, 0)
+      previewRaf = schedule(() => {
+        previewRaf = 0
+        const cfg = pendingPreviewCfg
+        pendingPreviewCfg = null
+        if (cfg && lastPayload) applyVisuals(cfg, lastPayload.resolved || {}, lastPayload.nowPlaying || null, { isPreview: true })
+      })
+      return true
+    },
     dispose() {
+      if (previewRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(previewRaf)
+      previewRaf = 0
       watcher.destroy()
       hostEntries.destroy()
       titlebar.destroy()
