@@ -1,3 +1,5 @@
+import { sanitizeUserPresets } from './glass-presets.js'
+
 export const ROTATION_INTERVAL_MIN = 1
 export const ROTATION_INTERVAL_MAX = 1440
 export const ROTATION_TRIGGER_VALUES = ['interval', 'videoEnd']
@@ -10,10 +12,14 @@ export const CONTENT_RATINGS = ['everyone', 'pg13', 'mature', 'unrated']
 export const ORIENTATION_FILTERS = ['all', 'landscape', 'portrait']
 export const PICKER_LAYOUTS = ['classic', 'fixed']
 export const SORT_MODES = ['newest', 'title']
+export const THINKING_MODES = ['off', 'glass', 'native']
 export const FX_CLICK_STYLES = ['ripple', 'spark', 'both']
 export const FX_TRAIL_STYLES = ['comet', 'dust']
 export const FX_BLEND_VALUES = ['screen', 'normal', 'overlay', 'multiply', 'lighten']
 export const FX_COLOR_MODES = ['accent', 'rainbow', 'custom']
+export const GLASS_MODE_SURFACES = [
+  'leftSidebar', 'titlebar', 'sidebar', 'sidebarContent', 'settingsWindow', 'conversation', 'floaters'
+]
 export const FONT_SET_KEYS = [
   'themeColors', 'themeDarkSeparate', 'themeSize', 'themeWeight',
   'themeFamily', 'globalFamily', 'componentFonts'
@@ -32,15 +38,17 @@ export const COMPONENT_FONT_TARGETS = [
 ]
 
 export const DEFAULT_CONFIG = {
-  schemaVersion: 7,
+  schemaVersion: 8,
 
   wallpaperEnabled: false,
+  wallpaperPaused: false,
+  startPaused: false,
   wallpaperType: 'image',
   wallpaperMode: 'live',
   wallpaperFit: 'cover',
   wallpaperSource: '',
   wallpaperBlur: 0,
-  maskOcclusion: 25,
+  maskOcclusion: 12,
   wallpaperOpacity: 100,
   backgroundBrightness: 100,
   backgroundContrast: 100,
@@ -130,24 +138,27 @@ export const DEFAULT_CONFIG = {
   layerPositionY: 50,
   layerScale: 100,
 
-  panelGlass: 10,
-  bubbleOpacity: 55,
-  composerFrost: 10,
-  surfaceFrost: 8,
-  glassSaturation: 150,
-  glassBorder: 35,
+  glassEnabled: true,
+  panelGlass: 72,
+  bubbleOpacity: 62,
+  composerFrost: 22,
+  surfaceFrost: 18,
+  glassSaturation: 175,
+  glassBorder: 32,
   glassHighlight: true,
-  glassColor: { light: '#ffffff', dark: '#ffffff' },
-  glassDarkSeparate: false,
+  glassColor: { light: '#ffffff', dark: '#0d1524' },
+  glassDarkSeparate: true,
   glassFidelity: 100,
   chatGlassFidelity: 100,
-  settingsWindowTransparency: 20,
-  settingsWindowBlur: 16,
+  settingsWindowTransparency: 24,
+  settingsWindowBlur: 24,
+  settingsMaskStrength: 80,
   sidebarGlass: true,
   sidebarFollowGlobal: true,
-  sidebarBlur: 16,
-  sidebarAlpha: 60,
+  sidebarBlur: 18,
+  sidebarAlpha: 72,
   sidebarColor: '#ffffff',
+  sidebarFullClear: false,
   leftSidebarGlass: true,
   leftSidebarCornerRadius: 'native',
   leftSidebarSquareTL: false,
@@ -159,11 +170,34 @@ export const DEFAULT_CONFIG = {
   rightSidebarSquareTR: false,
   rightSidebarSquareBR: false,
   rightSidebarSquareBL: false,
-  titlebarGlass: true,
+  titlebarGlass: false,
+  thinkingMode: 'glass',
+  floaterSolidBase: true,
+
+  glassMode: {
+    leftSidebar: 'inherit',
+    titlebar: 'inherit',
+    sidebar: 'inherit',
+    sidebarContent: 'inherit',
+    settingsWindow: 'inherit',
+    conversation: 'inherit',
+    floaters: 'inherit'
+  },
+  leftSidebarTransparency: 72,
+  leftSidebarBlur: 18,
+  titlebarTransparency: 72,
+  titlebarBlur: 18,
+  sidebarContentAlpha: 20,
+  sidebarContentColor: '',
+  conversationColor: '',
+  settingsWindowColor: '',
+
+  activePresetId: 'factory-default',
+  userPresets: [],
 
   browserHoleCutout: true,
   studioShortcut: true,
-  uiLanguage: 'auto',
+  uiLanguage: 'zh',
 
   weRoots: [],
   weSelection: null
@@ -181,17 +215,23 @@ export const PARAM_RANGES = {
   layerScale: { min: 50, max: 150, unit: '%' },
   panelGlass: { min: 0, max: 100, unit: '%' },
   bubbleOpacity: { min: 0, max: 100, unit: '%' },
-  composerFrost: { min: 0, max: 20, unit: 'px' },
-  surfaceFrost: { min: 0, max: 20, unit: 'px' },
+  composerFrost: { min: 0, max: 60, unit: 'px' },
+  surfaceFrost: { min: 0, max: 60, unit: 'px' },
   wallpaperVolume: { min: 0, max: 100, unit: '%' },
-  glassSaturation: { min: 100, max: 200, unit: '%' },
-  glassBorder: { min: 0, max: 100, unit: '%' },
+  glassSaturation: { min: 100, max: 220, unit: '%' },
+  glassBorder: { min: 0, max: 90, unit: '%' },
   glassFidelity: { min: 0, max: 100, unit: '%' },
   chatGlassFidelity: { min: 0, max: 100, unit: '%' },
   settingsWindowTransparency: { min: 0, max: 100, unit: '%' },
   settingsWindowBlur: { min: 0, max: 60, unit: 'px' },
+  settingsMaskStrength: { min: 0, max: 100, unit: '%' },
   sidebarBlur: { min: 0, max: 60, unit: 'px' },
   sidebarAlpha: { min: 0, max: 100, unit: '%' },
+  leftSidebarTransparency: { min: 0, max: 100, unit: '%' },
+  leftSidebarBlur: { min: 0, max: 60, unit: 'px' },
+  titlebarTransparency: { min: 0, max: 100, unit: '%' },
+  titlebarBlur: { min: 0, max: 60, unit: 'px' },
+  sidebarContentAlpha: { min: 0, max: 100, unit: '%' },
   fxClickSize: { min: 40, max: 400, unit: 'px' },
   fxClickGlow: { min: 0, max: 100, unit: '%' },
   fxTrailLength: { min: 80, max: 2000, unit: 'ms' },
@@ -204,6 +244,64 @@ export const PARAM_RANGES = {
   parallaxUiSidebarDepth: { min: 0, max: 10, unit: '%' },
   parallaxUiBubbleDepth: { min: 0, max: 10, unit: '%' },
   parallaxSmooth: { min: 0, max: 98, unit: '%' }
+}
+
+export const RESET_MODULES = {
+  transition: ['wallpaperTransition', 'wallpaperTransitionDir', 'wallpaperTransitionSpeed'],
+  rotation: ['rotationEnabled', 'rotationMinutes', 'pictureSlideSeconds'],
+  theme: ['themeFollow'],
+  detail: ['glassBorder', 'glassHighlight'],
+  glass: [
+    'glassEnabled', 'panelGlass', 'bubbleOpacity', 'composerFrost', 'surfaceFrost',
+    'glassSaturation', 'glassColor', 'glassDarkSeparate', 'glassFidelity', 'chatGlassFidelity',
+    'settingsWindowTransparency', 'settingsWindowBlur', 'settingsMaskStrength',
+    'sidebarGlass', 'sidebarFollowGlobal', 'sidebarBlur', 'sidebarAlpha', 'sidebarColor',
+    'sidebarFullClear', 'leftSidebarGlass', 'titlebarGlass', 'thinkingMode', 'floaterSolidBase',
+    'glassMode', 'leftSidebarTransparency', 'leftSidebarBlur', 'titlebarTransparency', 'titlebarBlur',
+    'sidebarContentAlpha', 'sidebarContentColor', 'conversationColor', 'settingsWindowColor',
+    'activePresetId'
+  ],
+  corners: [
+    'leftSidebarCornerRadius', 'leftSidebarSquareTL', 'leftSidebarSquareTR', 'leftSidebarSquareBR', 'leftSidebarSquareBL',
+    'rightSidebarCornerRadius', 'rightSidebarSquareTL', 'rightSidebarSquareTR', 'rightSidebarSquareBR', 'rightSidebarSquareBL'
+  ],
+  uiColor: [
+    'accent', 'uiColorCustom', 'uiColorSend', 'uiColorLink', 'uiColorFileIcon',
+    'uiColorTab', 'uiColorDeepDiving', 'caretColor'
+  ],
+  font: [
+    'fontCustom', 'fontSets', 'fontSetId', 'themeColors', 'themeDarkSeparate',
+    'themeSize', 'themeWeight', 'themeFamily', 'globalFamily', 'componentFonts'
+  ],
+  effectsPicture: [
+    'wallpaperBlur', 'maskOcclusion', 'wallpaperOpacity', 'backgroundBrightness', 'backgroundContrast',
+    'backgroundSaturate', 'wallpaperFlip', 'layerPositionX', 'layerPositionY', 'layerScale', 'wallpaperFit'
+  ],
+  effectsLive: [
+    'wallpaperMode', 'videoPlaybackRate', 'sceneLive', 'sceneLiveFps',
+    'sceneAutoQuality', 'sceneRenderDpr', 'sceneVideoTexScale', 'liveBootDelay'
+  ],
+  audio: ['wallpaperSound', 'wallpaperVolume'],
+  fx: [
+    'fxEnabled', 'fxClick', 'fxClickStyle', 'fxClickSize', 'fxClickGlow',
+    'fxTrail', 'fxTrailStyle', 'fxTrailLength', 'fxTrailWidth', 'fxTrailGlow',
+    'fxOpacity', 'fxBlend', 'fxColorMode', 'fxColor'
+  ],
+  parallax: [
+    'parallaxEnabled', 'parallaxBg', 'parallaxUi', 'parallaxPlugin',
+    'parallaxUiChatDepth', 'parallaxUiComposerDepth', 'parallaxUiSidebarDepth',
+    'parallaxUiBubbleDepth', 'parallaxPluginDepths', 'parallaxSmooth'
+  ],
+  system: ['pickerLayout', 'browserHoleCutout', 'studioShortcut', 'uiLanguage', 'pauseOnHidden', 'pauseOnBlur', 'pauseOnBattery', 'startPaused']
+}
+
+export const TAB_RESET_KEYS = {
+  library: ['wallpaperFit', 'sortOrder', 'orientationFilter', 'typeFilter', 'contentRatingFilter', 'folderFilter', ...RESET_MODULES.transition, ...RESET_MODULES.rotation],
+  appearance: [...RESET_MODULES.theme, ...RESET_MODULES.detail, ...RESET_MODULES.glass, ...RESET_MODULES.corners, ...RESET_MODULES.uiColor, ...RESET_MODULES.font],
+  effects: [...RESET_MODULES.effectsPicture, ...RESET_MODULES.effectsLive],
+  audio: [...RESET_MODULES.audio],
+  advanced: [...RESET_MODULES.system],
+  extensions: [...RESET_MODULES.fx, ...RESET_MODULES.parallax]
 }
 
 const HEX_RE = /^#[0-9a-f]{6}$/i
@@ -222,7 +320,7 @@ export function paramInRange(key, value) {
   return clampNum(value, range.min, range.max, DEFAULT_CONFIG[key])
 }
 
-const hex = (value, fallback = '') => typeof value === 'string' && HEX_RE.test(value) ? value : fallback
+const hex = (value, fallback = '') => typeof value === 'string' && HEX_RE.test(value.trim()) ? value.trim().toLowerCase() : fallback
 const text = (value, max = 200) => typeof value === 'string' ? value.slice(0, max) : ''
 
 function uniqueStrings(value, maxItems = 5000, maxLength = 1024) {
@@ -346,6 +444,17 @@ function sanitizePluginDepths(value) {
   return out
 }
 
+function sanitizeGlassMode(value) {
+  const out = { ...DEFAULT_CONFIG.glassMode }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return out
+  for (const surface of GLASS_MODE_SURFACES) {
+    if (value[surface] === 'custom' || value[surface] === 'inherit') {
+      out[surface] = value[surface]
+    }
+  }
+  return out
+}
+
 function scalarValue(value) {
   return value === null || ['string', 'number', 'boolean'].includes(typeof value)
     ? (typeof value === 'string' ? value.slice(0, 2048) : value)
@@ -401,49 +510,120 @@ function sanitizeSelectionProperties(value) {
 
 export function normalizeConfig(value) {
   const raw = value && typeof value === 'object' && !Array.isArray(value) ? value : {}
-  const schemaVersion = Math.max(7, Number(raw.schemaVersion) || 0)
+  const rawSchemaNum = Number(raw.schemaVersion) || 0
+  const hasRawKeys = Object.keys(raw).length > 0
+  const fromPreV8 = rawSchemaNum > 0 && rawSchemaNum < 8
+  const untouchedV7Glass = fromPreV8 && raw.panelGlass === 65 && raw.surfaceFrost === 8 && raw.composerFrost === 10
+
+  const schemaVersion = Math.max(8, rawSchemaNum)
   const rotationGroups = normalizeRotationGroups(raw.rotationGroups)
   const rotationGroupId = rotationGroups.some(group => group.id === raw.rotationGroupId)
     ? raw.rotationGroupId : ''
-  const transition = raw.wallpaperTransition === 'slide' ? 'push'
-    : TRANSITION_VALUES.includes(raw.wallpaperTransition) ? raw.wallpaperTransition : DEFAULT_CONFIG.wallpaperTransition
+  const rawTransition = raw.wallpaperTransition ?? raw.switchTransition
+  const transition = rawTransition === 'slide' ? 'push'
+    : TRANSITION_VALUES.includes(rawTransition) ? rawTransition : DEFAULT_CONFIG.wallpaperTransition
   const fontSets = sanitizeFontSets(raw.fontSets)
   const fontSetId = fontSets.some(item => item.id === raw.fontSetId) ? raw.fontSetId : ''
   const sourceType = WALLPAPER_TYPES.includes(raw.wallpaperType) ? raw.wallpaperType : DEFAULT_CONFIG.wallpaperType
-  const fit = ['cover', 'contain', 'center', 'fill'].includes(raw.wallpaperFit)
-    ? raw.wallpaperFit : DEFAULT_CONFIG.wallpaperFit
+  const fitSource = raw.wallpaperFit ?? raw.objectFit
+  const fit = ['cover', 'contain', 'center', 'fill'].includes(fitSource)
+    ? fitSource : DEFAULT_CONFIG.wallpaperFit
   const typeFilter = typeof raw.typeFilter === 'string'
     ? (raw.typeFilter === 'all' ? [...WALLPAPER_TYPES] : [raw.typeFilter].filter(item => WALLPAPER_TYPES.includes(item)))
     : enumArray(raw.typeFilter, WALLPAPER_TYPES, WALLPAPER_TYPES)
-  const legacyBubbleDefault = (Number(raw.schemaVersion ?? 3) < 4) && raw.bubbleOpacity === 100
+  const legacyBubbleDefault = rawSchemaNum > 0 && rawSchemaNum < 4 && raw.bubbleOpacity === 100
+
+  // Compatibility with dsh-wallpaper-engine preset fields
+  const dshPanelGlass = raw.panelGlass !== undefined ? raw.panelGlass : raw.glassAlpha
+  const dshSurfaceFrost = raw.surfaceFrost !== undefined ? raw.surfaceFrost : raw.blur
+  const dshBorder = raw.glassBorder !== undefined
+    ? raw.glassBorder
+    : (Number.isFinite(Number(raw.border)) ? Number(raw.border) * 100 : undefined)
+  const dshOcclusion = raw.maskOcclusion !== undefined
+    ? raw.maskOcclusion
+    : (Number.isFinite(Number(raw.scrim)) ? Number(raw.scrim) * 100 : undefined)
+  const dshFlip = raw.wallpaperFlip !== undefined ? raw.wallpaperFlip : raw.flip
+
+  let thinkingMode = THINKING_MODES.includes(raw.thinkingMode) ? raw.thinkingMode : null
+  if (!thinkingMode) {
+    if (raw.thinkingNative === true) thinkingMode = 'native'
+    else if (raw.thinkingGlass === true) thinkingMode = 'glass'
+    else if (raw.thinkingGlass === false) thinkingMode = 'off'
+    else thinkingMode = DEFAULT_CONFIG.thinkingMode
+  }
+
+  let uiLanguage = ['auto', 'zh', 'en'].includes(raw.uiLanguage) ? raw.uiLanguage : DEFAULT_CONFIG.uiLanguage
+  if (fromPreV8 && (!raw.uiLanguage || raw.uiLanguage === 'auto')) {
+    uiLanguage = 'zh'
+  } else if (!hasRawKeys) {
+    uiLanguage = 'zh'
+  }
+
+  const rawGlassColor = raw.glassColor && typeof raw.glassColor === 'object' ? raw.glassColor : null
+  const panelGlassVal = untouchedV7Glass
+    ? DEFAULT_CONFIG.panelGlass
+    : paramInRange('panelGlass', dshPanelGlass)
+  const bubbleOpacityVal = legacyBubbleDefault
+    ? DEFAULT_CONFIG.bubbleOpacity
+    : untouchedV7Glass
+      ? DEFAULT_CONFIG.bubbleOpacity
+      : paramInRange('bubbleOpacity', raw.bubbleOpacity)
+  const composerFrostVal = untouchedV7Glass
+    ? DEFAULT_CONFIG.composerFrost
+    : paramInRange('composerFrost', raw.composerFrost)
+  const surfaceFrostVal = untouchedV7Glass
+    ? DEFAULT_CONFIG.surfaceFrost
+    : paramInRange('surfaceFrost', dshSurfaceFrost)
+  const glassSatVal = untouchedV7Glass
+    ? DEFAULT_CONFIG.glassSaturation
+    : paramInRange('glassSaturation', raw.glassSaturation)
+  const glassBorderVal = untouchedV7Glass
+    ? DEFAULT_CONFIG.glassBorder
+    : paramInRange('glassBorder', dshBorder)
+  const titlebarGlassVal = untouchedV7Glass
+    ? DEFAULT_CONFIG.titlebarGlass
+    : (typeof raw.titlebarGlass === 'boolean' ? raw.titlebarGlass : DEFAULT_CONFIG.titlebarGlass)
+  const glassDarkSeparateVal = untouchedV7Glass
+    ? DEFAULT_CONFIG.glassDarkSeparate
+    : (typeof raw.glassDarkSeparate === 'boolean' ? raw.glassDarkSeparate : DEFAULT_CONFIG.glassDarkSeparate)
+  const glassColorVal = untouchedV7Glass
+    ? { ...DEFAULT_CONFIG.glassColor }
+    : {
+        light: hex(rawGlassColor?.light, DEFAULT_CONFIG.glassColor.light),
+        dark: hex(rawGlassColor?.dark, DEFAULT_CONFIG.glassColor.dark)
+      }
 
   return {
     schemaVersion,
 
     wallpaperEnabled: raw.wallpaperEnabled === true,
+    wallpaperPaused: raw.wallpaperPaused === true,
+    startPaused: raw.startPaused === true,
     wallpaperType: sourceType,
     wallpaperMode: raw.wallpaperMode === 'frame' ? 'frame' : 'live',
     wallpaperFit: fit,
     wallpaperSource: text(raw.wallpaperSource, 16384),
     wallpaperBlur: paramInRange('wallpaperBlur', raw.wallpaperBlur),
-    maskOcclusion: paramInRange('maskOcclusion', raw.maskOcclusion),
+    maskOcclusion: paramInRange('maskOcclusion', dshOcclusion),
     wallpaperOpacity: paramInRange('wallpaperOpacity', raw.wallpaperOpacity),
     backgroundBrightness: paramInRange('backgroundBrightness', raw.backgroundBrightness),
     backgroundContrast: paramInRange('backgroundContrast', raw.backgroundContrast),
     backgroundSaturate: paramInRange('backgroundSaturate', raw.backgroundSaturate),
-    wallpaperFlip: raw.wallpaperFlip === true,
+    wallpaperFlip: dshFlip === true,
     wallpaperTransition: transition,
-    wallpaperTransitionDir: TRANSITION_DIRECTIONS.includes(raw.wallpaperTransitionDir)
-      ? raw.wallpaperTransitionDir : DEFAULT_CONFIG.wallpaperTransitionDir,
-    wallpaperTransitionSpeed: TRANSITION_SPEEDS.includes(raw.wallpaperTransitionSpeed)
-      ? raw.wallpaperTransitionSpeed : DEFAULT_CONFIG.wallpaperTransitionSpeed,
+    wallpaperTransitionDir: TRANSITION_DIRECTIONS.includes(raw.wallpaperTransitionDir ?? raw.switchTransitionDir)
+      ? (raw.wallpaperTransitionDir ?? raw.switchTransitionDir) : DEFAULT_CONFIG.wallpaperTransitionDir,
+    wallpaperTransitionSpeed: TRANSITION_SPEEDS.includes(raw.wallpaperTransitionSpeed ?? raw.switchTransitionSpeed)
+      ? (raw.wallpaperTransitionSpeed ?? raw.switchTransitionSpeed) : DEFAULT_CONFIG.wallpaperTransitionSpeed,
 
     pauseOnHidden: typeof raw.pauseOnHidden === 'boolean' ? raw.pauseOnHidden : DEFAULT_CONFIG.pauseOnHidden,
     pauseOnBlur: typeof raw.pauseOnBlur === 'boolean' ? raw.pauseOnBlur : DEFAULT_CONFIG.pauseOnBlur,
     pauseOnBattery: typeof raw.pauseOnBattery === 'boolean' ? raw.pauseOnBattery : DEFAULT_CONFIG.pauseOnBattery,
-    wallpaperSound: typeof raw.wallpaperSound === 'boolean' ? raw.wallpaperSound : DEFAULT_CONFIG.wallpaperSound,
-    wallpaperVolume: paramInRange('wallpaperVolume', raw.wallpaperVolume),
-    videoPlaybackRate: clampNum(raw.videoPlaybackRate, 0.5, 2, DEFAULT_CONFIG.videoPlaybackRate),
+    wallpaperSound: typeof raw.wallpaperSound === 'boolean'
+      ? raw.wallpaperSound
+      : (typeof raw.videoAudioEnabled === 'boolean' ? raw.videoAudioEnabled : DEFAULT_CONFIG.wallpaperSound),
+    wallpaperVolume: paramInRange('wallpaperVolume', raw.wallpaperVolume ?? raw.videoVolume),
+    videoPlaybackRate: clampNum(raw.videoPlaybackRate ?? raw.playbackRate, 0.5, 2, DEFAULT_CONFIG.videoPlaybackRate),
     sceneLive: typeof raw.sceneLive === 'boolean' ? raw.sceneLive : DEFAULT_CONFIG.sceneLive,
     sceneLiveFps: [15, 30, 60].includes(Number(raw.sceneLiveFps)) ? Number(raw.sceneLiveFps) : DEFAULT_CONFIG.sceneLiveFps,
     sceneAutoQuality: typeof raw.sceneAutoQuality === 'boolean' ? raw.sceneAutoQuality : DEFAULT_CONFIG.sceneAutoQuality,
@@ -522,27 +702,27 @@ export function normalizeConfig(value) {
     layerPositionY: paramInRange('layerPositionY', raw.layerPositionY),
     layerScale: paramInRange('layerScale', raw.layerScale),
 
-    panelGlass: paramInRange('panelGlass', raw.panelGlass),
-    bubbleOpacity: legacyBubbleDefault ? 55 : paramInRange('bubbleOpacity', raw.bubbleOpacity),
-    composerFrost: paramInRange('composerFrost', raw.composerFrost),
-    surfaceFrost: paramInRange('surfaceFrost', raw.surfaceFrost),
-    glassSaturation: paramInRange('glassSaturation', raw.glassSaturation),
-    glassBorder: paramInRange('glassBorder', raw.glassBorder),
+    glassEnabled: raw.glassEnabled !== false,
+    panelGlass: panelGlassVal,
+    bubbleOpacity: bubbleOpacityVal,
+    composerFrost: composerFrostVal,
+    surfaceFrost: surfaceFrostVal,
+    glassSaturation: glassSatVal,
+    glassBorder: glassBorderVal,
     glassHighlight: raw.glassHighlight !== false,
-    glassColor: {
-      light: hex(raw.glassColor?.light, DEFAULT_CONFIG.glassColor.light),
-      dark: hex(raw.glassColor?.dark, DEFAULT_CONFIG.glassColor.dark)
-    },
-    glassDarkSeparate: raw.glassDarkSeparate === true,
+    glassColor: glassColorVal,
+    glassDarkSeparate: glassDarkSeparateVal,
     glassFidelity: paramInRange('glassFidelity', raw.glassFidelity),
     chatGlassFidelity: paramInRange('chatGlassFidelity', raw.chatGlassFidelity),
     settingsWindowTransparency: paramInRange('settingsWindowTransparency', raw.settingsWindowTransparency),
     settingsWindowBlur: paramInRange('settingsWindowBlur', raw.settingsWindowBlur),
+    settingsMaskStrength: paramInRange('settingsMaskStrength', raw.settingsMaskStrength),
     sidebarGlass: raw.sidebarGlass !== false,
     sidebarFollowGlobal: raw.sidebarFollowGlobal !== false,
     sidebarBlur: paramInRange('sidebarBlur', raw.sidebarBlur),
     sidebarAlpha: paramInRange('sidebarAlpha', raw.sidebarAlpha),
     sidebarColor: hex(raw.sidebarColor, DEFAULT_CONFIG.sidebarColor),
+    sidebarFullClear: raw.sidebarFullClear === true,
     leftSidebarGlass: typeof raw.leftSidebarGlass === 'boolean'
       ? raw.leftSidebarGlass : DEFAULT_CONFIG.leftSidebarGlass,
     leftSidebarCornerRadius: ['native', '6', '12', '20'].includes(raw.leftSidebarCornerRadius)
@@ -557,11 +737,26 @@ export function normalizeConfig(value) {
     rightSidebarSquareTR: raw.rightSidebarSquareTR === true,
     rightSidebarSquareBR: raw.rightSidebarSquareBR === true,
     rightSidebarSquareBL: raw.rightSidebarSquareBL === true,
-    titlebarGlass: typeof raw.titlebarGlass === 'boolean' ? raw.titlebarGlass : DEFAULT_CONFIG.titlebarGlass,
+    titlebarGlass: titlebarGlassVal,
+    thinkingMode,
+    floaterSolidBase: raw.floaterSolidBase !== false,
+
+    glassMode: sanitizeGlassMode(raw.glassMode),
+    leftSidebarTransparency: paramInRange('leftSidebarTransparency', raw.leftSidebarTransparency),
+    leftSidebarBlur: paramInRange('leftSidebarBlur', raw.leftSidebarBlur),
+    titlebarTransparency: paramInRange('titlebarTransparency', raw.titlebarTransparency),
+    titlebarBlur: paramInRange('titlebarBlur', raw.titlebarBlur),
+    sidebarContentAlpha: paramInRange('sidebarContentAlpha', raw.sidebarContentAlpha),
+    sidebarContentColor: hex(raw.sidebarContentColor),
+    conversationColor: hex(raw.conversationColor),
+    settingsWindowColor: hex(raw.settingsWindowColor),
+
+    activePresetId: !hasRawKeys ? DEFAULT_CONFIG.activePresetId : text(raw.activePresetId, 80),
+    userPresets: sanitizeUserPresets(raw.userPresets),
 
     browserHoleCutout: typeof raw.browserHoleCutout === 'boolean' ? raw.browserHoleCutout : DEFAULT_CONFIG.browserHoleCutout,
     studioShortcut: typeof raw.studioShortcut === 'boolean' ? raw.studioShortcut : DEFAULT_CONFIG.studioShortcut,
-    uiLanguage: ['auto', 'zh', 'en'].includes(raw.uiLanguage) ? raw.uiLanguage : DEFAULT_CONFIG.uiLanguage,
+    uiLanguage,
 
     weRoots: Array.isArray(raw.weRoots)
       ? [...new Set(raw.weRoots.filter(root => typeof root === 'string' && ABS_ROOT_RE.test(root) && root.length <= 1024))]

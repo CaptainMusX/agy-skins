@@ -1,7 +1,9 @@
 /**
- * Dual-transport UI RPC + reactive DOM builder for both Aux Sidecar Pane and Studio Modal.
+ * Triple-transport reactive store & dsh-wallpaper-engine control primitives
+ * shared identically across Settings native pane, Alt+Shift+W modal, and Aux Sidecar pane.
  */
-import { createTranslator } from '../shared/i18n.js'
+import { createTranslator, resolveLanguage } from '../shared/i18n.js'
+import { DEFAULT_CONFIG, PARAM_RANGES, RESET_MODULES, TAB_RESET_KEYS } from '../shared/config.js'
 
 export function el(tag, attrs = null, ...children) {
   const node = document.createElement(tag)
@@ -12,7 +14,7 @@ export function el(tag, attrs = null, ...children) {
       else if (k === 'style' && typeof v === 'object') Object.assign(node.style, v)
       else if (k === 'dataset' && typeof v === 'object') Object.assign(node.dataset, v)
       else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2).toLowerCase(), v)
-      else if (k in node && k !== 'list') node[k] = v
+      else if (k in node && k !== 'list' && k !== 'role') node[k] = v
       else node.setAttribute(k, v === true ? '' : String(v))
     }
   }
@@ -29,9 +31,21 @@ function appendChildren(parent, list) {
   }
 }
 
-export async function callBackend(action, body = {}) {
-  const mode = window.__AGY_SKINS_HOST_MODE__ || 'studio'
-  if (mode === 'aux' && window.sidecar?.fetch) {
+export async function callBackend(action, body = {}, auth = null) {
+  if (auth?.origin && auth?.studioToken) {
+    const res = await fetch(`${auth.origin}/studio-api/${action}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-agy-studio-token': auth.studioToken
+      },
+      body: JSON.stringify(body)
+    })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    return await res.json()
+  }
+  const mode = (typeof window !== 'undefined' && window.__AGY_SKINS_HOST_MODE__) || 'studio'
+  if (mode === 'aux' && typeof window !== 'undefined' && window.sidecar?.fetch) {
     const res = await window.sidecar.fetch(`/api/${action}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -39,7 +53,7 @@ export async function callBackend(action, body = {}) {
     })
     return await res.json()
   }
-  const token = window.__AGY_SKINS_STUDIO_TOKEN__ || ''
+  const token = (typeof window !== 'undefined' && window.__AGY_SKINS_STUDIO_TOKEN__) || ''
   const res = await fetch(`/studio-api/${action}`, {
     method: 'POST',
     headers: {
@@ -52,26 +66,61 @@ export async function callBackend(action, body = {}) {
   return await res.json()
 }
 
-export function createPanelStore() {
+export function createPanelStore({ getAuth = null, embed = '' } = {}) {
+  const auth = () => (typeof getAuth === 'function' ? getAuth() : null)
   const state = {
+    embed,
     config: null,
     weItems: [],
     cdp: null,
     mediaOrigin: '',
+    systemLocale: auth()?.systemLocale || globalThis.__AGY_SKINS_SYSTEM_LOCALE__ || '',
     tab: 'library',
     toast: null,
     scanning: false,
     busyAction: '',
     diagnostics: null,
     systemFonts: [],
-    fontsLoaded: false
+    fontsLoaded: false,
+    fontsLoading: false,
+    discoveredSlots: [],
+
+    // UI view states matching dsh-wallpaper-engine
+    pickerOpen: false,
+    pickerDraft: false,
+    modalView: 'normal',
+    batchMode: false,
+    batchSelected: [],
+    propsOpen: false,
+    showGlassDetail: false,
+    editingGroup: null,
+    manualSourceOpen: false,
+    presetSaveMode: '', // '' | 'save' | 'export'
+    presetDraftName: '',
+    presetExportId: '',
+    fontSetDraftName: '',
+    fontOnlyModified: false,
+    fontAdvanced: false,
+    armedConfirm: '',
+    search: '',
+    sectionsOpen: {
+      glassPresets: true,
+      glassUi: true,
+      detail: true,
+      corners: true,
+      uiColor: false,
+      font: false
+    }
   }
+
   const listeners = new Set()
   let deferFlushTimer = null
 
   const notify = () => {
     for (const fn of listeners) fn(state)
   }
+
+  const rpc = (action, body = {}) => callBackend(action, body, auth())
 
   const showToast = (message, kind = 'info') => {
     state.toast = message ? { message, kind, at: Date.now() } : null
@@ -82,38 +131,81 @@ export function createPanelStore() {
           state.toast = null
           notify()
         }
-      }, 3200)
+      }, 2800)
     }
   }
 
-  const getT = () => createTranslator(state.config?.uiLanguage || 'auto')
+  const getLang = () => resolveLanguage(
+    state.config?.uiLanguage || 'zh',
+    state.systemLocale || auth()?.systemLocale || globalThis.__AGY_SKINS_SYSTEM_LOCALE__ || ''
+  )
+
+  const getT = () => createTranslator(
+    state.config?.uiLanguage || 'zh',
+    state.systemLocale || auth()?.systemLocale || globalThis.__AGY_SKINS_SYSTEM_LOCALE__ || ''
+  )
+
+  const isZh = () => getLang() === 'zh'
 
   const loadInitial = async () => {
-    const data = await callBackend('get-state')
+    const data = await rpc('get-state')
     if (data?.config) state.config = data.config
     if (Array.isArray(data?.weItems)) state.weItems = data.weItems
     if (data?.cdp) state.cdp = data.cdp
     if (data?.mediaOrigin) state.mediaOrigin = data.mediaOrigin
+    if (data?.systemLocale) state.systemLocale = data.systemLocale
     notify()
-    if (!state.weItems.length) {
+    if (!state.weItems.length || state.weItems.every(i => !i.previewUrl && i.previewPath)) {
       void rescanLibrary()
     }
+    void refreshSlots()
   }
 
-  const updateConfig = async (patch, { defer = false, silent = false } = {}) => {
+  const refreshSlots = async () => {
+    if (typeof document !== 'undefined') {
+      const localSlots = []
+      const seen = new Set()
+      for (const node of document.querySelectorAll('[data-slot]')) {
+        const s = node.getAttribute('data-slot')?.trim()
+        if (s && !seen.has(s)) { seen.add(s); localSlots.push(s) }
+      }
+      if (localSlots.length) {
+        state.discoveredSlots = localSlots
+        return localSlots
+      }
+    }
+    try {
+      const res = await rpc('discover-slots')
+      if (Array.isArray(res?.slots)) state.discoveredSlots = res.slots
+    } catch {}
+    return state.discoveredSlots
+  }
+
+  const updateConfig = async (patch, { defer = false, rerender = true } = {}) => {
     if (!state.config) return null
     state.config = { ...state.config, ...patch }
-    if (!silent) notify()
-    const res = await callBackend('update-config', { patch, defer })
-    if (res?.config) state.config = res.config
-    if (defer) {
-      if (deferFlushTimer) clearTimeout(deferFlushTimer)
-      deferFlushTimer = setTimeout(() => {
-        deferFlushTimer = null
-        void callBackend('flush-config').catch(() => {})
-      }, 320)
+    if (rerender) notify()
+    try {
+      const res = await rpc('update-config', { patch, defer })
+      if (res?.config) {
+        // Avoid stomping live slider drags if rerender === false
+        if (rerender) {
+          state.config = res.config
+          notify()
+        } else {
+          state.config = res.config
+        }
+      }
+      if (defer) {
+        if (deferFlushTimer) clearTimeout(deferFlushTimer)
+        deferFlushTimer = setTimeout(() => {
+          deferFlushTimer = null
+          void rpc('flush-config').catch(() => {})
+        }, 320)
+      }
+    } catch (err) {
+      if (rerender) showToast(String(err?.message || err), 'warn')
     }
-    notify()
     return state.config
   }
 
@@ -121,7 +213,7 @@ export function createPanelStore() {
     state.scanning = true
     notify()
     try {
-      const res = await callBackend('we-scan')
+      const res = await rpc('we-scan')
       if (Array.isArray(res?.items)) state.weItems = res.items
       if (res?.error) showToast(res.error, 'warn')
     } finally {
@@ -134,44 +226,158 @@ export function createPanelStore() {
     state.busyAction = item?.id || 'apply'
     notify()
     try {
-      const res = await callBackend('we-apply', { item })
+      await updateConfig({ wallpaperPaused: false }, { rerender: false })
+      const res = await rpc('we-apply', { item })
       if (res?.config) state.config = res.config
-      const d = await callBackend('get-state')
-      if (Array.isArray(d?.weItems)) state.weItems = d.weItems
     } finally {
       state.busyAction = ''
       notify()
     }
   }
 
+  const resetModule = moduleKey => {
+    const keys = RESET_MODULES[moduleKey]
+    if (!keys?.length) return
+    const patch = {}
+    for (const k of keys) patch[k] = structuredClone(DEFAULT_CONFIG[k])
+    void updateConfig(patch)
+    showToast(isZh() ? '已恢复该模块默认设置' : 'Module reset to defaults')
+  }
+
+  const resetTab = tabId => {
+    const keys = TAB_RESET_KEYS[tabId]
+    if (!keys?.length) return
+    const patch = {}
+    for (const k of keys) patch[k] = structuredClone(DEFAULT_CONFIG[k])
+    state.armedConfirm = ''
+    void updateConfig(patch)
+    showToast(isZh() ? '已恢复本页默认设置' : 'Current tab reset to defaults')
+  }
+
+  const syncExternal = payload => {
+    if (!payload) return
+    let changed = false
+    if (payload.cdp) { state.cdp = payload.cdp; changed = true }
+    if (payload.systemLocale) { state.systemLocale = payload.systemLocale; changed = true }
+    if (changed) notify()
+  }
+
   return {
     state,
+    rpc,
     subscribe(fn) {
       listeners.add(fn)
       return () => listeners.delete(fn)
     },
     notify,
     showToast,
+    getLang,
     getT,
+    isZh,
     loadInitial,
+    refreshSlots,
     updateConfig,
     rescanLibrary,
-    applyWallpaperItem
+    applyWallpaperItem,
+    resetModule,
+    resetTab,
+    syncExternal
   }
 }
 
-export function rangeControl({ label, desc, min, max, step = 1, unit = '', value, onChange, onCommit }) {
-  const valSpan = el('span', { className: 'agy-val' }, `${value}${unit}`)
-  const slider = el('input', {
-    type: 'range',
+export function ctlText(label, hint = '', tooltip = '') {
+  return el('div', { className: 'we-picker__ctl-text', title: tooltip || undefined },
+    el('span', { className: 'we-picker__ctl-label' }, label),
+    hint ? el('span', { className: 'we-picker__ctl-hint' }, hint) : null
+  )
+}
+
+export function moduleResetButton({ title = '', onClick }) {
+  return el('button', {
+    className: 'we-mod-reset',
+    type: 'button',
+    title: title || '恢复该模块默认参数',
+    onClick: e => {
+      e.stopPropagation()
+      onClick?.()
+    }
+  }, '↺')
+}
+
+export function sectionHead({ title, open = true, onToggle = null, resetBtn = null }) {
+  const interactive = typeof onToggle === 'function'
+  return el('div', {
+    className: `we-picker__section-head ${interactive ? 'we-picker__section-head--toggle' : ''}`,
+    role: interactive ? 'button' : undefined,
+    tabIndex: interactive ? 0 : undefined,
+    'aria-expanded': interactive ? String(Boolean(open)) : undefined,
+    onClick: interactive ? onToggle : undefined,
+    onKeyDown: interactive ? e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        onToggle()
+      }
+    } : undefined
+  },
+    el('span', { className: 'we-picker__section-label' }, title),
+    interactive ? el('span', { className: `we-picker__section-caret ${open ? 'is-open' : ''}`, 'aria-hidden': 'true' }, '▾') : null,
+    resetBtn
+  )
+}
+
+export function switchRow({ label, hint = '', tooltip = '', checked = false, disabled = false, onChange }) {
+  return el('label', { className: `we-picker__ctl ${disabled ? 'we-picker__ctl--disabled' : ''}` },
+    ctlText(label, hint, tooltip),
+    el('span', { className: 'we-picker__switch' },
+      el('input', {
+        type: 'checkbox',
+        checked: Boolean(checked),
+        disabled: Boolean(disabled),
+        onChange: e => onChange?.(Boolean(e.target.checked))
+      }),
+      el('span', { className: 'we-picker__switch-track' },
+        el('span', { className: 'we-picker__switch-thumb' })
+      )
+    )
+  )
+}
+
+function syncSliderFill(input, min, max, value) {
+  const span = max - min
+  const pct = span > 0 ? Math.min(100, Math.max(0, ((Number(value) - min) / span) * 100)) : 0
+  input.style.setProperty('--we-fill', `${pct.toFixed(1)}%`)
+}
+
+export function SliderRow({ label, tooltip = '', min, max, step = 1, value, unit = '', defaultValue = null, numberEdit = false, onChange, onCommit }) {
+  const valNum = Number.isFinite(Number(value)) ? Number(value) : min
+  const displaySpan = !numberEdit ? el('span', null, `${valNum}${unit}`) : null
+  const numInput = numberEdit ? el('input', {
+    type: 'number',
+    className: 'we-picker__value-input',
     min: String(min),
     max: String(max),
     step: String(step),
-    value: String(value),
+    value: String(valNum),
+    onChange: e => {
+      const clamped = Math.min(max, Math.max(min, Number(e.target.value) || min))
+      slider.value = String(clamped)
+      syncSliderFill(slider, min, max, clamped)
+      onCommit?.(clamped)
+    }
+  }) : null
+
+  const slider = el('input', {
+    type: 'range',
+    className: 'we-picker__slider',
+    min: String(min),
+    max: String(max),
+    step: String(step),
+    value: String(valNum),
     onInput: e => {
       const v = Number(e.target.value)
-      valSpan.textContent = `${v}${unit}`
-      syncSliderPct(e.target, min, max, v)
+      syncSliderFill(e.target, min, max, v)
+      if (displaySpan) displaySpan.textContent = `${v}${unit}`
+      if (numInput) numInput.value = String(v)
       onChange?.(v)
     },
     onChange: e => {
@@ -179,85 +385,153 @@ export function rangeControl({ label, desc, min, max, step = 1, unit = '', value
       onCommit?.(v)
     }
   })
-  syncSliderPct(slider, min, max, value)
-  return el('div', { className: 'agy-row agy-row-col' },
-    el('div', { className: 'agy-row-head' },
-      el('div', null,
-        el('div', { className: 'agy-label' }, label),
-        desc ? el('div', { className: 'agy-desc' }, desc) : null
-      ),
-      valSpan
-    ),
-    slider
-  )
-}
+  syncSliderFill(slider, min, max, valNum)
 
-function syncSliderPct(input, min, max, val) {
-  const span = max - min
-  const pct = span > 0 ? Math.min(100, Math.max(0, ((val - min) / span) * 100)) : 0
-  input.style.setProperty('--agy-range-progress', `${pct.toFixed(1)}%`)
-}
+  const labelEl = el('span', {
+    className: 'we-picker__label',
+    title: tooltip || label,
+    onDblClick: defaultValue !== null ? () => {
+      slider.value = String(defaultValue)
+      syncSliderFill(slider, min, max, defaultValue)
+      if (displaySpan) displaySpan.textContent = `${defaultValue}${unit}`
+      if (numInput) numInput.value = String(defaultValue)
+      onCommit?.(defaultValue)
+    } : undefined
+  }, label)
 
-export function switchControl({ label, desc, checked, onChange }) {
-  const input = el('input', {
-    type: 'checkbox',
-    checked: Boolean(checked),
-    onChange: e => onChange?.(Boolean(e.target.checked))
-  })
-  return el('label', { className: 'agy-row agy-switch-row' },
-    el('div', { className: 'agy-row-meta' },
-      el('div', { className: 'agy-label' }, label),
-      desc ? el('div', { className: 'agy-desc' }, desc) : null
-    ),
-    el('span', { className: 'agy-switch' },
-      input,
-      el('span', { className: 'agy-switch-track' })
+  return el('div', { className: 'we-picker__slider-row' },
+    labelEl,
+    slider,
+    el('span', { className: 'we-picker__value' },
+      displaySpan || [numInput, unit ? el('span', { className: 'we-picker__value-unit' }, unit) : null]
     )
   )
 }
 
-export function selectControl({ label, desc, value, options, onChange }) {
-  return el('div', { className: 'agy-row' },
-    el('div', { className: 'agy-row-meta' },
-      el('div', { className: 'agy-label' }, label),
-      desc ? el('div', { className: 'agy-desc' }, desc) : null
-    ),
-    el('select', {
-      className: 'agy-select',
-      value: String(value),
-      onChange: e => onChange?.(e.target.value)
-    }, options.map(opt =>
-      el('option', {
-        value: String(opt.value),
-        selected: String(opt.value) === String(value)
-      }, opt.label)
-    ))
+export function configSlider(store, cfgKey, label, opts = {}) {
+  const r = PARAM_RANGES[cfgKey]
+  const min = opts.min ?? r.min
+  const max = opts.max ?? r.max
+  const step = opts.step ?? (Number.isInteger(max) && max > 10 ? 1 : 0.1)
+  return SliderRow({
+    label,
+    tooltip: opts.tooltip || '',
+    min,
+    max,
+    step,
+    unit: opts.unit ?? r.unit ?? '',
+    value: store.state.config[cfgKey],
+    defaultValue: opts.defaultValue ?? DEFAULT_CONFIG[cfgKey],
+    numberEdit: Boolean(opts.numberEdit),
+    onChange: v => void store.updateConfig({ [cfgKey]: v }, { defer: true, rerender: false }),
+    onCommit: v => void store.updateConfig({ [cfgKey]: v }, { defer: false, rerender: opts.rerenderOnCommit === true })
+  })
+}
+
+export function segRow({ label, hint = '', tooltip = '', items, value, onPick, chips = false, equalCorners = false }) {
+  const segClass = `we-picker__seg${chips ? ' we-picker__seg--chips' : ''}${equalCorners ? ' we-picker__seg--corners-eq' : ''}`
+  return el('div', { className: 'we-picker__ctl we-picker__ctl--wrap' },
+    ctlText(label, hint, tooltip),
+    el('div', { className: segClass },
+      items.map(item => el('button', {
+        type: 'button',
+        className: `we-picker__btn we-picker__rate ${item.active !== undefined ? (item.active ? 'we-picker__rate--active' : '') : (value === item.id ? 'we-picker__rate--active' : '')}`,
+        title: item.hint || '',
+        onClick: () => onPick?.(item.id)
+      }, item.label))
+    )
   )
 }
 
-export function colorControl({ label, value, fallback = '#4f8cff', onChange }) {
-  const hexVal = /^#[0-9a-f]{6}$/i.test(value || '') ? value : fallback
-  const picker = el('input', {
-    type: 'color',
-    className: 'agy-color-input',
-    value: hexVal,
-    onInput: e => onChange?.(e.target.value)
-  })
-  const textBox = el('input', {
-    type: 'text',
-    className: 'agy-input agy-color-hex',
-    value: value || '',
-    placeholder: fallback,
-    onChange: e => {
-      const v = e.target.value.trim()
-      if (/^#[0-9a-f]{6}$/i.test(v)) {
-        picker.value = v
-        onChange?.(v)
+export function selectRow({ label, hint = '', tooltip = '', value, options, disabled = false, onChange }) {
+  return el('div', { className: `we-picker__ctl ${disabled ? 'we-picker__ctl--disabled' : ''}` },
+    ctlText(label, hint, tooltip),
+    el('select', {
+      className: 'we-picker__select',
+      value: String(value ?? ''),
+      disabled: Boolean(disabled),
+      onChange: e => onChange?.(e.target.value)
+    }, options.map(opt => el('option', {
+      value: String(opt.value),
+      selected: String(opt.value) === String(value)
+    }, opt.label)))
+  )
+}
+
+export function swatchRow({ label, hint = '', tooltip = '', presets, value, colorValue = '', onPick, autoBtn = null, disabled = false }) {
+  const norm = String(value || '').toLowerCase()
+  const hexVal = /^#[0-9a-f]{6}$/i.test(colorValue || value || '') ? (colorValue || value) : '#4f8cff'
+  return el('div', { className: `we-picker__ctl we-picker__ctl--wrap ${disabled ? 'we-picker__ctl--disabled' : ''}` },
+    ctlText(label, hint, tooltip),
+    el('div', { className: 'we-picker__swatches' },
+      autoBtn,
+      presets.map(c => el('button', {
+        type: 'button',
+        className: `we-picker__swatch ${norm === c.toLowerCase() ? 'we-picker__swatch--active' : ''}`,
+        style: { backgroundColor: c },
+        title: c,
+        onClick: () => onPick?.(c, false)
+      })),
+      el('label', { className: 'we-picker__swatch-custom', title: '自定义颜色' },
+        el('input', {
+          type: 'color',
+          value: hexVal,
+          onInput: e => onPick?.(e.target.value, true),
+          onChange: e => onPick?.(e.target.value, false)
+        })
+      )
+    )
+  )
+}
+
+export function renderConfirmRow({ armedToken, token, question, confirmLabel = '确认', cancelLabel = '取消', onConfirm, onCancel, danger = false }) {
+  if (!token || armedToken !== token) return null
+  return el('div', { className: 'we-confirm-row' },
+    el('span', { className: 'we-picker__hint' }, question),
+    el('div', { className: 'we-picker__ctl-side' },
+      el('button', {
+        type: 'button',
+        className: `we-picker__btn we-picker__btn--mini ${danger ? 'we-picker__btn--danger' : 'we-picker__btn--primary'}`,
+        onClick: onConfirm
+      }, confirmLabel),
+      el('button', {
+        type: 'button',
+        className: 'we-picker__btn we-picker__btn--mini',
+        onClick: onCancel
+      }, cancelLabel)
+    )
+  )
+}
+
+export function renderTabReset(store, tabId) {
+  const t = store.getT()
+  const token = `tab-reset:${tabId}`
+  const armed = store.state.armedConfirm === token
+  return el('div', { className: 'we-picker__section' },
+    el('div', { className: 'we-picker__ctl' },
+      el('span', { className: 'we-picker__section-reset-label', style: { fontWeight: '600', fontSize: '0.88em' } }, t('resetTab')),
+      el('button', {
+        type: 'button',
+        className: 'we-picker__btn',
+        disabled: armed,
+        onClick: () => {
+          store.state.armedConfirm = token
+          store.notify()
+        }
+      }, t('resetTab'))
+    ),
+    renderConfirmRow({
+      armedToken: store.state.armedConfirm,
+      token,
+      question: t('resetTabConfirm'),
+      confirmLabel: t('confirmBtn'),
+      cancelLabel: t('cancelBtn'),
+      danger: true,
+      onConfirm: () => store.resetTab(tabId),
+      onCancel: () => {
+        store.state.armedConfirm = ''
+        store.notify()
       }
-    }
-  })
-  return el('div', { className: 'agy-row' },
-    el('div', { className: 'agy-label' }, label),
-    el('div', { className: 'agy-color-group' }, picker, textBox)
+    })
   )
 }

@@ -80,7 +80,7 @@ function createRuntime() {
   const hostEntries = new HostEntries()
 
   const backdrop = new BackdropManager({
-    onVideoEnd: () => {
+    onMediaEnd: () => {
       const origin = lastPayload?.runtimeOrigin
       const token = lastPayload?.runtimeToken
       if (!origin || !token) return
@@ -142,6 +142,7 @@ function createRuntime() {
       layerPositionY: cfg.layerPositionY,
       layerScale: cfg.layerScale,
       userProps: cfg.userProps,
+      paused: cfg.wallpaperPaused === true,
       browserHoleCutout: cfg.browserHoleCutout
     })
 
@@ -178,6 +179,21 @@ function createRuntime() {
       rightSidebarSquareBR: cfg.rightSidebarSquareBR,
       rightSidebarSquareBL: cfg.rightSidebarSquareBL,
       titlebarGlass: cfg.titlebarGlass,
+      wallpaperEnabled: active,
+      glassEnabled: cfg.glassEnabled !== false,
+      sidebarFullClear: cfg.sidebarFullClear === true,
+      thinkingMode: cfg.thinkingMode,
+      floaterSolidBase: cfg.floaterSolidBase !== false,
+      settingsMaskStrength: cfg.settingsMaskStrength,
+      glassMode: cfg.glassMode,
+      leftSidebarTransparency: cfg.leftSidebarTransparency,
+      leftSidebarBlur: cfg.leftSidebarBlur,
+      titlebarTransparency: cfg.titlebarTransparency,
+      titlebarBlur: cfg.titlebarBlur,
+      sidebarContentAlpha: cfg.sidebarContentAlpha,
+      sidebarContentColor: cfg.sidebarContentColor,
+      conversationColor: cfg.conversationColor,
+      settingsWindowColor: cfg.settingsWindowColor,
       isDark
     })
 
@@ -192,9 +208,32 @@ function createRuntime() {
     titlebar.update({ enabled: active, isDark })
     hostEntries.update({
       studioUrl: payload.studioUrl,
+      runtimeOrigin: payload.runtimeOrigin,
+      studioToken: payload.studioToken,
+      systemLocale: payload.systemLocale,
+      cdp: payload.cdp,
       shortcutEnabled: cfg.studioShortcut !== false,
-      lang: cfg.uiLanguage === 'auto' ? (typeof navigator !== 'undefined' ? navigator.language : 'en') : cfg.uiLanguage
+      config: cfg
     })
+
+    if (payload.runtimeOrigin && payload.runtimeToken && typeof fetch === 'function') {
+      const slotList = [...document.querySelectorAll('[data-slot]')]
+        .map(el => el.getAttribute('data-slot')?.trim())
+        .filter(Boolean)
+      const uniqueSlots = [...new Set(slotList)]
+      const key = uniqueSlots.join('|')
+      if (uniqueSlots.length && window.__AGY_SKINS_LAST_SLOTS__ !== key) {
+        window.__AGY_SKINS_LAST_SLOTS__ = key
+        void fetch(`${payload.runtimeOrigin}/runtime-event`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-agy-runtime-token': payload.runtimeToken
+          },
+          body: JSON.stringify({ type: 'slots', slots: uniqueSlots })
+        }).catch(() => {})
+      }
+    }
   }
 
   const watcher = new ThemeWatcher(isDark => {

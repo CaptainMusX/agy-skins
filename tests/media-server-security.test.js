@@ -62,7 +62,20 @@ test('createMediaServer enforces HMAC tokens, serves HTTP 206 ranges, WebWallGL,
     assert.equal(glRes.status, 200)
     assert.match(await glRes.text(), /renderer\.js/)
 
-    // Studio HTML & API token enforcement
+    // Studio HTML & API token enforcement + Loopback CORS preflight
+    const preflightRes = await fetch(`${server.origin}/studio-api/ping`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: 'https://127.0.0.1:12195',
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type,x-agy-studio-token'
+      }
+    })
+    assert.equal(preflightRes.status, 204)
+    assert.equal(preflightRes.headers.get('access-control-allow-origin'), 'https://127.0.0.1:12195')
+    assert.equal(preflightRes.headers.get('access-control-allow-private-network'), 'true')
+    assert.match(preflightRes.headers.get('access-control-allow-headers') || '', /x-agy-studio-token/i)
+
     const stUrl = server.studioUrl()
     const stRes = await fetch(stUrl)
     assert.equal(stRes.status, 200)

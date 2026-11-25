@@ -48,12 +48,15 @@ export function sanitizeWeCacheItem(item) {
     width: Number.isFinite(Number(item.width)) ? Number(item.width) : 0,
     height: Number.isFinite(Number(item.height)) ? Number(item.height) : 0,
     mtimeMs: Number.isFinite(Number(item.mtimeMs)) ? Number(item.mtimeMs) : 0,
+    libraryRoot: typeof item.libraryRoot === 'string' ? item.libraryRoot.slice(0, 1024) : undefined,
     properties: Array.isArray(item.properties) ? item.properties.slice(0, 100).map(p => ({
       name: String(p?.name || '').slice(0, 120),
       type: String(p?.type || 'other').slice(0, 20),
       text: String(p?.text || '').slice(0, 240),
       order: Number(p?.order) || 0,
       value: p?.value ?? null,
+      default: p?.default ?? null,
+      condition: typeof p?.condition === 'string' ? p.condition.slice(0, 200) : undefined,
       hidden: p?.hidden === true,
       options: Array.isArray(p?.options) ? p.options.slice(0, 200).map(o => ({
         label: String(o?.label || '').slice(0, 160),

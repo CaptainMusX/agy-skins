@@ -1,7 +1,7 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
-import { homedir } from 'node:os'
-import { dirname, join, resolve } from 'node:path'
+import { homedir, tmpdir } from 'node:os'
+import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildAll, ROOT } from './build.mjs'
 
@@ -13,14 +13,28 @@ export function resolveInstallDir(env = process.env) {
   return join(homedir(), '.gemini', 'config', 'plugins', PLUGIN_ID)
 }
 
+function purgeStaleStagingDirs(pluginsDir) {
+  try {
+    if (!existsSync(pluginsDir)) return
+    for (const entry of readdirSync(pluginsDir, { withFileTypes: true })) {
+      if (entry.isDirectory() && entry.name.startsWith(`${PLUGIN_ID}.staging.`)) {
+        rmSync(join(pluginsDir, entry.name), { recursive: true, force: true })
+      }
+    }
+  } catch {}
+}
+
 export async function installLocal(options = {}) {
   const env = options.env || process.env
   const noLaunch = options.noLaunch ?? process.argv.includes('--no-launch')
   await buildAll()
 
   const targetDir = options.targetDir || resolveInstallDir(env)
-  const tempDir = `${targetDir}.staging.${Date.now()}`
-  mkdirSync(dirname(targetDir), { recursive: true })
+  const pluginsRoot = dirname(targetDir)
+  mkdirSync(pluginsRoot, { recursive: true })
+  // Stage outside the plugins directory so Antigravity never discovers a staging folder as a duplicate plugin
+  const tempDir = join(tmpdir(), `${basename(targetDir)}.staging.${Date.now()}`)
+  purgeStaleStagingDirs(pluginsRoot)
   rmSync(tempDir, { recursive: true, force: true })
   mkdirSync(tempDir, { recursive: true })
 

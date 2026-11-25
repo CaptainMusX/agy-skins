@@ -31,7 +31,11 @@ test('readWallpaperProject parses scene and video projects with preview PNG dime
       workshopid: '1001',
       general: {
         localization: { 'zh-chs': { ui_speed: '速度' } },
-        properties: { speed: { type: 'slider', text: 'ui_speed', value: 1.5, min: 0.5, max: 3, order: 1 } }
+        properties: {
+          divider: { type: 'text', text: '<h4>Settings Divider</h4>', value: '', order: 0 },
+          speed: { type: 'slider', text: 'ui_speed', value: 1.5, min: 0.5, max: 3, order: 10 },
+          schemecolor: { type: 'color', text: 'ui_browse_properties_scheme_color', value: '0 0 0', order: 2 }
+        }
       }
     }))
 
@@ -40,7 +44,10 @@ test('readWallpaperProject parses scene and video projects with preview PNG dime
     assert.equal(item.kind, 'scene')
     assert.equal(item.width, 1920)
     assert.equal(item.height, 1080)
-    assert.equal(item.properties[0].text, '速度')
+    const visible = item.properties.filter(p => !p.hidden)
+    assert.equal(visible.length, 2)
+    assert.equal(visible[0].name, 'schemecolor')
+    assert.equal(visible[1].text, '速度')
     assert.equal(item.workshopId, '1001')
   } finally {
     rmSync(dir, { recursive: true, force: true })

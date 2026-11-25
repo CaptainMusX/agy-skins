@@ -195,6 +195,24 @@ function readJsonBody(req, maxBytes = 2 * 1024 * 1024) {
   })
 }
 
+function applyLoopbackCors(req, res, { allowOrigin = null, exposeRange = false } = {}) {
+  const reqOrigin = typeof req.headers?.origin === 'string' ? req.headers.origin.trim() : ''
+  const isAllowedOrigin = !reqOrigin ||
+    /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(reqOrigin) ||
+    /^(vscode-file|vscode-webview|app|file):\/\//i.test(reqOrigin)
+  const originHeader = allowOrigin || (isAllowedOrigin && reqOrigin ? reqOrigin : '*')
+  res.setHeader('Access-Control-Allow-Origin', originHeader)
+  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, OPTIONS')
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Range, x-agy-studio-token, x-agy-runtime-token')
+  res.setHeader('Access-Control-Allow-Private-Network', 'true')
+  if (reqOrigin && originHeader !== '*') {
+    res.setHeader('Vary', 'Origin')
+  }
+  if (exposeRange) {
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Range, Accept-Ranges, Content-Length')
+  }
+}
+
 export function createMediaServer({
   secret,
   dataDir,
@@ -214,12 +232,13 @@ export function createMediaServer({
       const url = new URL(req.url || '/', 'http://127.0.0.1')
       const pathname = url.pathname
 
-      if (req.method === 'OPTIONS' && pathname.startsWith('/api/agy-skins/')) {
-        res.writeHead(204, {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
-          'Access-Control-Allow-Headers': 'Range'
-        })
+      if (req.method === 'OPTIONS' && (
+        pathname.startsWith('/api/agy-skins/') ||
+        pathname.startsWith('/studio-api/') ||
+        pathname === '/runtime-event'
+      )) {
+        applyLoopbackCors(req, res, { allowOrigin: pathname.startsWith('/api/agy-skins/') ? '*' : null })
+        res.writeHead(204)
         res.end()
         return
       }
@@ -330,7 +349,7 @@ export function createMediaServer({
           return
         }
         if (!sub || sub === 'index.html') {
-          const html = typeof studioHtmlProvider === 'function' ? studioHtmlProvider(studioToken) : '<!doctype html><html><body>Studio unavailable</body></html>'
+          const html = typeof studioHtmlProvider === 'function' ? studioHtmlProvider(studioToken, url) : '<!doctype html><html><body>Studio unavailable</body></html>'
           res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' })
           res.end(html)
           return
@@ -348,6 +367,7 @@ export function createMediaServer({
       }
 
       if (pathname.startsWith('/studio-api/')) {
+        applyLoopbackCors(req, res)
         const provided = req.headers['x-agy-studio-token']
         if (!tokensEqual(String(provided || ''), studioToken)) {
           res.writeHead(401, { 'Content-Type': 'application/json' })
@@ -369,6 +389,7 @@ export function createMediaServer({
       }
 
       if (pathname === '/runtime-event' && req.method === 'POST') {
+        applyLoopbackCors(req, res)
         const provided = req.headers['x-agy-runtime-token']
         if (!tokensEqual(String(provided || ''), runtimeToken)) {
           res.writeHead(401, { 'Content-Type': 'application/json' })

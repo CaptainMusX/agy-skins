@@ -40,11 +40,11 @@ export class WallpaperRotation {
     return rotationCandidates(this.store.getWeItems(), config.hiddenWallpaperIds, this.currentGroup(config))
   }
 
-  async advance(force = false) {
+  async advance(force = false, { manual = false } = {}) {
     const config = this.store.getConfig()
-    if (!config.rotationEnabled || this.switching) return false
+    if ((!config.rotationEnabled && !manual) || this.switching) return false
     const group = this.currentGroup(config)
-    if (group?.trigger === 'videoEnd' && !force) return false
+    if (group?.trigger === 'videoEnd' && !force && !manual) return false
     const items = this.candidates(config)
     if (items.length < 2) return false
     const currentId = config.weSelection?.id || null

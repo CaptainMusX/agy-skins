@@ -101,7 +101,7 @@ export function normalizeMediaSource(input, type = 'image') {
  * Antigravity split-browser evenodd hole cutout.
  */
 export class BackdropManager {
-  constructor({ onMediaEnd = null } = {}) {
+  constructor({ onMediaEnd = null, onVideoEnd = null } = {}) {
     this.root = null
     this.layers = null
     this.scrim = null
@@ -118,7 +118,7 @@ export class BackdropManager {
     this.currentOptions = null
     this.failedKeys = new Set()
     this.onVisibilityChange = null
-    this.onMediaEnd = onMediaEnd
+    this.onMediaEnd = onMediaEnd || onVideoEnd
     this.pointerFrame = null
     this.pendingPointer = null
     this.pointerInitialized = false
@@ -132,11 +132,12 @@ export class BackdropManager {
     this.coldBootHandled = false
     this.bootDelayTimer = null
     this.lastPropSignature = ''
+    this.lastPausedState = null
 
     this.handleSceneMessage = event => {
       if (!this.sceneIframe || event.source !== this.sceneIframe.contentWindow) return
       const data = event.data
-      if (!data || (data.source !== 'agy-skins-scene' && data.source !== 'hermes-skins-scene')) return
+      if (!data || data.source !== 'agy-skins-scene') return
       if (data.type === 'ready') {
         this.liveReady = true
         this.liveFailed = false
@@ -357,7 +358,8 @@ export class BackdropManager {
       transition = 'cut', transitionDir = 'left', transitionSpeed = 'normal',
       brightness = 100, contrast = 100, saturate = 100, flip = false,
       layerPositionX = 50, layerPositionY = 50, layerScale = 100,
-      loop = true, userProps = null, browserHoleCutout = true
+      loop = true, userProps = null, browserHoleCutout = true,
+      paused = false
     } = options
 
     const source = (type === 'scene' || type === 'web')
@@ -378,6 +380,8 @@ export class BackdropManager {
     this.ensureElements()
     if (!this.root) return false
     this.root.style.display = 'block'
+    this.root.style.backgroundColor = isDark ? '#0a0a0c' : '#ffffff'
+    document.body?.setAttribute?.('data-agy-skins-wallpaper', 'true')
 
     this.currentOptions = {
       type, src: source, scenePayload, webPreview, blur, occlusion, isDark, mode,
@@ -385,7 +389,8 @@ export class BackdropManager {
       playbackRate, sceneLive, sceneLiveFps, sceneAutoQuality, sceneRenderDpr,
       sceneVideoTexScale, liveBootDelay, slides, slideIntervalMs, transition,
       transitionDir, transitionSpeed, brightness, contrast, saturate, flip,
-      layerPositionX, layerPositionY, layerScale, loop, userProps, browserHoleCutout
+      layerPositionX, layerPositionY, layerScale, loop, userProps, browserHoleCutout,
+      paused: Boolean(paused)
     }
 
     this.updateScrim(isDark, occlusion)
@@ -677,18 +682,19 @@ export class BackdropManager {
   syncPlayback() {
     if (!this.currentOptions) return
     const reasons = new Set()
+    if (this.currentOptions.paused === true) reasons.add('user')
     if (this.currentOptions.pauseOnHidden !== false && document.hidden) reasons.add('hidden')
     if (this.currentOptions.pauseOnBlur === true && typeof document.hasFocus === 'function' && !document.hasFocus()) reasons.add('blur')
     if (this.currentOptions.pauseOnBattery === true && this.battery && this.battery.charging === false) reasons.add('battery')
     const paused = reasons.size > 0
-    const wasPaused = this.pauseReasons.size > 0
     this.pauseReasons = reasons
     const video = this.layer?._media?.querySelector('video')
     if (video) {
       if (paused && !video.paused) video.pause()
       else if (!paused && video.paused && this.currentOptions.mode !== 'frame') void video.play().catch(() => {})
     }
-    if (this.sceneIframe && paused !== wasPaused) {
+    if (this.sceneIframe && paused !== this.lastPausedState) {
+      this.lastPausedState = paused
       this.postScene({ type: 'command', command: paused ? 'pause' : 'resume' })
     }
   }
@@ -823,6 +829,10 @@ export class BackdropManager {
     this.currentKey = null
     this.sceneIframe = null
     this.lastPropSignature = ''
+    this.lastPausedState = null
+    if (typeof document !== 'undefined') {
+      document.body?.removeAttribute?.('data-agy-skins-wallpaper')
+    }
     if (this.root) {
       this.root.style.display = 'none'
       this.root.style.removeProperty('clip-path')

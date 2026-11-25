@@ -7,8 +7,7 @@ Original `agy-skins` code and original SVG artwork (`assets/logo.svg`) are licen
 | Material | Upstream & Revision | License & Treatment |
 | --- | --- | --- |
 | `WebWallGL` 3.0.1 (`sidecars/wallpaper_engine/webwallgl/engine/webwallgl.global.min.js`) | `oneincase/webwallgl` | MIT License. Shipped unmodified once in `sidecars/wallpaper_engine/webwallgl/engine/` with full license and notice retained in `third_party/webwallgl/`. |
-| `hermes-skins` 2.0.0 architecture, controllers, and 7-tab settings design | `CaptainMusX/hermes-skins` | MIT License. Adapted for Google Antigravity DOM, CSS tokens, and native Sidecar/CDP lifecycle; notice retained in `third_party/hermes-skins/`. |
-| `dsh-wallpaper-engine` renderer lifecycle, rotation groups, typography, FX & parallax model | `elysia395/dsh-wallpaper-engine` (`fd3e01fd11cd5ad83f46940ab4d61d971cfbcf91`) | MIT License. Adapted for Antigravity DOM/SDK without pets, mascots, or avatars; notice retained in `third_party/dsh-wallpaper-engine/`. |
+| `dsh-wallpaper-engine` UI system, two-stage readability glass, rotation, typography, FX & parallax model | `elysia395/dsh-wallpaper-engine` (`fd3e01fd11cd5ad83f46940ab4d61d971cfbcf91`) | MIT License. Adapted natively for Google Antigravity DOM/SDK without pets, mascots, or avatars; notice retained in `third_party/dsh-wallpaper-engine/`. |
 | `esbuild` emitted helper boilerplate | `evanw/esbuild` | MIT License retained in `third_party/esbuild/LICENSE`. The esbuild binary is a devDependency and is not redistributed in git. |
 
 ## Asset & Runtime Policy

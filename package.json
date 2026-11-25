@@ -1,6 +1,6 @@
 {
   "name": "agy-skins",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Wallpaper Engine (Scene, Web, video and Picture) live backdrop, liquid glass, typography, click/trail FX and 3D parallax plugin for Google Antigravity",
   "private": true,
   "type": "module",

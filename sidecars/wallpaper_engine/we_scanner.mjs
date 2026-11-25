@@ -25,7 +25,19 @@ const stripHtml = value => typeof value !== 'string' ? '' : value
   .replace(/&gt;/gi, '>')
   .replace(/&quot;/gi, '"')
   .replace(/&#0?39;|&apos;/gi, "'")
+  .replace(/[ \t]+\n/g, '\n')
   .trim()
+
+function isHtmlNoiseProperty(name, def, text) {
+  const rawText = typeof def?.text === 'string' ? def.text : ''
+  const rawName = String(name || '')
+  const rawType = String(def?.type || '').toLowerCase()
+  if (/^(?:imgsrc|brimgsrc|brahref|bigb(?:brahref)?|centerbigb|centerbr)/i.test(rawName)) return true
+  if (/(?:<img\b|<a\b|<center\b)/i.test(rawText) && (!text || /^(?:br|imgsrc|https?:|file:)/i.test(text))) return true
+  if (rawType === 'text' && !def?.value && /<\s*(?:h[1-6]|hr|br|center|div|span)\b/i.test(rawText)) return true
+  if (/^(?:br)?imgsrc(?:http|file)/i.test(text || '')) return true
+  return false
+}
 
 export function safeProjectPath(dir, relative) {
   if (typeof relative !== 'string' || !relative.trim()) return null
@@ -65,20 +77,29 @@ export function parseProjectProperties(project) {
   return Object.entries(source)
     .filter(([, definition]) => definition && typeof definition === 'object' && typeof definition.type === 'string')
     .sort((left, right) => {
-      const order = Number(left[1].order || 0) - Number(right[1].order || 0)
+      const lo = Number(left[1].order)
+      const ro = Number(right[1].order)
+      const order = (Number.isFinite(lo) ? lo : 0) - (Number.isFinite(ro) ? ro : 0)
       return order || (left[0] < right[0] ? -1 : left[0] > right[0] ? 1 : 0)
     })
     .slice(0, 100)
     .map(([name, definition]) => {
       const rawType = String(definition.type || 'other').toLowerCase()
       const type = PROP_TYPES.has(rawType) ? rawType : 'other'
+      const rawLabel = typeof definition.text === 'string' ? definition.text : name
+      const text = propertyText(project, rawLabel, name).slice(0, 240)
+      const hidden = definition.editable === false || isHtmlNoiseProperty(name, definition, text)
       const entry = {
         name: name.slice(0, 120),
         type,
-        text: propertyText(project, typeof definition.text === 'string' ? definition.text : name, name).slice(0, 240),
+        text,
         order: Number.isFinite(Number(definition.order)) ? Number(definition.order) : 0,
         value: propertyDefault(type, definition),
-        hidden: definition.editable === false
+        default: propertyDefault(type, definition),
+        hidden
+      }
+      if (typeof definition.condition === 'string' && definition.condition.trim()) {
+        entry.condition = definition.condition.trim().slice(0, 240)
       }
       if (Array.isArray(definition.options)) {
         entry.options = definition.options

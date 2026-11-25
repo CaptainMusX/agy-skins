@@ -15,6 +15,7 @@ import {
   pickFolderDialog,
   pickMediaFilesDialog,
   queryNowPlaying,
+  removeUploadFile,
   scanSystemFonts,
   tailFile
 } from './system_services.mjs'
@@ -55,20 +56,32 @@ function readPluginVersion() {
   }
 }
 
-function buildPanelHtml({ mode = 'aux', studioToken = '' } = {}) {
+function detectSystemLocale(env = process.env) {
+  const raw = env.LC_ALL || env.LC_MESSAGES || env.LANG || ''
+  if (raw && /^[a-z]{2}/i.test(raw)) return raw.replace(/\..*$/, '').replace('_', '-')
+  try {
+    const resolved = Intl.DateTimeFormat().resolvedOptions().locale
+    if (resolved) return resolved
+  } catch {}
+  return 'zh-CN'
+}
+
+function buildPanelHtml({ mode = 'aux', studioToken = '', systemLocale = 'zh-CN', initialLang = 'auto', embed = '' } = {}) {
   const cssHref = mode === 'studio' ? `/studio/${studioToken}/panel.css` : '/panel.css'
   const jsSrc = mode === 'studio' ? `/studio/${studioToken}/panel.js` : '/panel.js'
   const preloadTag = mode === 'aux' ? '<script src="/preload.js"></script>' : ''
-  const bootstrap = `window.__AGY_SKINS_HOST_MODE__=${JSON.stringify(mode)};window.__AGY_SKINS_STUDIO_TOKEN__=${JSON.stringify(studioToken)};`
+  const isZh = initialLang === 'zh' || (initialLang === 'auto' && /^zh/i.test(String(systemLocale || '')))
+  const htmlLang = isZh ? 'zh-CN' : 'en'
+  const bootstrap = `window.__AGY_SKINS_HOST_MODE__=${JSON.stringify(mode)};window.__AGY_SKINS_STUDIO_TOKEN__=${JSON.stringify(studioToken)};window.__AGY_SKINS_SYSTEM_LOCALE__=${JSON.stringify(systemLocale)};window.__AGY_SKINS_EMBED_MODE__=${JSON.stringify(embed)};`
   return `<!doctype html>
-<html lang="en">
+<html lang="${htmlLang}">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Antigravity Wallpaper Engine</title>
   <link rel="stylesheet" href="${cssHref}" />
 </head>
-<body>
+<body data-embed="${embed}">
   <div id="agy-skins-root"></div>
   <script>${bootstrap}</script>
   ${preloadTag}
@@ -148,12 +161,16 @@ export async function startRuntime(options = {}) {
   const env = options.env || process.env
   const standalone = options.standalone ?? process.argv.includes('--standalone')
   const store = createSettingsStore({ dataDir: options.dataDir, env })
+  if (store.getConfig().startPaused === true && store.getConfig().wallpaperEnabled === true) {
+    store.updateConfig({ wallpaperPaused: true }, { deferPersistence: true })
+  }
   const cdpNotice = createCdpNoticeManager({ env })
   const secret = store.getMediaSecret()
 
   let injector = null
   let rotation = null
   let nowPlayingCache = null
+  let discoveredSlots = []
 
   async function applyLibraryItem(item) {
     if (!item || typeof item !== 'object') throw new Error('Invalid wallpaper item')
@@ -215,13 +232,27 @@ export async function startRuntime(options = {}) {
     }
   }
 
+  function hydrateWeItems(items) {
+    return (Array.isArray(items) ? items : []).map(item => {
+      if (!item || typeof item !== 'object') return item
+      let previewPath = item.previewPath
+      if (!previewPath && item.mediaType === 'image' && item.mediaPath) {
+        previewPath = item.mediaPath
+      }
+      const previewUrl = previewPath && existsSync(previewPath)
+        ? mediaServer.fileUrl(previewPath)
+        : (item.mediaType === 'image' && item.mediaPath && existsSync(item.mediaPath) ? mediaServer.fileUrl(item.mediaPath) : null)
+      return { ...item, previewPath: previewPath || null, previewUrl }
+    })
+  }
+
   async function refreshLibrary() {
     const cfg = store.getConfig()
     const [scan, uploads] = await Promise.all([
       scanWallpaperEngine({ manualRoots: cfg.weRoots, env, fileUrl: p => mediaServer.fileUrl(p) }),
       Promise.resolve(listUploads(store.uploadsDir, p => mediaServer.fileUrl(p)))
     ])
-    const items = [...uploads, ...(scan.items || [])]
+    const items = hydrateWeItems([...uploads, ...(scan.items || [])])
     store.setWeItems(items)
     return {
       ok: true,
@@ -268,16 +299,19 @@ export async function startRuntime(options = {}) {
     }
   }
 
+  const systemLocale = detectSystemLocale(env)
+
   const handlers = {
     'get-state': async () => ({
       ok: true,
       config: store.getConfig(),
-      weItems: store.getWeItems(),
+      weItems: hydrateWeItems(store.getWeItems()),
       cdp: {
         ...cdpNotice.info(injector?.status?.() ?? 'unknown'),
         ...(injector?.details?.() ?? {})
       },
-      mediaOrigin: mediaServer.origin
+      mediaOrigin: mediaServer.origin,
+      systemLocale
     }),
     'update-config': async body => {
       const defer = body?.defer === true
@@ -302,6 +336,16 @@ export async function startRuntime(options = {}) {
     'uploads-import': async body => importLocalFiles(body?.paths, store.uploadsDir, p => mediaServer.fileUrl(p)),
     'uploads-url': async body => await importUrlWallpaper(body?.url, store.uploadsDir, p => mediaServer.fileUrl(p)),
     'uploads-bing': async body => await importBingWallpaper(body?.index, store.uploadsDir, p => mediaServer.fileUrl(p)),
+    'uploads-remove': async body => {
+      const removed = removeUploadFile(body?.path, store.uploadsDir)
+      if (!removed.ok) return removed
+      const curCfg = store.getConfig()
+      if (curCfg.wallpaperSource === removed.removed) {
+        store.updateConfig({ wallpaperEnabled: false, wallpaperSource: '', weSelection: null })
+      }
+      await refreshLibrary()
+      return { ok: true, config: store.getConfig() }
+    },
     'now-playing': async () => {
       const np = await queryNowPlaying()
       nowPlayingCache = np
@@ -313,22 +357,32 @@ export async function startRuntime(options = {}) {
       return clearCacheDir(scope, store.dataDir)
     },
     'rotation-advance': async () => {
-      const advanced = await rotation?.advance(true)
+      const advanced = await rotation?.advance(true, { manual: true })
       return { ok: Boolean(advanced), config: store.getConfig() }
     },
     'fix-cdp-shortcut': async () => await cdpNotice.fixShortcuts(),
-    'discover-slots': async () => ({ ok: true })
+    'discover-slots': async () => ({ ok: true, slots: discoveredSlots })
   }
 
   const mediaServer = createMediaServer({
     secret,
     dataDir: store.dataDir,
-    studioHtmlProvider: token => buildPanelHtml({ mode: 'studio', studioToken: token }),
+    studioHtmlProvider: (token, urlObj) => buildPanelHtml({
+      mode: 'studio',
+      studioToken: token,
+      systemLocale,
+      initialLang: store.getConfig().uiLanguage || 'zh',
+      embed: urlObj?.searchParams?.get('embed') || ''
+    }),
     studioApiHandlers: handlers,
     onRuntimeEvent: async ev => {
       if (ev?.type === 'videoEnd') {
         await rotation?.advance(true)
         return { ok: true }
+      }
+      if (ev?.type === 'slots' && Array.isArray(ev.slots)) {
+        discoveredSlots = [...new Set(ev.slots.filter(s => typeof s === 'string' && s.trim()))].slice(0, 64)
+        return { ok: true, slots: discoveredSlots }
       }
       return { ok: true }
     }
@@ -348,9 +402,11 @@ export async function startRuntime(options = {}) {
       config,
       resolved,
       studioUrl: mediaServer.studioUrl(),
+      studioToken: mediaServer.studioToken,
       runtimeOrigin: mediaServer.origin,
       runtimeToken: mediaServer.runtimeToken,
-      nowPlaying: nowPlayingCache
+      nowPlaying: nowPlayingCache,
+      systemLocale
     }
   }
 
@@ -385,7 +441,7 @@ export async function startRuntime(options = {}) {
     try {
       const { SidecarApp, Response } = await resolveSidecarSdk()
       const app = new SidecarApp()
-      app.page('/', () => buildPanelHtml({ mode: 'aux' }))
+      app.page('/', () => buildPanelHtml({ mode: 'aux', systemLocale, initialLang: store.getConfig().uiLanguage || 'auto' }))
       app.page('/panel.js', () => new Response(readFileSync(PANEL_JS_PATH), { contentType: 'text/javascript; charset=utf-8' }))
       app.page('/panel.css', () => new Response(readFileSync(PANEL_CSS_PATH), { contentType: 'text/css; charset=utf-8' }))
       for (const [route, fn] of Object.entries(handlers)) {

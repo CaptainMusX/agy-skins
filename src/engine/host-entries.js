@@ -1,176 +1,369 @@
 /**
- * Native Antigravity integration points:
- * 1. Injects a clean "Wallpaper Engine" entry card inside Antigravity Settings → Appearance
- * 2. Registers `Alt+Shift+W` keyboard shortcut to toggle the wide Studio modal (`<iframe>` to /studio/<token>/)
+ * Native Antigravity host integration entries (pure host DOM, zero embedded frames):
+ *  1) English sidebar item "Wallpaper Engine" in [data-testid="settings-sidebar"]
+ *     mounting #agy-skins-settings-pane directly inside Settings' scrollable pane.
+ *  2) Global Alt+Shift+W Studio dialog (#agy-skins-studio-dialog) with unified glass.
  */
-const ENTRY_ID = 'agy-skins-appearance-entry'
-const MODAL_ID = 'agy-skins-studio-dialog'
+import { SETTINGS_SIDEBAR_LABEL } from '../shared/i18n.js'
+import { mountWePicker, ensureWePickerStyles } from '../ui/we-picker-app.js'
 
-export class HostEntries {
-  constructor() {
-    this.studioUrl = ''
-    this.shortcutEnabled = true
-    this.lang = 'en'
-    this.observer = null
-    this.onKeyDown = e => {
-      if (!this.shortcutEnabled) return
-      if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && String(e.key || '').toLowerCase() === 'w') {
-        e.preventDefault()
-        e.stopPropagation()
-        this.toggleModal()
-      } else if (e.key === 'Escape' && document.getElementById(MODAL_ID)) {
-        e.preventDefault()
-        this.closeModal()
+const NAV_ID = 'agy-skins-settings-nav'
+const PANE_ID = 'agy-skins-settings-pane'
+const BACKDROP_ID = 'agy-skins-studio-backdrop'
+const DIALOG_ID = 'agy-skins-studio-dialog'
+const EXTRA_CSS_ID = 'agy-skins-host-entries-css'
+
+const EXTRA_HOST_CSS = `
+#${NAV_ID}[data-agy-nav-active="true"] {
+  background: var(--we-layer-2, rgba(128, 128, 128, 0.16)) !important;
+  color: var(--foreground, inherit) !important;
+  font-weight: 600;
+}
+[data-agy-native-nav-muted="true"] {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+#${PANE_ID} {
+  padding: 20px 24px 32px;
+  max-width: 820px;
+  margin: 0 auto;
+  color: inherit;
+}
+#${BACKDROP_ID} {
+  position: fixed;
+  inset: 0;
+  z-index: 99990;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, calc(0.32 * var(--we-mask-strength, 0.8)));
+  backdrop-filter: blur(calc(var(--we-settings-blur-px, 24px) * 0.45));
+  -webkit-backdrop-filter: blur(calc(var(--we-settings-blur-px, 24px) * 0.45));
+}
+#${DIALOG_ID} {
+  width: min(860px, 92vw);
+  max-height: min(760px, 88vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.28));
+  background-color: var(--we-settings-tint, rgba(24, 26, 32, 0.88));
+  background-image: linear-gradient(180deg, rgba(255, 255, 255, var(--we-sheen-top, 0.08)), rgba(255, 255, 255, 0.03) 38%, rgba(255, 255, 255, 0.05));
+  backdrop-filter: var(--we-settings-frost, blur(24px) saturate(175%));
+  -webkit-backdrop-filter: var(--we-settings-frost, blur(24px) saturate(175%));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, var(--we-highlight-alpha, 0.16)),
+    inset 0 0 0 1px rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.28)),
+    0 24px 64px rgba(0, 0, 0, 0.36);
+  color: var(--foreground, #f8fafc);
+}
+#${DIALOG_ID} .agy-studio-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 18px;
+  border-bottom: 1px solid rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.22));
+  font-size: 13px;
+  font-weight: 600;
+}
+#${DIALOG_ID} .agy-studio-close {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(var(--we-border-rgb, 140, 148, 160), var(--we-border-alpha, 0.28));
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+}
+#${DIALOG_ID} .agy-studio-close:hover {
+  background: rgba(128, 128, 128, 0.16);
+}
+#${DIALOG_ID} .agy-studio-body {
+  flex: 1;
+  overflow: auto;
+  padding: 18px 22px 28px;
+}
+`;
+
+export function createHostEntries() {
+  const authState = {
+    runtimeOrigin: '',
+    studioToken: '',
+    systemLocale: '',
+    shortcutEnabled: true
+  }
+
+  let settingsActive = false
+  let settingsPicker = null
+  let modalPicker = null
+  let observer = null
+  let keyListenerAttached = false
+  let syncRaf = 0
+
+  const getAuth = () => ({
+    origin: authState.runtimeOrigin,
+    studioToken: authState.studioToken,
+    systemLocale: authState.systemLocale
+  })
+
+  const ensureExtraCss = () => {
+    ensureWePickerStyles(document)
+    if (!document.getElementById(EXTRA_CSS_ID)) {
+      const s = document.createElement('style')
+      s.id = EXTRA_CSS_ID
+      s.textContent = EXTRA_HOST_CSS
+      document.head.appendChild(s)
+    }
+  }
+
+  const findSettingsScroller = sidebar => {
+    const modal = sidebar?.closest('.settings-modal-container') || sidebar?.parentElement?.parentElement
+    if (!modal) return null
+    const candidates = [...modal.querySelectorAll('.overflow-auto')]
+    return candidates.find(el => el !== sidebar && !sidebar.contains(el)) || sidebar.nextElementSibling || null
+  }
+
+  const hideNativeChildren = (scroller, hide) => {
+    if (!scroller) return
+    for (const child of scroller.children) {
+      if (child.id === PANE_ID) continue
+      if (hide) {
+        if (!child.dataset.agyPrevDisplay) {
+          child.dataset.agyPrevDisplay = child.style.display || '__empty__'
+        }
+        child.style.display = 'none'
+      } else if (child.dataset.agyPrevDisplay !== undefined) {
+        const prev = child.dataset.agyPrevDisplay
+        child.style.display = prev === '__empty__' ? '' : prev
+        delete child.dataset.agyPrevDisplay
       }
     }
   }
 
-  start() {
-    if (typeof document === 'undefined' || !document.body) return
-    if (!this.observer && typeof MutationObserver === 'function') {
-      this.observer = new MutationObserver(() => this.syncSettingsEntry())
-      this.observer.observe(document.body, { childList: true, subtree: true })
-    }
-    window.addEventListener('keydown', this.onKeyDown, { capture: true })
-    this.syncSettingsEntry()
-  }
-
-  update({ studioUrl, shortcutEnabled = true, lang = 'en' } = {}) {
-    if (studioUrl) this.studioUrl = studioUrl
-    this.shortcutEnabled = shortcutEnabled !== false
-    this.lang = lang || 'en'
-    this.syncSettingsEntry()
-    const frame = document.querySelector(`#${MODAL_ID} iframe`)
-    if (frame && this.studioUrl && frame.src !== this.studioUrl) {
-      frame.src = this.studioUrl
+  const setNativeNavMuted = (sidebar, mute) => {
+    if (!sidebar) return
+    for (const btn of sidebar.querySelectorAll('button')) {
+      if (btn.id === NAV_ID) continue
+      if (mute) btn.dataset.agyNativeNavMuted = 'true'
+      else delete btn.dataset.agyNativeNavMuted
     }
   }
 
-  syncSettingsEntry() {
-    if (typeof document === 'undefined') return
-    const container = document.querySelector('.settings-modal-container')
-    if (!container) return
-    if (container.querySelector(`#${ENTRY_ID}`)) return
-
-    const headings = [...container.querySelectorAll('h2, h3')]
-    const targetHeading = headings.find(h => {
-      const t = (h.textContent || '').trim().toLowerCase()
-      return t === 'appearance' || t === '外观'
-    })
-    if (!targetHeading) return
-    const section = targetHeading.closest('section') || targetHeading.parentElement
-    if (!section) return
-
-    const isZh = String(this.lang).toLowerCase().startsWith('zh')
-    const card = document.createElement('div')
-    card.id = ENTRY_ID
-    card.style.cssText = [
-      'margin: 12px 0;',
-      'padding: 12px 14px;',
-      'border-radius: 10px;',
-      'border: 1px solid var(--border, rgba(255,255,255,0.14));',
-      'background: var(--card, rgba(255,255,255,0.04));',
-      'display: flex;',
-      'align-items: center;',
-      'justify-content: space-between;',
-      'gap: 12px;'
-    ].join('')
-
-    const info = document.createElement('div')
-    info.innerHTML = `
-      <div style="font-weight:600;font-size:13px;color:var(--foreground,inherit);">
-        ${isZh ? 'Wallpaper Engine 皮肤工作台' : 'Wallpaper Engine Studio'}
-      </div>
-      <div style="font-size:12px;opacity:0.75;margin-top:2px;">
-        ${isZh ? '管理动态壁纸、液态玻璃、字体系统与特效 (Alt+Shift+W)' : 'Live wallpapers, liquid glass, typography & FX (Alt+Shift+W)'}
-      </div>
-    `
-
-    const btn = document.createElement('button')
-    btn.type = 'button'
-    btn.textContent = isZh ? '打开工作台' : 'Open Studio'
-    btn.style.cssText = [
-      'padding: 6px 14px;',
-      'border-radius: 8px;',
-      'border: 1px solid rgba(255,255,255,0.18);',
-      'background: var(--primary, #4f8cff);',
-      'color: #ffffff;',
-      'font-size: 12px;',
-      'font-weight: 600;',
-      'cursor: pointer;',
-      'white-space: nowrap;'
-    ].join('')
-    btn.addEventListener('click', () => this.openModal())
-
-    card.append(info, btn)
-    section.appendChild(card)
+  const deactivateSettingsPane = () => {
+    settingsActive = false
+    const navBtn = document.getElementById(NAV_ID)
+    if (navBtn) delete navBtn.dataset.agyNavActive
+    const pane = document.getElementById(PANE_ID)
+    if (pane) pane.style.display = 'none'
+    const sidebar = document.querySelector('[data-testid="settings-sidebar"]')
+    if (sidebar) {
+      setNativeNavMuted(sidebar, false)
+      hideNativeChildren(findSettingsScroller(sidebar), false)
+    }
   }
 
-  toggleModal() {
-    if (document.getElementById(MODAL_ID)) this.closeModal()
-    else this.openModal()
+  const activateSettingsPane = sidebar => {
+    ensureExtraCss()
+    const scroller = findSettingsScroller(sidebar)
+    if (!scroller) return
+
+    settingsActive = true
+    const navBtn = document.getElementById(NAV_ID)
+    if (navBtn) navBtn.dataset.agyNavActive = 'true'
+    setNativeNavMuted(sidebar, true)
+    hideNativeChildren(scroller, true)
+
+    let pane = document.getElementById(PANE_ID)
+    if (!pane || pane.parentElement !== scroller) {
+      if (settingsPicker) {
+        settingsPicker.destroy()
+        settingsPicker = null
+      }
+      pane = document.createElement('div')
+      pane.id = PANE_ID
+      scroller.appendChild(pane)
+    }
+    pane.style.display = ''
+    if (!settingsPicker) {
+      settingsPicker = mountWePicker(pane, { embed: 'settings', getAuth })
+    }
   }
 
-  openModal() {
-    if (typeof document === 'undefined' || !document.body || !this.studioUrl) return
-    if (document.getElementById(MODAL_ID)) return
+  const ensureSettingsNav = () => {
+    const sidebar = document.querySelector('[data-testid="settings-sidebar"]')
+    if (!sidebar) {
+      if (settingsPicker) {
+        settingsPicker.destroy()
+        settingsPicker = null
+      }
+      settingsActive = false
+      return
+    }
 
-    const overlay = document.createElement('div')
-    overlay.id = MODAL_ID
-    overlay.setAttribute('role', 'dialog')
-    overlay.setAttribute('aria-modal', 'true')
-    overlay.style.cssText = [
-      'position:fixed;inset:0;z-index:2147483500;',
-      'background:rgba(6, 10, 18, 0.56);',
-      'backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);',
-      'display:flex;align-items:center;justify-content:center;padding:24px;'
-    ].join('')
+    ensureExtraCss()
+    let navBtn = document.getElementById(NAV_ID)
+    const appearanceAnchor = sidebar.querySelector('[data-testid="settings-nav-item-Appearance"]')
 
-    const frameWrap = document.createElement('div')
-    frameWrap.style.cssText = [
-      'width:min(1040px, 94vw);height:min(760px, 90vh);',
-      'border-radius:16px;overflow:hidden;',
-      'border:1px solid rgba(255,255,255,0.18);',
-      'box-shadow:0 28px 80px rgba(0,0,0,0.48);',
-      'background:var(--background, #0f141e);',
-      'display:flex;flex-direction:column;position:relative;'
-    ].join('')
+    if (!navBtn) {
+      navBtn = document.createElement('button')
+      navBtn.type = 'button'
+      navBtn.id = NAV_ID
+      navBtn.setAttribute('data-testid', 'settings-nav-item-WallpaperEngine')
+      navBtn.className = appearanceAnchor?.className || ''
+      navBtn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex:0 0 auto;opacity:0.86"><rect x="3" y="4" width="18" height="14" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 15l-4.5-4.5a1.5 1.5 0 0 0-2.1 0L7 18"/></svg><span></span>`
+      navBtn.querySelector('span').textContent = SETTINGS_SIDEBAR_LABEL
 
+      navBtn.addEventListener('click', e => {
+        e.preventDefault()
+        e.stopPropagation()
+        activateSettingsPane(sidebar)
+      })
+
+      sidebar.addEventListener('click', ev => {
+        const targetBtn = ev.target?.closest?.('button')
+        if (targetBtn && targetBtn.id !== NAV_ID && settingsActive) {
+          deactivateSettingsPane()
+        }
+      }, true)
+    } else {
+      const span = navBtn.querySelector('span')
+      if (span && span.textContent !== SETTINGS_SIDEBAR_LABEL) {
+        span.textContent = SETTINGS_SIDEBAR_LABEL
+      }
+    }
+
+    if (!sidebar.contains(navBtn)) {
+      if (appearanceAnchor) appearanceAnchor.insertAdjacentElement('afterend', navBtn)
+      else sidebar.appendChild(navBtn)
+    }
+
+    if (settingsActive) {
+      activateSettingsPane(sidebar)
+    }
+  }
+
+  const closeStudioDialog = () => {
+    const backdrop = document.getElementById(BACKDROP_ID)
+    if (modalPicker) {
+      modalPicker.destroy()
+      modalPicker = null
+    }
+    if (backdrop) backdrop.remove()
+  }
+
+  const openStudioDialog = () => {
+    if (document.getElementById(BACKDROP_ID)) {
+      closeStudioDialog()
+      return
+    }
+    ensureExtraCss()
+    const backdrop = document.createElement('div')
+    backdrop.id = BACKDROP_ID
+    const dialog = document.createElement('div')
+    dialog.id = DIALOG_ID
+
+    const head = document.createElement('div')
+    head.className = 'agy-studio-head'
+    const title = document.createElement('span')
+    title.textContent = SETTINGS_SIDEBAR_LABEL
     const closeBtn = document.createElement('button')
     closeBtn.type = 'button'
+    closeBtn.className = 'agy-studio-close'
     closeBtn.textContent = '×'
-    closeBtn.title = 'Close (Esc)'
-    closeBtn.style.cssText = [
-      'position:absolute;top:10px;right:12px;z-index:2;',
-      'width:28px;height:28px;border-radius:8px;',
-      'border:1px solid rgba(255,255,255,0.16);',
-      'background:rgba(15,20,30,0.65);color:#f8fafc;',
-      'font-size:18px;line-height:1;cursor:pointer;'
-    ].join('')
-    closeBtn.addEventListener('click', () => this.closeModal())
+    closeBtn.setAttribute('aria-label', 'Close')
+    closeBtn.addEventListener('click', closeStudioDialog)
+    head.appendChild(title)
+    head.appendChild(closeBtn)
 
-    const iframe = document.createElement('iframe')
-    iframe.src = this.studioUrl
-    iframe.style.cssText = 'width:100%;height:100%;border:0;display:block;background:transparent;'
+    const body = document.createElement('div')
+    body.className = 'agy-studio-body'
 
-    overlay.addEventListener('click', e => {
-      if (e.target === overlay) this.closeModal()
+    dialog.appendChild(head)
+    dialog.appendChild(body)
+    backdrop.appendChild(dialog)
+    backdrop.addEventListener('click', e => {
+      if (e.target === backdrop) closeStudioDialog()
     })
+    document.body.appendChild(backdrop)
 
-    frameWrap.append(closeBtn, iframe)
-    overlay.appendChild(frameWrap)
-    document.body.appendChild(overlay)
+    modalPicker = mountWePicker(body, { embed: 'modal', getAuth })
   }
 
-  closeModal() {
-    document.getElementById(MODAL_ID)?.remove()
+  const handleGlobalKeyDown = e => {
+    if (e.key === 'Escape' && document.getElementById(BACKDROP_ID)) {
+      closeStudioDialog()
+      return
+    }
+    if (!authState.shortcutEnabled) return
+    if (e.altKey && e.shiftKey && !e.ctrlKey && !e.metaKey && (e.key === 'W' || e.key === 'w')) {
+      e.preventDefault()
+      openStudioDialog()
+    }
   }
 
+  const scheduleSync = () => {
+    if (syncRaf) return
+    syncRaf = requestAnimationFrame(() => {
+      syncRaf = 0
+      ensureSettingsNav()
+    })
+  }
+
+  const startObserving = () => {
+    if (observer || typeof MutationObserver !== 'function') return
+    observer = new MutationObserver(scheduleSync)
+    observer.observe(document.body || document.documentElement, { childList: true, subtree: true })
+    if (!keyListenerAttached) {
+      window.addEventListener('keydown', handleGlobalKeyDown)
+      keyListenerAttached = true
+    }
+    ensureSettingsNav()
+  }
+
+  return {
+    start() {
+      startObserving()
+    },
+    update(opts = {}) {
+      if (opts.runtimeOrigin) authState.runtimeOrigin = opts.runtimeOrigin
+      if (opts.studioToken) authState.studioToken = opts.studioToken
+      if (opts.systemLocale) authState.systemLocale = opts.systemLocale
+      if (opts.shortcutEnabled !== undefined) authState.shortcutEnabled = opts.shortcutEnabled !== false
+      startObserving()
+      settingsPicker?.syncExternal({ systemLocale: opts.systemLocale, cdp: opts.cdp })
+      modalPicker?.syncExternal({ systemLocale: opts.systemLocale, cdp: opts.cdp })
+    },
+    destroy() {
+      if (syncRaf) cancelAnimationFrame(syncRaf)
+      observer?.disconnect()
+      observer = null
+      if (keyListenerAttached) {
+        window.removeEventListener('keydown', handleGlobalKeyDown)
+        keyListenerAttached = false
+      }
+      deactivateSettingsPane()
+      settingsPicker?.destroy()
+      settingsPicker = null
+      closeStudioDialog()
+    }
+  }
+}
+
+export class HostEntries {
+  constructor() {
+    this._impl = createHostEntries()
+  }
+  start() {
+    return this._impl.start()
+  }
+  update(opts) {
+    return this._impl.update(opts)
+  }
   destroy() {
-    this.observer?.disconnect()
-    this.observer = null
-    if (typeof window !== 'undefined') window.removeEventListener('keydown', this.onKeyDown, { capture: true })
-    document.getElementById(ENTRY_ID)?.remove()
-    this.closeModal()
+    return this._impl.destroy()
   }
 }

@@ -1,35 +1,23 @@
 ---
 name: agy-skins
-description: Install, verify, configure, and troubleshoot the agy-skins Wallpaper Engine, liquid glass, typography, click/trail FX, and 3D parallax plugin for Google Antigravity.
+description: Install, verify, configure, and troubleshoot the agy-skins Wallpaper Engine, two-stage readability liquid glass, typography, click/trail FX, and 3D parallax plugin for Google Antigravity.
 ---
 
-# agy-skins (Antigravity Wallpaper Engine)
+# agy-skins Wallpaper Engine Plugin (v2.0.0)
 
-Manages the `agy-skins` plugin for Google Antigravity:
-- Real-time Wallpaper Engine **Scene**, **Web**, **Video**, and **Picture/Image** backdrops rendered cleanly via **WebWallGL 3.0.1** and an **HMAC-SHA256 signed loopback HTTP 206 Range media server** (Steam Workshop files stay strictly read-only).
-- Single-veil CSSOM **Liquid Glass**, **Font Sets & Typography**, **Click/Trail FX**, **3D Parallax**, **Split-Browser Hole Cutout** (`evenodd` `clip-path`), and **Titlebar Overlay sync**.
-- Zero LLM prompt/tool injection overhead and zero `Page.setBypassCSP` or forced `Antigravity.exe` restarts.
+`agy-skins` brings full Wallpaper Engine (`Scene` `.pkg`, `Web`, `Video`, `Picture`), unified two-stage readability iOS **Liquid Glass**, typography customization, cursor FX, and 3D parallax to **Google Antigravity 2.0** without modifying Antigravity installation binaries or using `BypassCSP`.
 
-## Common Tasks
+## Entry Points
+- **Antigravity Settings**: Open **Settings → `Wallpaper Engine`** (left sidebar nav item stays English `Wallpaper Engine`; inner controls default to Simplified Chinese via native DOM `.we-picker` mount — zero `<iframe>`).
+- **Global Hotkey**: Press **`Alt+Shift+W`** anywhere in the Antigravity window to toggle the floating glass dialog.
+- **Aux Sidecar Pane**: Open **Wallpaper Engine** from Antigravity's plugin sidebar (`sidecar_sdk`).
 
-### 1. Install or Update Locally
-From the repository root:
-```sh
-node scripts/install.mjs
-```
-This builds the runtime/panel bundles if needed and syncs the plugin to `~/.gemini/config/plugins/agy-skins/` without editing `~/.gemini/config/config.json`.
-To launch the standalone CDP daemon immediately for the current session, run `node ~/.gemini/config/plugins/agy-skins/sidecars/wallpaper_engine/server.mjs --standalone` (or enable `[agy-skins](customization://agy-skins)` in Antigravity Customizations so Antigravity manages its sidecar lifecycle natively).
+## Common Commands
+- **Install & build**: `npm run install:agy` (or `node scripts/install.mjs --no-launch`)
+- **Live health check**: `npm run verify:live` (verifies `DevToolsActivePort`, CDP connection, `#agy-skins-backdrop-root`, and `#agy-skins-runtime-css`)
+- **Run test suite**: `npm test`
+- **Uninstall**: `npm run uninstall:agy` (add `--purge-data` to wipe `~/.agy-skins`)
 
-### 2. Verify Live Status
-```sh
-node scripts/verify-live.mjs
-```
-Checks `DevToolsActivePort`, confirms `window.__agySkinsRuntime` is active on open Antigravity workbench targets, checks `legacyActive: false`, and verifies the signed loopback WebWallGL media server.
-
-### 3. Open the Studio UI
-- **Aux Pane**: Open `… → Extensions → agy-skins` (or click the sidecar pill `[agy-skins](sidecar://agy-skins/wallpaper_engine/)` when the sidecar is enabled).
-- **Settings Entry**: Open `Settings → Appearance` and click **Open Wallpaper Engine / 打开壁纸引擎**.
-- **Keyboard Shortcut**: Press `Alt + Shift + W` anywhere inside Antigravity.
-
-### 4. Troubleshooting CDP Connection
-If Antigravity was launched without `--remote-debugging-port=0`, open the **Advanced** tab inside `agy-skins` and click the **Fix Windows Shortcuts** button (or run the non-destructive shortcut helper) and restart Antigravity normally.
+## Troubleshooting
+- If **Settings → `Wallpaper Engine`** does not appear or backdrop does not inject, check **System → Antigravity Integration & CDP Health** (`DevToolsActivePort` missing) and use the built-in Windows shortcut fixer (`--remote-debugging-port=0`), then restart Antigravity.
+- Keep `~/.agy-skins/we-media.key` (mode `0600`) intact; restarted daemons re-read or rotate tokens automatically on startup.

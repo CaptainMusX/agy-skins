@@ -1,36 +1,31 @@
-# Antigravity 壁纸引擎 (`agy-skins`)
+# Google Antigravity 壁纸引擎插件（`agy-skins` v2.0.0）
 
-> 为 **Google Antigravity** 带来完整 Wallpaper Engine（`Scene` / `Web` / `视频` / `Picture` 幻灯片）动态壁纸、单规则 CSSOM **液态玻璃**、字体排版系统、鼠标特效与 3D 视差 —— 零修改客户端二进制文件、零放宽 CSP。
+> 将 Wallpaper Engine（`Scene` / `Web` / `视频` / `图片`）、统一两段式可读性 **iOS 液态玻璃**、全局排版字体、光标特效与 3D 视差原生带入 **Google Antigravity** —— 无缝融合、不修改任何主程序二进制文件。
 
-**[English README](./README.md)** · **[安装与排障指南](./docs/INSTALL.zh.md)** · **[功能对标清单](./docs/PARITY.zh.md)**
+**[English README](./README.md)** · **[安装与排障指南](./docs/INSTALL.zh.md)** · **[架构与特性说明](./docs/PARITY.zh.md)**
 
-## 核心特性
+## v2.0.0 核心重塑亮点
 
-- **WebWallGL 3.0.1 实时场景引擎**：原生渲染 Wallpaper Engine `.pkg` 场景工程、Web 网页壁纸、本地视频（MP4/WebM/MKV）、Picture 多图轮播、网络 URL 及 Bing 每日一图；支持 `15 / 30 / 60 FPS` 上限、GPU 自动降级与隐藏/失焦/电池省电暂停。
-- **HMAC-SHA256 签名本地媒体源（支持 HTTP 206 Range）**：基于随机本地回环端口 `127.0.0.1:0`、`0600` 权限密钥和防符号链接越界校验，彻底解决 `https://` 页面加载 `file:///` 被拦截与视频无法拖动的问题。
-- **单规则 CSSOM 液态玻璃**：读取 Antigravity 原生主题变量（`--background` / `--sidebar` / `--card` / `--primary`）作为基底颜色种子，滑动条拖动直接更新单条 `CSSStyleRule`，无重排闪烁；内置 xterm React Fiber 透明适配。
-- **分屏浏览器 `evenodd` 自动挖孔**：实时监听 `[data-has-browser-hole="true"]` 与 `[data-browser-hole]`，自动从背景层镂空内嵌浏览器区域，避免网页预览泛白或被染色。
-- **Antigravity 原生工作流融合**：
-  - **插件侧边栏 Aux Pane**（`sidecar_sdk`）。
-  - **`设置 → 外观 (Appearance)` 快捷入口卡片** 与全局 **`Alt+Shift+W`** 悬浮工作台弹窗。
-  - **Windows / Linux 原生标题栏覆盖层同步**（`electronNative.setTitleBarOverlay`）。
-  - **非破坏式 CDP 调试状态检测与快捷方式一键修复**（不强杀客户端）。
+- **消灭整窗割裂缝隙**：
+  - 将 Antigravity 外壳、顶部标题栏、对话区与侧栏打通为单一连续壁纸+暗化层画布，不再出现顶栏二次模糊、右/底部 8px 异色嵌边、输入卡上方 48px 渐变白带或 `.surface-composer` 四周 4px 生硬 `--onyx-frame` 白环。
+  - 输入卡磨砂托管到 `::before` 伪元素，保持弹出浮窗视口定位不偏移；设置弹窗（`.settings-modal-container` + `.settings-modal-backdrop`）统一呈递为一整块细腻 iOS 磨砂玻璃。
+- **深度参考 [`elysia395/dsh-wallpaper-engine`](https://github.com/elysia395/dsh-wallpaper-engine) 的原生界面与玻璃引擎**：
+  - 采用两段可读性亮度钳位色板（浅色保底 `0.48` / 深色保底 `0.59`）+ `color-mix`，内置 5 套出厂 preset + 最多 8 个用户自定义预设槽位及 JSON 导入/导出。
+  - 全新 `we-picker` 组件化工作台：旋转 `.we-vinyl` 黑胶封面唱片、页内下钻式 `.we-picker__modal` 壁纸库（常规网格 / CD 架叠放、多选分级/类型过滤）、滑动指示条标签页、模块级 `↺` 重置按钮。
+- **零 `<iframe>` 直挂宿主 DOM + 语言协调设计**：
+  - Antigravity `Settings` 左侧导航条始终显示与英文原版设置一致的 **`Wallpaper Engine`**，内部展开面板使用默认**简体中文**原生 DOM 渲染（无嵌套 iframe 割裂边框与双滚动条）。
+- **WebWallGL 3.0.1 实时场景与签名 HTTP 206 流媒体**：
+  - 支持 `.pkg` 场景实时渲染、视频、网页与图片幻灯片，通过 HMAC-SHA256 签名本地 `127.0.0.1` 回环服务按需切片推流，完全不使用 `BypassCSP`。
 
 ## 快速安装
-
-### 前置条件
-- **Node.js 22+**
-- Google Antigravity（若主界面未能自动注入，可在工作台 `高级与系统` 分页查看 CDP 状态并一键为 Windows 快捷方式添加 `--remote-debugging-port=0`）。
-
-### 安装步骤
 
 ```bash
 npm install
 npm run install:agy
 ```
 
-或在 Windows 下直接运行根目录的 `install.bat`（将构建产物部署到 `~/.gemini/config/plugins/agy-skins` 并可立即拉起独立 Sidecar 守护进程）。
+Windows 下也可直接双击 `install.bat`（若只构建部署不单独启动守护进程可运行 `node scripts/install.mjs --no-launch`）。
 
-## 许可证与第三方声明
+## 许可与致谢
 
-本项目采用 MIT 开源协议（[`LICENSE`](./LICENSE)），内置 WebWallGL 3.0.1 引擎及工程架构致谢详见 [`LICENSING.md`](./LICENSING.md) 与 [`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md)。
+本项目基于 MIT 协议开源（[`LICENSE`](./LICENSE)），界面与两段可读性液态玻璃色板深度参考并改进自 [`elysia395/dsh-wallpaper-engine`](https://github.com/elysia395/dsh-wallpaper-engine)（MIT），场景解析驱动为 WebWallGL 3.0.1。详情见 [`LICENSING.md`](./LICENSING.md) 与 [`THIRD-PARTY-NOTICES.md`](./THIRD-PARTY-NOTICES.md)。

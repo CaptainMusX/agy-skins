@@ -351,6 +351,23 @@ export function tailFile(filePath, lines = 80) {
   }
 }
 
+export function removeUploadFile(filePath, uploadsDir) {
+  if (typeof filePath !== 'string' || !filePath.trim()) return { ok: false, error: 'missing path' }
+  const resolvedRoot = resolve(uploadsDir)
+  const candidate = resolve(filePath)
+  if (!candidate.startsWith(resolvedRoot + (resolvedRoot.endsWith('\\') || resolvedRoot.endsWith('/') ? '' : process.platform === 'win32' ? '\\' : '/'))) {
+    return { ok: false, error: 'refusing to delete outside uploads directory' }
+  }
+  try {
+    const lst = lstatSync(candidate)
+    if (lst.isSymbolicLink() || !lst.isFile()) return { ok: false, error: 'file not found' }
+    rmSync(candidate, { force: true })
+    return { ok: true, removed: candidate }
+  } catch (err) {
+    return { ok: false, error: err?.message || 'remove failed' }
+  }
+}
+
 export function clearCacheDir(targetDir, allowedParent) {
   const resolvedTarget = resolve(targetDir)
   const resolvedParent = resolve(allowedParent)

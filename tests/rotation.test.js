@@ -49,6 +49,10 @@ test('WallpaperRotation cycles sequentially and avoids repeat in random mode', a
     config.rotationGroups[0].order = 'random'
     assert.equal(await rot.advance(true), true)
     assert.notEqual(applied.at(-1), 'w3')
+
+    config.rotationEnabled = false
+    assert.equal(await rot.advance(true, { manual: false }), false)
+    assert.equal(await rot.advance(true, { manual: true }), true)
   } finally {
     rot.destroy()
   }
