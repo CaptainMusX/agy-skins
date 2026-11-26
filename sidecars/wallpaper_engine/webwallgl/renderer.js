@@ -25,7 +25,7 @@ let mediaSource = null
 
 function send(type, detail = {}) {
   try {
-    window.parent?.postMessage({ source: 'agy-skins-scene', type, ...detail }, '*')
+    window.parent?.postMessage({ ...detail, source: 'agy-skins-scene', type }, '*')
   } catch {}
 }
 
@@ -132,7 +132,17 @@ function loadCurrent(source) {
       loadWatchdog = null
       loadSettled = true
       instance.setVolume(volume)
-      send('ready', { type: current.type })
+      send('ready', { wallpaperType: current.type })
+      setTimeout(() => {
+        if (thisGeneration !== generation) return
+        const s = instance.stats || {}
+        send('stats', {
+          fps: Math.round(s.fps || 0),
+          paused: instance.paused === true,
+          running: instance.paused !== true,
+          wallpaperType: current.type
+        })
+      }, 250)
     })
     .catch(error => {
       if (thisGeneration !== generation) return
@@ -250,7 +260,8 @@ setInterval(() => {
   send('stats', {
     fps: Math.round(stats.fps || 0),
     paused: instance.paused === true,
-    type: current.type
+    running: instance.paused !== true,
+    wallpaperType: current.type
   })
 }, 1000)
 

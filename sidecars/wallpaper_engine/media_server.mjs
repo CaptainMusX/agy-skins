@@ -1,5 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto'
 import { createReadStream, existsSync, lstatSync, mkdirSync, appendFileSync, renameSync, statSync } from 'node:fs'
+import { readdir } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import { dirname, extname, join, relative, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -24,6 +25,7 @@ const MIME_TYPES = {
   '.jpeg': 'image/jpeg',
   '.gif': 'image/gif',
   '.webp': 'image/webp',
+  '.avif': 'image/avif',
   '.svg': 'image/svg+xml',
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
@@ -221,12 +223,45 @@ export function createMediaServer({
   distRoot = DIST_ROOT,
   studioHtmlProvider = null,
   studioApiHandlers = null,
-  onRuntimeEvent = null
+  onRuntimeEvent = null,
+  getWeAssetsDir = null
 }) {
   const signer = createSigner(secret)
   const studioToken = randomBytes(24).toString('hex')
   const runtimeToken = randomBytes(24).toString('hex')
   let origin = ''
+  let assetsIndexCache = { dir: '', names: [], at: 0 }
+
+  const currentAssetsDir = () => {
+    try {
+      const d = typeof getWeAssetsDir === 'function' ? getWeAssetsDir() : getWeAssetsDir
+      if (typeof d === 'string' && d.trim()) {
+        const resolved = resolve(d.trim())
+        if (statSync(join(resolved, 'materials')).isDirectory()) return resolved
+      }
+    } catch {}
+    return null
+  }
+
+  const listWeAssetNames = async assetsDir => {
+    if (assetsIndexCache.dir === assetsDir && Date.now() - assetsIndexCache.at < 60_000) {
+      return assetsIndexCache.names
+    }
+    const names = []
+    const walk = async (dir, prefix) => {
+      let entries
+      try { entries = await readdir(dir, { withFileTypes: true }) } catch { return }
+      for (const e of entries) {
+        const rel = prefix ? `${prefix}/${e.name}` : e.name
+        if (e.isDirectory()) await walk(join(dir, e.name), rel)
+        else if (e.isFile() && e.name.toLowerCase().endsWith('.tex')) names.push(rel.slice(0, -4))
+      }
+    }
+    await walk(join(assetsDir, 'materials'), '')
+    names.sort()
+    assetsIndexCache = { dir: assetsDir, names, at: Date.now() }
+    return names
+  }
 
   const server = createServer(async (req, res) => {
     try {
@@ -235,12 +270,67 @@ export function createMediaServer({
 
       if (req.method === 'OPTIONS' && (
         pathname.startsWith('/api/agy-skins/') ||
+        pathname === '/api/local-assets' ||
+        pathname.startsWith('/api/local-assets/') ||
         pathname.startsWith('/studio-api/') ||
         pathname === '/runtime-event'
       )) {
-        applyLoopbackCors(req, res, { allowOrigin: pathname.startsWith('/api/agy-skins/') ? '*' : null })
+        applyLoopbackCors(req, res, {
+          allowOrigin: (pathname.startsWith('/api/agy-skins/') || pathname.startsWith('/api/local-assets')) ? '*' : null
+        })
         res.writeHead(204)
         res.end()
+        return
+      }
+
+      if (pathname === '/api/local-assets' || pathname.startsWith('/api/local-assets/')) {
+        if (req.method !== 'GET' && req.method !== 'HEAD') {
+          res.writeHead(405)
+          res.end('Method Not Allowed')
+          return
+        }
+        const rest = pathname.slice('/api/local-assets'.length)
+        const assetsDir = currentAssetsDir()
+        const sendAssetJson = (status, obj) => {
+          res.writeHead(status, {
+            'Content-Type': 'application/json; charset=utf-8',
+            'Cache-Control': 'no-store',
+            'Access-Control-Allow-Origin': '*',
+            'Cross-Origin-Resource-Policy': 'cross-origin'
+          })
+          if (req.method === 'HEAD') res.end()
+          else res.end(JSON.stringify(obj))
+        }
+        if (rest === '' || rest === '/') {
+          sendAssetJson(200, { ok: Boolean(assetsDir), roots: assetsDir ? [{ id: 'local', dir: assetsDir }] : [] })
+          return
+        }
+        if (!assetsDir) {
+          sendAssetJson(404, { ok: false, error: 'assets directory unavailable' })
+          return
+        }
+        const rawSegs = rest.replace(/^\/+/, '').split('/').filter(Boolean)
+        let rootId = ''
+        try { rootId = decodeURIComponent(rawSegs[0] || '') } catch { rootId = '' }
+        if (rootId !== 'local') {
+          sendAssetJson(404, { error: 'unknown asset source' })
+          return
+        }
+        const rawRel = rawSegs.slice(1).join('/')
+        if (rawRel === 'materials/index.json') {
+          sendAssetJson(200, { names: await listWeAssetNames(assetsDir) })
+          return
+        }
+        if (!rawRel) {
+          sendAssetJson(400, { error: 'missing asset path' })
+          return
+        }
+        const resolvedAsset = safeChild(assetsDir, rawRel)
+        if (!resolvedAsset.ok) {
+          sendAssetJson(resolvedAsset.status, { error: resolvedAsset.error })
+          return
+        }
+        serveFile(req, res, resolvedAsset.path, resolvedAsset.size, { cache: 'private, max-age=3600', cors: true })
         return
       }
 
@@ -290,7 +380,8 @@ export function createMediaServer({
           res.end(JSON.stringify({ error: resolved.error }))
           return
         }
-        serveFile(req, res, resolved.path, resolved.size, { cache: 'no-store', cors: true })
+        const cache = /\.(json|html?)$/i.test(resolved.path) ? 'no-store' : 'private, max-age=300'
+        serveFile(req, res, resolved.path, resolved.size, { cache, cors: true })
         return
       }
 
@@ -452,6 +543,7 @@ export function createMediaServer({
       title: String(projectMeta.title || '').slice(0, 200),
       file: String(projectMeta.file || '').slice(0, 1024),
       preview: typeof projectMeta.preview === 'string' ? projectMeta.preview.slice(0, 1024) : null,
+      weAssetsAvailable: Boolean(currentAssetsDir()),
       dir: resolved
     }
   }

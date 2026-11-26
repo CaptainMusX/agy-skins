@@ -140,6 +140,75 @@ test('scanWallpaperEngine excludes projects hidden in visibility.json and import
   }
 })
 
+test('scanWallpaperEngine resolves Workshop dependency presets, skips thumbnail-only dirs, and detects weAssetsDir', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'agy-scan-dep-'))
+  try {
+    const fakeSteam = join(root, 'Steam')
+    const assetsMatDir = join(fakeSteam, 'steamapps', 'common', 'wallpaper_engine', 'assets', 'materials')
+    const wsRoot = join(fakeSteam, 'steamapps', 'workshop', 'content', '431960')
+    const baseDir = join(wsRoot, '3509')
+    const presetDir = join(wsRoot, '3528')
+    const thumbOnlyDir = join(wsRoot, '9999')
+    mkdirSync(assetsMatDir, { recursive: true })
+    mkdirSync(baseDir, { recursive: true })
+    mkdirSync(presetDir, { recursive: true })
+    mkdirSync(thumbOnlyDir, { recursive: true })
+
+    writeFileSync(join(baseDir, 'scene.pkg'), Buffer.from('PKG0'))
+    writeFileSync(join(baseDir, 'preview.png'), makeMinimalPng(1280, 720))
+    writeFileSync(join(baseDir, 'project.json'), JSON.stringify({
+      title: 'Three Body Base',
+      type: 'scene',
+      file: 'scene.json',
+      preview: 'preview.png',
+      contentrating: 'Everyone',
+      general: {
+        properties: {
+          speed: { type: 'slider', text: 'Speed', value: 1, min: 0, max: 10, order: 1 },
+          schemecolor: { type: 'color', text: 'ui_browse_properties_scheme_color', value: '0 0 0', order: 0 }
+        }
+      }
+    }))
+
+    writeFileSync(join(presetDir, 'preview.png'), makeMinimalPng(800, 1200))
+    writeFileSync(join(presetDir, 'project.json'), JSON.stringify({
+      title: 'Portrait Three Body Preset',
+      dependency: '3509',
+      preview: 'preview.png',
+      contentrating: 'Everyone',
+      preset: {
+        speed: 5,
+        schemecolor: '1 1 1'
+      }
+    }))
+
+    writeFileSync(join(thumbOnlyDir, 'preview.png'), makeMinimalPng(400, 400))
+    writeFileSync(join(thumbOnlyDir, 'project.json'), JSON.stringify({
+      title: 'Broken Thumb Only',
+      preview: 'preview.png',
+      contentrating: 'Everyone'
+    }))
+
+    const res = await scanWallpaperEngine({ manualRoots: [fakeSteam], env: { HOME: root, USERPROFILE: root } })
+    assert.ok(res.weAssetsDir && res.weAssetsDir.toLowerCase().endsWith('assets'))
+    assert.equal(res.items.some(i => i.title === 'Broken Thumb Only'), false)
+
+    const presetItem = res.items.find(i => i.title === 'Portrait Three Body Preset')
+    assert.ok(presetItem)
+    assert.equal(presetItem.kind, 'scene')
+    assert.equal(presetItem.mediaType, 'scene')
+    assert.equal(presetItem.staticFallback, false)
+    assert.equal(presetItem.dir, presetDir)
+    assert.equal(presetItem.sceneDir, baseDir)
+    assert.equal(presetItem.mediaPath, join(baseDir, 'scene.pkg'))
+    assert.equal(presetItem.previewPath, join(presetDir, 'preview.png'))
+    assert.equal(presetItem.properties.find(p => p.name === 'speed')?.value, 5)
+    assert.equal(presetItem.properties.find(p => p.name === 'speed')?.default, 1)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
 test('scanWallpaperEngine discovers projects under manualRoots cleanly', async () => {
   const root = mkdtempSync(join(tmpdir(), 'agy-scan-'))
   try {

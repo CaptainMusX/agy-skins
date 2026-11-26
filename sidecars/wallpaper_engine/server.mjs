@@ -114,9 +114,8 @@ export function buildResolvedWallpaper(config, mediaServer) {
   let slides = []
 
   if (type === 'scene' || type === 'web') {
-    const dir = sel?.dir || (/^(?:[A-Za-z]:[\\/]|\/)/.test(source) ? source : null)
+    const dir = sel?.sceneDir || sel?.dir || (/^(?:[A-Za-z]:[\\/]|\/)/.test(source) ? source : null)
     if (dir && existsSync(dir)) {
-      const file = sel?.properties ? undefined : undefined
       scenePayload = mediaServer.sceneOpenPayload(dir, {
         type,
         title: sel?.title || '',
@@ -171,6 +170,7 @@ export async function startRuntime(options = {}) {
   let rotation = null
   let nowPlayingCache = null
   let discoveredSlots = []
+  let weAssetsDir = null
   let lastScanContainers = []
   let lastScanSignature = ''
   let scanInFlight = null
@@ -184,15 +184,16 @@ export async function startRuntime(options = {}) {
     let file = ''
 
     if (item.kind === 'scene' || item.kind === 'web') {
-      const proj = await readWallpaperProject(item.dir, item.source || 'workshop')
+      const sceneDir = item.sceneDir || item.dir
+      const proj = await readWallpaperProject(sceneDir, item.source || 'workshop')
       if (!proj) throw new Error('Wallpaper project directory or project.json is invalid')
-      source = item.dir
+      source = sceneDir
       type = item.kind
       framePath = item.kind === 'scene' ? (item.previewPath || null) : null
       staticFallback = false
       if (item.kind === 'web') {
         try {
-          const pj = JSON.parse(readFileSync(join(item.dir, 'project.json'), 'utf8').replace(/^\uFEFF/, ''))
+          const pj = JSON.parse(readFileSync(join(sceneDir, 'project.json'), 'utf8').replace(/^\uFEFF/, ''))
           file = String(pj.file || 'index.html')
         } catch {
           file = 'index.html'
@@ -211,6 +212,7 @@ export async function startRuntime(options = {}) {
         source: item.source || '',
         staticFallback,
         dir: item.dir,
+        ...(item.sceneDir && item.sceneDir !== item.dir ? { sceneDir: item.sceneDir } : {}),
         manifestPath: null,
         framePath,
         previewPath: item.previewPath || null,
@@ -258,6 +260,7 @@ export async function startRuntime(options = {}) {
         Promise.resolve(listUploads(store.uploadsDir, p => mediaServer.fileUrl(p)))
       ])
       const items = hydrateWeItems([...uploads, ...(scan.items || [])])
+      weAssetsDir = scan.weAssetsDir || null
       store.setWeItems(items)
       lastScanContainers = Array.isArray(scan.containers) ? scan.containers : []
       lastScanSignature = computeContainersSignature(lastScanContainers, [store.uploadsDir])
@@ -394,6 +397,7 @@ export async function startRuntime(options = {}) {
   const mediaServer = createMediaServer({
     secret,
     dataDir: store.dataDir,
+    getWeAssetsDir: () => weAssetsDir,
     studioHtmlProvider: (token, urlObj) => buildPanelHtml({
       mode: 'studio',
       studioToken: token,

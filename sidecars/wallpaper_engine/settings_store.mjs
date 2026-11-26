@@ -38,6 +38,7 @@ export function sanitizeWeCacheItem(item) {
       isUpload: ['upload', 'uploads', 'url', 'bing'].includes(String(item.source || '')) || String(item.id || '').startsWith('upload:')
     }),
     dir: item.dir.slice(0, 1024),
+    sceneDir: typeof item.sceneDir === 'string' ? item.sceneDir.slice(0, 1024) : undefined,
     mediaPath: item.mediaPath.slice(0, 1024),
     mediaType: String(item.mediaType || '').slice(0, 20),
     previewPath: typeof item.previewPath === 'string' ? item.previewPath.slice(0, 1024) : null,

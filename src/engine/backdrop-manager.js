@@ -1,11 +1,16 @@
 const ROOT_ID = 'agy-skins-backdrop-root'
 const LIVE_READY_CLASS = 'agy-skins-backdrop-live-ready'
-const LIVE_FIRST_FRAME_MS = 30_000
+const LIVE_FIRST_FRAME_MS = 60_000
 const TRANSITION_BASE_MS = {
   cut: 0, fade: 1800, push: 700, wipe: 700, iris: 800, zoom: 900, bars: 800
 }
 const TRANSITION_SPEED_FACTOR = { fast: 0.6, normal: 1, slow: 1.6 }
+const SCENE_FITS = { cover: 'cover', contain: 'contain', center: 'contain', fill: 'stretch', stretch: 'stretch' }
 const BARS_TEETH = 9
+
+export function toSceneFit(fit) {
+  return SCENE_FITS[fit] || 'cover'
+}
 
 const clamp = (value, min, max, fallback) => {
   const n = Number(value)
@@ -57,7 +62,7 @@ export function liveSceneUrl(project, options = {}) {
   if (!origin) throw new Error('Scene media origin is unavailable')
   const params = new URLSearchParams({
     type: 'scene',
-    fit: options.fit || 'cover',
+    fit: toSceneFit(options.fit),
     sceneFps: String(options.fps || 30),
     muted: options.muted ? 'true' : 'false',
     src: project.token,
@@ -66,6 +71,7 @@ export function liveSceneUrl(project, options = {}) {
   if (options.autoQuality === false) params.set('autoq', '0')
   if (Number(options.renderDpr) > 0) params.set('renderDpr', String(options.renderDpr))
   if (Number(options.videoTexScale) > 0) params.set('vidscale', String(options.videoTexScale))
+  if (project?.weAssetsAvailable || options?.localAssets) params.set('localAssets', '1')
   return `${origin}/api/agy-skins/scene/live/index.html?${params.toString()}`
 }
 
@@ -77,7 +83,7 @@ export function liveWebUrl(project, file, options = {}) {
   const base = /^https?:\/\//i.test(project.base) ? project.base : `${origin}${project.base}`
   const params = new URLSearchParams({
     type: 'web',
-    fit: options.fit || 'cover',
+    fit: toSceneFit(options.fit),
     sceneFps: String(options.fps || 30),
     muted: options.muted ? 'true' : 'false',
     src: `${base}/${cleanFile}`,
@@ -139,19 +145,17 @@ export class BackdropManager {
       const data = event.data
       if (!data || data.source !== 'agy-skins-scene') return
       if (data.type === 'ready') {
-        this.liveReady = true
-        this.liveFailed = false
-        if (this.liveWatchdog !== null) clearTimeout(this.liveWatchdog)
-        this.liveWatchdog = null
-        this.layer?.classList.add(LIVE_READY_CLASS)
-        this.applyLiveOptions(true)
-        this.pushMediaSnapshot()
+        this.markLiveReady(this.layer, this.sceneIframe)
       } else if (data.type === 'error') {
         this.liveFailed = true
         if (this.liveWatchdog !== null) clearTimeout(this.liveWatchdog)
         this.liveWatchdog = null
+        if (this.layer?.dataset) this.layer.dataset.liveState = 'error'
       } else if (data.type === 'stats') {
         this.liveStats = data
+        if (!this.liveReady && Number(data.fps) > 0) {
+          this.markLiveReady(this.layer, this.sceneIframe)
+        }
       }
     }
     this.handleVisibility = () => {
@@ -358,7 +362,7 @@ export class BackdropManager {
       transition = 'cut', transitionDir = 'left', transitionSpeed = 'normal',
       brightness = 100, contrast = 100, saturate = 100, flip = false,
       layerPositionX = 50, layerPositionY = 50, layerScale = 100,
-      loop = true, userProps = null, browserHoleCutout = true,
+      loop = true, userProps = null, sceneProps = null, browserHoleCutout = true,
       paused = false
     } = options
 
@@ -371,7 +375,11 @@ export class BackdropManager {
       return false
     }
 
-    const key = `${type}:${source}:${mode === 'frame' ? 'frame' : 'live'}`
+    const liveDesired = (type === 'scene' || type === 'web') && mode !== 'frame' && sceneLive !== false
+    const liveKeyTag = liveDesired ? (scenePayload?.weAssetsAvailable ? 'live-la' : 'live') : 'frame'
+    const key = (type === 'scene' || type === 'web')
+      ? `${type}:${source}:${liveKeyTag}`
+      : `${type}:${source}:${mode === 'frame' ? 'frame' : 'live'}`
     if (this.failedKeys.has(key)) {
       this.hide()
       return false
@@ -389,8 +397,8 @@ export class BackdropManager {
       playbackRate, sceneLive, sceneLiveFps, sceneAutoQuality, sceneRenderDpr,
       sceneVideoTexScale, liveBootDelay, slides, slideIntervalMs, transition,
       transitionDir, transitionSpeed, brightness, contrast, saturate, flip,
-      layerPositionX, layerPositionY, layerScale, loop, userProps, browserHoleCutout,
-      paused: Boolean(paused)
+      layerPositionX, layerPositionY, layerScale, loop, userProps, sceneProps,
+      browserHoleCutout, paused: Boolean(paused)
     }
 
     this.updateScrim(isDark, occlusion)
@@ -447,13 +455,14 @@ export class BackdropManager {
     const posY = clamp(options.layerPositionY, 0, 100, 50)
     const layerScalePct = clamp(options.layerScale, 50, 150, 100)
     const opacityPct = clamp(options.opacity, 0, 100, 100)
-    const objectFit = options.fit === 'center' ? 'none' : options.fit
+    const objectFit = options.fit === 'center' ? 'none' : (options.fit || 'cover')
     const sound = Boolean(options.sound)
     const volumePct = clamp(options.volume, 0, 100, 100)
     const playbackRate = clamp(options.playbackRate, 0.25, 2, 1)
     const loop = options.loop !== false
     const media = layer._media
-    const optKey = `${blur}|${brightness}|${contrast}|${saturate}|${posX}|${posY}|${layerScalePct}|${Boolean(options.flip)}|${opacityPct}|${objectFit}|${sound}|${volumePct}|${playbackRate}|${loop}|${media.childElementCount}`
+    const posterCount = layer._poster?.childElementCount ?? 0
+    const optKey = `${blur}|${brightness}|${contrast}|${saturate}|${posX}|${posY}|${layerScalePct}|${Boolean(options.flip)}|${opacityPct}|${objectFit}|${sound}|${volumePct}|${playbackRate}|${loop}|${media.childElementCount}|${posterCount}`
     if (layer._lastOptKey === optKey) return
     layer._lastOptKey = optKey
 
@@ -471,9 +480,12 @@ export class BackdropManager {
     const flip = options.flip ? ' scaleX(-1)' : ''
     layer.style.transform = 'none'
     surface.style.transform = `translate3d(${x.toFixed(2)}%, ${y.toFixed(2)}%, 0) scale(${scale.toFixed(3)})${flip}`
-    const opacityStr = String(opacityPct / 100)
-    media.style.opacity = opacityStr
-    layer._poster.style.opacity = opacityStr
+    surface.style.opacity = String(opacityPct / 100)
+    media.style.opacity = '1'
+    for (const posterImg of (layer._poster?.querySelectorAll?.('img') || [])) {
+      posterImg.style.objectFit = objectFit
+      posterImg.style.objectPosition = 'center'
+    }
     for (const image of media.querySelectorAll('img')) {
       image.style.objectFit = objectFit
       image.style.objectPosition = 'center'
@@ -491,18 +503,20 @@ export class BackdropManager {
 
   buildNextLayer(options, key) {
     const next = this.buildLayer()
-    this.applyOptionsToLayer(next)
     this.applyPoster(next, options)
     this.appendContent(next, options, key)
+    this.applyOptionsToLayer(next)
     this.transitionTo(next, options, key)
   }
 
   applyPoster(layer, options) {
+    if (options.type === 'image' || options.type === 'video') return
     const url = options.webPreview
     if (!url || !/^https?:\/\//i.test(url)) return
+    const fit = options.fit === 'center' ? 'none' : (options.fit || 'cover')
     const image = document.createElement('img')
     image.alt = ''
-    image.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;'
+    image.style.cssText = `position:absolute;inset:0;width:100%;height:100%;object-fit:${fit};object-position:center;display:block;`
     image.onerror = () => image.remove()
     image.src = url
     layer._poster.appendChild(image)
@@ -636,8 +650,14 @@ export class BackdropManager {
     }
     this.liveReady = false
     this.liveFailed = false
+    this.lastPausedState = null
+    this.lastPropSignature = ''
     this.sceneProject = project
     this.sceneType = options.type
+    if (layer._poster) {
+      layer._poster.style.transition = ''
+      layer._poster.style.opacity = '1'
+    }
     const muted = !options.sound || clamp(options.volume, 0, 100, 100) <= 0
     const url = options.type === 'scene'
       ? liveSceneUrl(project, {
@@ -653,11 +673,10 @@ export class BackdropManager {
     frame.setAttribute('sandbox', 'allow-scripts allow-same-origin')
     frame.setAttribute('allow', 'autoplay; fullscreen')
     frame.setAttribute('aria-hidden', 'true')
-    frame.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;opacity:0;transition:opacity 1200ms ease;'
+    frame.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;opacity:0;transition:opacity 900ms ease;'
     frame.onload = () => {
       if (this.sceneIframe !== frame) return
       this.applyLiveOptions(true)
-      this.syncPlayback()
     }
     this.sceneIframe = frame
     if (this.liveWatchdog !== null) clearTimeout(this.liveWatchdog)
@@ -671,6 +690,40 @@ export class BackdropManager {
     layer.dataset.liveState = 'framed'
   }
 
+  markLiveReady(layer, frame) {
+    if (!layer || !frame) return
+    if (this.liveReady && frame.dataset?.ready === '1') return
+    this.liveReady = true
+    this.liveFailed = false
+    if (frame.dataset) frame.dataset.ready = '1'
+    if (this.liveWatchdog !== null) clearTimeout(this.liveWatchdog)
+    this.liveWatchdog = null
+    if (frame.style) frame.style.opacity = '1'
+    if (layer.dataset) layer.dataset.liveState = 'ready'
+    layer.classList?.add(LIVE_READY_CLASS)
+
+    if (layer._posterTimer) { clearTimeout(layer._posterTimer); layer._posterTimer = null }
+    if (layer._posterCleanTimer) { clearTimeout(layer._posterCleanTimer); layer._posterCleanTimer = null }
+    if (layer._poster) {
+      layer._posterTimer = setTimeout(() => {
+        layer._posterTimer = null
+        if (this.layer !== layer || !this.liveReady || this.liveFailed || !layer._poster) return
+        layer._poster.style.transition = 'opacity 260ms ease'
+        layer._poster.style.opacity = '0'
+        layer._posterCleanTimer = setTimeout(() => {
+          layer._posterCleanTimer = null
+          if (this.layer !== layer || !this.liveReady || this.liveFailed) return
+          layer._poster?.replaceChildren?.()
+        }, 280)
+      }, 950)
+    }
+
+    this.applyLiveOptions(true)
+    this.pushMediaSnapshot()
+    this.lastPausedState = null
+    this.syncPlayback()
+  }
+
   resumeDeferredLive() {
     if (!this.layer || !this.currentOptions || this.layer.dataset.liveState !== 'deferred') return
     this.showLive(this.layer, this.currentOptions, this.currentKey)
@@ -680,15 +733,21 @@ export class BackdropManager {
     if (!this.sceneIframe || !this.currentOptions) return
     const options = this.currentOptions
     const volume = options.sound ? clamp(options.volume, 0, 100, 100) / 100 : 0
-    this.postScene({ type: 'command', command: 'setFit', args: [options.fit || 'cover'] })
+    this.postScene({ type: 'command', command: 'setFit', args: [toSceneFit(options.fit)] })
     this.postScene({ type: 'command', command: 'setSceneFps', args: [Number(options.sceneLiveFps) || 30] })
     this.postScene({ type: 'command', command: 'setRenderDpr', args: [Number(options.sceneRenderDpr) || 0] })
     this.postScene({ type: 'command', command: 'setVolume', args: [volume] })
     this.postScene({ type: 'command', command: 'setQuality', args: [{ autoQuality: options.sceneAutoQuality !== false }] })
-    const propJson = options.userProps ? JSON.stringify(options.userProps) : ''
-    if (propJson && (forceProps || propJson !== this.lastPropSignature)) {
-      this.lastPropSignature = propJson
-      this.postScene({ type: 'command', command: 'updateWebProps', args: [options.userProps] })
+    const props = options.sceneProps || options.userProps
+    if (props && typeof props === 'object') {
+      const keys = Object.keys(props)
+      if (keys.length > 0) {
+        const propJson = JSON.stringify(props)
+        if (forceProps || propJson !== this.lastPropSignature) {
+          this.lastPropSignature = propJson
+          this.postScene({ type: 'command', command: 'updateWebProps', args: [props] })
+        }
+      }
     }
   }
 
@@ -696,8 +755,12 @@ export class BackdropManager {
     if (!this.currentOptions) return
     const reasons = new Set()
     if (this.currentOptions.paused === true) reasons.add('user')
-    if (this.currentOptions.pauseOnHidden !== false && document.hidden) reasons.add('hidden')
-    if (this.currentOptions.pauseOnBlur === true && typeof document.hasFocus === 'function' && !document.hasFocus()) reasons.add('blur')
+    if (this.currentOptions.pauseOnHidden !== false && typeof document !== 'undefined' && document.hidden) reasons.add('hidden')
+    const hostFocused = typeof document === 'undefined' ||
+      typeof document.hasFocus !== 'function' ||
+      document.hasFocus() ||
+      document.activeElement?.tagName === 'IFRAME'
+    if (this.currentOptions.pauseOnBlur === true && !hostFocused) reasons.add('blur')
     if (this.currentOptions.pauseOnBattery === true && this.battery && this.battery.charging === false) reasons.add('battery')
     const paused = reasons.size > 0
     this.pauseReasons = reasons
@@ -706,7 +769,7 @@ export class BackdropManager {
       if (paused && !video.paused) video.pause()
       else if (!paused && video.paused && this.currentOptions.mode !== 'frame') void video.play().catch(() => {})
     }
-    if (this.sceneIframe && paused !== this.lastPausedState) {
+    if (this.sceneIframe && this.liveReady === true && paused !== this.lastPausedState) {
       this.lastPausedState = paused
       this.postScene({ type: 'command', command: paused ? 'pause' : 'resume' })
     }
@@ -809,10 +872,13 @@ export class BackdropManager {
   retireLayer(layer) {
     if (!layer) return
     if (layer._slideTimer) clearInterval(layer._slideTimer)
+    if (layer._posterTimer) { clearTimeout(layer._posterTimer); layer._posterTimer = null }
+    if (layer._posterCleanTimer) { clearTimeout(layer._posterCleanTimer); layer._posterCleanTimer = null }
     const frame = layer._media?.querySelector('iframe')
     if (frame) {
       if (frame === this.sceneIframe) this.sceneIframe = null
       try { frame.contentWindow?.postMessage({ source: 'agy-skins-host', type: 'command', command: 'destroy' }, '*') } catch {}
+      try { frame.src = 'about:blank' } catch {}
     }
     const video = layer._media?.querySelector('video')
     if (video) {

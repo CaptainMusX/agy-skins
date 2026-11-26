@@ -376,6 +376,7 @@ export async function readWallpaperProject(dir, source = 'manual', opts = {}) {
   if (!project || typeof project !== 'object') return null
 
   const kind = String(project.type || '').toLowerCase()
+  if (kind === 'application') return null
   const mainPath = safeProjectPath(dir, project.file)
   const candidatePreview = safeProjectPath(dir, project.preview)
   const previewPath = candidatePreview && IMAGE_EXTENSIONS.test(candidatePreview) ? candidatePreview : null
@@ -390,10 +391,80 @@ export async function readWallpaperProject(dir, source = 'manual', opts = {}) {
   const canShowWeb = kind === 'web' && mainExists && /\.html?$/i.test(mainPath)
   const picture = !canPlayVideo && !canShowWeb && !hasSceneFiles ? await readPictureSlides(dir, project) : null
 
+  const resolvedDir = resolve(dir)
+  if (!hasSceneFiles && !canPlayVideo && !canShowImage && !canShowWeb && !picture) {
+    const depId = typeof project.dependency === 'string' && /^\d+$/.test(project.dependency.trim())
+      ? project.dependency.trim()
+      : ''
+    if (depId && (opts._depDepth || 0) < 2) {
+      const depCandidates = [
+        join(dirname(resolvedDir), depId),
+        ...((Array.isArray(opts.workshopDirs) ? opts.workshopDirs : []).map(d => join(d, depId)))
+      ]
+      const depDir = depCandidates.find(c => existsSync(join(c, 'project.json')))
+      if (depDir) {
+        const baseItem = await readWallpaperProject(depDir, source, {
+          ...opts,
+          _depDepth: (opts._depDepth || 0) + 1
+        })
+        if (baseItem) {
+          let baseProjectJson = null
+          try {
+            const rawBase = await readFile(join(depDir, 'project.json'), 'utf8')
+            baseProjectJson = JSON.parse(rawBase.replace(/^\uFEFF/, ''))
+          } catch {}
+          const presetOverrides = {}
+          if (project.preset && typeof project.preset === 'object' && !Array.isArray(project.preset)) {
+            for (const [pk, pv] of Object.entries(project.preset)) {
+              if (pv !== null && ['string', 'number', 'boolean'].includes(typeof pv)) {
+                presetOverrides[pk] = pv
+              }
+            }
+          }
+          const wprops = lookupWProperties(opts?.wpropsMap, resolvedDir, baseItem.mediaPath)
+          const mergedOverrides = { ...presetOverrides, ...(wprops || {}) }
+          const properties = baseProjectJson
+            ? parseProjectProperties(baseProjectJson, Object.keys(mergedOverrides).length ? mergedOverrides : null)
+            : baseItem.properties
+          const title = typeof project.title === 'string' && project.title.trim()
+            ? project.title.trim().slice(0, 120)
+            : baseItem.title
+          let mtimeMs = baseItem.mtimeMs || 0
+          try { mtimeMs = Math.max(mtimeMs, (await stat(resolvedDir)).mtimeMs) } catch {}
+          const dims = previewExists
+            ? await readImageDimensions(previewPath)
+            : { width: baseItem.width || 0, height: baseItem.height || 0 }
+          return {
+            id: resolvedDir.toLowerCase(),
+            title,
+            kind: baseItem.kind,
+            source,
+            contentrating: normalizeContentRating(project.contentrating, { isUpload: false }),
+            dir: resolvedDir,
+            sceneDir: baseItem.sceneDir || baseItem.dir,
+            mediaPath: baseItem.mediaPath,
+            mediaType: baseItem.mediaType,
+            slides: Array.isArray(baseItem.slides) ? baseItem.slides : [],
+            slideIntervalMs: baseItem.slideIntervalMs || null,
+            previewPath: previewExists ? resolve(previewPath) : baseItem.previewPath,
+            staticFallback: false,
+            workshopId: typeof project.workshopid === 'string' ? project.workshopid : (basename(resolvedDir) || null),
+            width: dims.width || baseItem.width || 0,
+            height: dims.height || baseItem.height || 0,
+            mtimeMs,
+            libraryRoot: opts?.libraryRoot || '',
+            properties
+          }
+        }
+      }
+    }
+    return null
+  }
+
   const mediaType = hasSceneFiles ? 'scene' : canPlayVideo ? 'video' : canShowWeb ? 'web' : 'image'
   const mediaPath = hasSceneFiles
     ? sceneFile
-    : (canPlayVideo || canShowImage || canShowWeb ? mainPath : (picture?.slides?.[0] || (previewExists ? previewPath : null)))
+    : (canPlayVideo || canShowImage || canShowWeb ? mainPath : picture.slides[0])
   if (!mediaPath) return null
 
   let mtimeMs = 0
@@ -410,7 +481,6 @@ export async function readWallpaperProject(dir, source = 'manual', opts = {}) {
     ? project.title.trim().slice(0, 120)
     : dir.split(/[\\/]/).at(-1)
 
-  const resolvedDir = resolve(dir)
   const resolvedMedia = resolve(mediaPath)
   const wprops = lookupWProperties(opts?.wpropsMap, resolvedDir, resolvedMedia)
 
@@ -426,7 +496,7 @@ export async function readWallpaperProject(dir, source = 'manual', opts = {}) {
     slides: picture?.slides || (canShowImage ? [mainPath] : []),
     slideIntervalMs: picture?.slideIntervalMs || null,
     previewPath: previewExists ? resolve(previewPath) : (mediaType === 'image' ? resolvedMedia : null),
-    staticFallback: !hasSceneFiles && !canPlayVideo && !canShowImage && !canShowWeb && !picture,
+    staticFallback: false,
     workshopId: typeof project.workshopid === 'string' ? project.workshopid : null,
     width: dims.width,
     height: dims.height,
@@ -481,7 +551,7 @@ async function readSteamPathFromRegistry() {
 
 export function computeContainersSignature(containers, extraDirs = []) {
   const hash = createHash('sha1')
-  hash.update('agy-we-scan-v2\0')
+  hash.update('agy-we-scan-v3\0')
   const list = Array.isArray(containers) ? containers : []
   for (const entry of list) {
     const dir = Array.isArray(entry) ? entry[0] : entry
@@ -603,14 +673,24 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
     if (existsSync(hintDir)) standaloneWeDirs.push(resolve(hintDir))
   }
 
+  const assetsCandidates = []
+  for (const v of [env.AGY_WE_ASSETS_DIR, env.DSH_WE_ASSETS_DIR]) {
+    if (typeof v === 'string' && v.trim()) assetsCandidates.push(v.trim())
+  }
+  const workshopDirs = []
   const containers = []
   for (const root of libraries.values()) {
-    containers.push([join(root, 'steamapps', 'workshop', 'content', STEAM_APP_ID), 'workshop'])
-    const projects = join(root, 'steamapps', 'common', 'wallpaper_engine', 'projects')
+    const wsDir = join(root, 'steamapps', 'workshop', 'content', STEAM_APP_ID)
+    if (existsSync(wsDir)) workshopDirs.push(wsDir)
+    containers.push([wsDir, 'workshop'])
+    const weBase = join(root, 'steamapps', 'common', 'wallpaper_engine')
+    assetsCandidates.push(join(weBase, 'assets'))
+    const projects = join(weBase, 'projects')
     containers.push([join(projects, 'myprojects'), 'local'])
     containers.push([join(projects, 'defaultprojects'), 'built-in'])
   }
   for (const dir of standaloneWeDirs) {
+    assetsCandidates.push(join(dir, 'assets'))
     containers.push([join(dir, 'projects', 'myprojects'), 'local'])
     containers.push([join(dir, 'projects', 'defaultprojects'), 'built-in'])
   }
@@ -626,9 +706,20 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
     containers.push([join(root, 'common', 'wallpaper_engine', 'projects', 'defaultprojects'), 'manual'])
   }
 
+  let weAssetsDir = null
+  for (const cand of assetsCandidates) {
+    try {
+      const resolvedCand = resolve(cand)
+      if (statSync(join(resolvedCand, 'materials')).isDirectory()) {
+        weAssetsDir = resolvedCand
+        break
+      }
+    } catch {}
+  }
+
   const uniqueContainers = [...new Map(containers.map(([p, src]) => [resolve(p).toLowerCase(), [resolve(p), src]])).values()]
   const scanned = await mapLimit(uniqueContainers, 4, ([p, src]) =>
-    scanContainer(p, src, { wpropsMap: weMeta.wpropertiesMap })
+    scanContainer(p, src, { wpropsMap: weMeta.wpropertiesMap, workshopDirs })
   )
   const items = [...new Map(scanned.flat().map(item => [item.id, item])).values()]
     .map(item => ({
@@ -639,5 +730,5 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
 
   const containerDirs = uniqueContainers.map(([p]) => p)
   const signature = computeContainersSignature(containerDirs)
-  return { items, libraries: [...libraries.values()], containers: containerDirs, signature, error: null }
+  return { items, libraries: [...libraries.values()], containers: containerDirs, signature, weAssetsDir, error: null }
 }

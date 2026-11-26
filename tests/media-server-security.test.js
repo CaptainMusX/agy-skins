@@ -27,14 +27,19 @@ test('safeChild blocks directory traversal and drive escapes', () => {
   }
 })
 
-test('createMediaServer enforces HMAC tokens, serves HTTP 206 ranges, WebWallGL, and Studio API auth', async () => {
+test('createMediaServer enforces HMAC tokens, serves HTTP 206 ranges, WebWallGL, local-assets, and Studio API auth', async () => {
   const dataDir = mkdtempSync(join(tmpdir(), 'agy-ms-'))
+  const assetsDir = join(dataDir, 'we-assets')
+  mkdirSync(join(assetsDir, 'materials', 'util'), { recursive: true })
+  writeFileSync(join(assetsDir, 'materials', 'util', 'noise.tex'), Buffer.from('TEXV0001NOISE'))
+  writeFileSync(join(dataDir, 'secret.txt'), 'TOP_SECRET')
   const mediaFile = join(dataDir, 'sample.mp4')
   writeFileSync(mediaFile, Buffer.from('0123456789ABCDEF'))
 
   const server = createMediaServer({
     secret: Buffer.from('fedcba9876543210fedcba9876543210'),
     dataDir,
+    getWeAssetsDir: () => assetsDir,
     studioHtmlProvider: tok => `<html>${tok}</html>`,
     studioApiHandlers: {
       'ping': async body => ({ ok: true, echo: body?.msg || 'pong' })
@@ -61,6 +66,28 @@ test('createMediaServer enforces HMAC tokens, serves HTTP 206 ranges, WebWallGL,
     const glRes = await fetch(`${server.origin}/api/agy-skins/scene/live/index.html`)
     assert.equal(glRes.status, 200)
     assert.match(await glRes.text(), /renderer\.js/)
+
+    // WE official local-assets endpoint contract + traversal protection
+    const assetsProbe = await fetch(`${server.origin}/api/local-assets`)
+    assert.equal(assetsProbe.status, 200)
+    const assetsProbeJson = await assetsProbe.json()
+    assert.equal(assetsProbeJson.ok, true)
+    assert.equal(assetsProbeJson.roots[0].id, 'local')
+
+    const indexRes = await fetch(`${server.origin}/api/local-assets/local/materials/index.json`)
+    assert.equal(indexRes.status, 200)
+    assert.deepEqual(await indexRes.json(), { names: ['util/noise'] })
+
+    const texRes = await fetch(`${server.origin}/api/local-assets/local/materials/util/noise.tex`)
+    assert.equal(texRes.status, 200)
+    assert.equal(texRes.headers.get('cross-origin-resource-policy'), 'cross-origin')
+    assert.equal(await texRes.text(), 'TEXV0001NOISE')
+
+    const traversalEncodedRes = await fetch(`${server.origin}/api/local-assets/local/%2e%2e%5csecret.txt`)
+    assert.equal(traversalEncodedRes.status, 403)
+
+    const traversalDotRes = await fetch(`${server.origin}/api/local-assets/local/%2e%2e/secret.txt`)
+    assert.ok([403, 404].includes(traversalDotRes.status))
 
     // Studio HTML & API token enforcement + Loopback CORS preflight
     const preflightRes = await fetch(`${server.origin}/studio-api/ping`, {

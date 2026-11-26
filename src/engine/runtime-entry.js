@@ -98,14 +98,43 @@ function createRuntime() {
   let lastCoreVisualKey = ''
   let lastVisualWasPreview = false
 
+  const buildFlatSceneProps = cfg => {
+    const out = {}
+    const props = cfg?.weSelection?.properties
+    if (Array.isArray(props)) {
+      for (const p of props) {
+        if (p && typeof p.name === 'string' && p.value !== undefined && p.value !== null) {
+          out[p.name] = p.value
+        }
+      }
+    }
+    const selId = cfg?.weSelection?.id
+    const overrides = selId && cfg?.userProps && typeof cfg.userProps === 'object' ? cfg.userProps[selId] : null
+    if (overrides && typeof overrides === 'object' && !Array.isArray(overrides)) {
+      for (const [k, v] of Object.entries(overrides)) {
+        if (v !== undefined && v !== null) out[k] = v
+      }
+    }
+    return out
+  }
+
   const applyVisuals = (cfg, res, nowPlaying = null, { isPreview = false } = {}) => {
     const isDark = detectIsDark()
     currentIsDark = isDark
-    const coreKey = JSON.stringify({ cfg, src: res.resolvedSrc || null, preview: res.previewUrl || null, isDark, np: nowPlaying?.title || '' })
+    const coreKey = JSON.stringify({
+      cfg,
+      src: res.resolvedSrc || null,
+      preview: res.previewUrl || null,
+      sceneDir: res.scenePayload?.dir || null,
+      weAssets: Boolean(res.scenePayload?.weAssetsAvailable),
+      isDark,
+      np: nowPlaying?.title || ''
+    })
     if (coreKey === lastCoreVisualKey && (isPreview || !lastVisualWasPreview)) {
       return
     }
     const active = cfg.wallpaperEnabled === true && Boolean(res.resolvedSrc)
+    const sceneProps = buildFlatSceneProps(cfg)
 
     backdrop.setMediaSnapshot(nowPlaying)
     backdrop.update({
@@ -145,6 +174,7 @@ function createRuntime() {
       layerPositionY: cfg.layerPositionY,
       layerScale: cfg.layerScale,
       userProps: cfg.userProps,
+      sceneProps,
       paused: cfg.wallpaperPaused === true,
       browserHoleCutout: cfg.browserHoleCutout
     })
