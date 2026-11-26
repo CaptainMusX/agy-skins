@@ -1,15 +1,17 @@
 import { execFile } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, readFileSync, statSync } from 'node:fs'
 import { open, readdir, readFile, stat } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { extname, join, resolve } from 'node:path'
+import { basename, dirname, extname, join, resolve } from 'node:path'
 import { promisify } from 'node:util'
+import { normalizeContentRating } from '../../src/shared/config.js'
 
 const exec = promisify(execFile)
 
 const STEAM_APP_ID = '431960'
 const VIDEO_EXTENSIONS = /\.(mp4|webm|mov|mkv|avi)$/i
-const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp)$/i
+const IMAGE_EXTENSIONS = /\.(png|jpe?g|webp|gif|bmp|avif)$/i
 const SLIDE_SWITCH_MS = { 1: 60_000, 2: 300_000, 3: 600_000, 4: 1_800_000, 5: 3_600_000 }
 const PROP_TYPES = new Set([
   'color', 'bool', 'slider', 'combo', 'text', 'textinput', 'file', 'directory', 'group', 'other'
@@ -37,6 +39,11 @@ function isHtmlNoiseProperty(name, def, text) {
   if (rawType === 'text' && !def?.value && /<\s*(?:h[1-6]|hr|br|center|div|span)\b/i.test(rawText)) return true
   if (/^(?:br)?imgsrc(?:http|file)/i.test(text || '')) return true
   return false
+}
+
+function normPathKey(value) {
+  if (typeof value !== 'string' || !value.trim()) return ''
+  return value.trim().replace(/^\\\\\?\\/, '').replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
 }
 
 export function safeProjectPath(dir, relative) {
@@ -71,7 +78,7 @@ function propertyDefault(type, definition) {
   return typeof value === 'string' ? value : JSON.stringify(value)
 }
 
-export function parseProjectProperties(project) {
+export function parseProjectProperties(project, userOverrides = null) {
   const source = project?.general?.properties
   if (!source || typeof source !== 'object' || Array.isArray(source)) return []
   return Object.entries(source)
@@ -89,13 +96,19 @@ export function parseProjectProperties(project) {
       const rawLabel = typeof definition.text === 'string' ? definition.text : name
       const text = propertyText(project, rawLabel, name).slice(0, 240)
       const hidden = definition.editable === false || isHtmlNoiseProperty(name, definition, text)
+      const authorDefault = propertyDefault(type, definition)
+      const hasOverride = userOverrides && typeof userOverrides === 'object' && Object.prototype.hasOwnProperty.call(userOverrides, name)
+      const overrideVal = hasOverride ? userOverrides[name] : undefined
+      const effectiveValue = overrideVal !== undefined && ['string', 'number', 'boolean'].includes(typeof overrideVal)
+        ? overrideVal
+        : authorDefault
       const entry = {
         name: name.slice(0, 120),
         type,
         text,
         order: Number.isFinite(Number(definition.order)) ? Number(definition.order) : 0,
-        value: propertyDefault(type, definition),
-        default: propertyDefault(type, definition),
+        value: effectiveValue,
+        default: authorDefault,
         hidden
       }
       if (typeof definition.condition === 'string' && definition.condition.trim()) {
@@ -127,6 +140,135 @@ export function parseSteamLibraryFolders(text) {
     if (/^(?:[A-Za-z]:\\|\/)/.test(raw)) paths.push(raw)
   }
   return [...new Set(paths)]
+}
+
+/**
+ * Wallpaper Engine marks built-in wallpapers deleted/removed by the user as
+ * `"<folder>": false` in `<container>/visibility.json` while keeping the directory on disk.
+ * Never throws on missing or malformed files.
+ */
+export async function readVisibilityHiddenSet(root) {
+  if (!root) return new Set()
+  let raw
+  try {
+    raw = await readFile(join(root, 'visibility.json'), 'utf8')
+  } catch {
+    return new Set()
+  }
+  let parsed
+  try {
+    parsed = JSON.parse(raw.replace(/^\uFEFF/, ''))
+  } catch {
+    return new Set()
+  }
+  const hidden = new Set()
+  const walk = node => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return
+    for (const [key, value] of Object.entries(node)) {
+      if (value === false) {
+        const clean = String(key || '').trim()
+        if (!clean) continue
+        hidden.add(clean.toLowerCase())
+        hidden.add(clean.replace(/\\/g, '/').toLowerCase())
+        const leaf = clean.split(/[\\/]/).pop()
+        if (leaf) hidden.add(leaf.toLowerCase())
+      } else if (value && typeof value === 'object') {
+        walk(value)
+      }
+    }
+  }
+  walk(parsed)
+  return hidden
+}
+
+const monitorRank = name => {
+  const m = /^Monitor(\d+)$/i.exec(String(name || ''))
+  return m ? Number(m[1]) : Number.MAX_SAFE_INTEGER
+}
+
+/**
+ * Read-only parser for Wallpaper Engine `<installDir>/config.json` extracting:
+ * - `installDir` hint (`?installdirectory`)
+ * - `wpropertiesMap`: `Map<normPathKey, Record<propName, scalarValue>>` preferring Monitor0.
+ */
+export function readWeConfigMeta(weConfigPaths) {
+  const wpropertiesMap = new Map()
+  const installDirs = []
+  const paths = [...new Set((Array.isArray(weConfigPaths) ? weConfigPaths : []).filter(Boolean))]
+  for (const cfgPath of paths) {
+    if (!existsSync(cfgPath)) continue
+    let parsed
+    try {
+      parsed = JSON.parse(readFileSync(cfgPath, 'utf8').replace(/^\uFEFF/, ''))
+    } catch {
+      continue
+    }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) continue
+    if (typeof parsed['?installdirectory'] === 'string' && parsed['?installdirectory'].trim()) {
+      installDirs.push(parsed['?installdirectory'].trim())
+    }
+    const maps = []
+    if (parsed.wproperties && typeof parsed.wproperties === 'object' && !Array.isArray(parsed.wproperties)) {
+      maps.push(parsed.wproperties)
+    }
+    for (const [name, profile] of Object.entries(parsed)) {
+      if (name === 'wproperties' || !profile || typeof profile !== 'object' || Array.isArray(profile)) continue
+      if (profile.wproperties && typeof profile.wproperties === 'object' && !Array.isArray(profile.wproperties)) {
+        maps.push(profile.wproperties)
+      }
+      if (profile.general?.wproperties && typeof profile.general.wproperties === 'object' && !Array.isArray(profile.general.wproperties)) {
+        maps.push(profile.general.wproperties)
+      }
+    }
+    for (const map of maps) {
+      for (const [wpKey, monitorTable] of Object.entries(map)) {
+        const nk = normPathKey(wpKey)
+        if (!nk || !monitorTable || typeof monitorTable !== 'object' || Array.isArray(monitorTable)) continue
+        const monitors = Object.keys(monitorTable)
+          .filter(m => monitorTable[m] && typeof monitorTable[m] === 'object' && !Array.isArray(monitorTable[m]))
+          .sort((a, b) => monitorRank(a) - monitorRank(b) || (a < b ? -1 : a > b ? 1 : 0))
+        if (!monitors.length) continue
+        const chosen = monitorTable[monitors[0]]
+        const scalars = {}
+        for (const [propName, val] of Object.entries(chosen)) {
+          if (val !== null && ['string', 'number', 'boolean'].includes(typeof val)) {
+            scalars[propName] = val
+          }
+        }
+        if (Object.keys(scalars).length && !wpropertiesMap.has(nk)) {
+          wpropertiesMap.set(nk, scalars)
+        }
+      }
+    }
+  }
+  return { installDirs: [...new Set(installDirs)], wpropertiesMap }
+}
+
+function lookupWProperties(wpropsMap, dir, mediaPath) {
+  if (!(wpropsMap instanceof Map) || !wpropsMap.size) return null
+  const candidates = [normPathKey(mediaPath), normPathKey(dir)].filter(Boolean)
+  for (const key of candidates) {
+    if (wpropsMap.has(key)) return wpropsMap.get(key)
+  }
+  for (const want of candidates) {
+    for (const [k, v] of wpropsMap.entries()) {
+      if (want.endsWith('/' + k) || k.endsWith('/' + want)) return v
+    }
+  }
+  return null
+}
+
+async function resolveSceneMainFile(dir, declaredFile) {
+  const safeDeclared = safeProjectPath(dir, declaredFile)
+  for (const candidate of [safeDeclared, join(dir, 'scene.pkg'), join(dir, 'scene.json')]) {
+    if (candidate && existsSync(candidate)) return candidate
+  }
+  try {
+    const entries = await readdir(dir)
+    const pkgs = entries.filter(name => name.toLowerCase().endsWith('.pkg'))
+    if (pkgs.length === 1) return join(dir, pkgs[0])
+  } catch {}
+  return null
 }
 
 export async function readImageDimensions(filePath) {
@@ -221,7 +363,7 @@ async function mapLimit(items, limit, fn) {
   return results
 }
 
-export async function readWallpaperProject(dir, source = 'manual') {
+export async function readWallpaperProject(dir, source = 'manual', opts = {}) {
   const pjPath = join(dir, 'project.json')
   if (!existsSync(pjPath)) return null
   let project
@@ -240,9 +382,8 @@ export async function readWallpaperProject(dir, source = 'manual') {
 
   const mainExists = Boolean(mainPath && existsSync(mainPath))
   const previewExists = Boolean(previewPath && existsSync(previewPath))
-  const scenePkgPath = join(dir, 'scene.pkg')
-  const sceneJsonPath = join(dir, 'scene.json')
-  const hasSceneFiles = kind === 'scene' && (existsSync(scenePkgPath) || existsSync(sceneJsonPath))
+  const sceneFile = kind === 'scene' ? await resolveSceneMainFile(dir, project.file) : null
+  const hasSceneFiles = Boolean(sceneFile)
 
   const canPlayVideo = kind === 'video' && mainExists && VIDEO_EXTENSIONS.test(mainPath)
   const canShowImage = kind === 'image' && mainExists && IMAGE_EXTENSIONS.test(mainPath)
@@ -251,7 +392,7 @@ export async function readWallpaperProject(dir, source = 'manual') {
 
   const mediaType = hasSceneFiles ? 'scene' : canPlayVideo ? 'video' : canShowWeb ? 'web' : 'image'
   const mediaPath = hasSceneFiles
-    ? (existsSync(scenePkgPath) ? scenePkgPath : sceneJsonPath)
+    ? sceneFile
     : (canPlayVideo || canShowImage || canShowWeb ? mainPath : (picture?.slides?.[0] || (previewExists ? previewPath : null)))
   if (!mediaPath) return null
 
@@ -269,64 +410,143 @@ export async function readWallpaperProject(dir, source = 'manual') {
     ? project.title.trim().slice(0, 120)
     : dir.split(/[\\/]/).at(-1)
 
+  const resolvedDir = resolve(dir)
+  const resolvedMedia = resolve(mediaPath)
+  const wprops = lookupWProperties(opts?.wpropsMap, resolvedDir, resolvedMedia)
+
   return {
-    id: dir.toLowerCase(),
+    id: resolvedDir.toLowerCase(),
     title,
     kind: picture ? 'image' : (kind || mediaType),
     source,
-    contentrating: typeof project.contentrating === 'string' ? project.contentrating : null,
-    dir: resolve(dir),
-    mediaPath: resolve(mediaPath),
+    contentrating: normalizeContentRating(project.contentrating, { isUpload: false }),
+    dir: resolvedDir,
+    mediaPath: resolvedMedia,
     mediaType,
     slides: picture?.slides || (canShowImage ? [mainPath] : []),
     slideIntervalMs: picture?.slideIntervalMs || null,
-    previewPath: previewExists ? resolve(previewPath) : (mediaType === 'image' ? resolve(mediaPath) : null),
+    previewPath: previewExists ? resolve(previewPath) : (mediaType === 'image' ? resolvedMedia : null),
     staticFallback: !hasSceneFiles && !canPlayVideo && !canShowImage && !canShowWeb && !picture,
     workshopId: typeof project.workshopid === 'string' ? project.workshopid : null,
     width: dims.width,
     height: dims.height,
     mtimeMs,
-    properties: parseProjectProperties(project)
+    libraryRoot: opts?.libraryRoot || '',
+    properties: parseProjectProperties(project, wprops)
   }
 }
 
-async function scanContainer(root, source) {
+async function scanContainer(root, source, opts = {}) {
   if (!existsSync(root)) return []
-  if (existsSync(join(root, 'project.json'))) {
-    const one = await readWallpaperProject(root, source)
+  const resolvedRoot = resolve(root)
+  if (existsSync(join(resolvedRoot, 'project.json'))) {
+    const parentHidden = await readVisibilityHiddenSet(dirname(resolvedRoot))
+    if (parentHidden.has(basename(resolvedRoot).toLowerCase())) return []
+    const one = await readWallpaperProject(resolvedRoot, source, { ...opts, libraryRoot: resolvedRoot })
     return one ? [one] : []
   }
   let entries
   try {
-    entries = await readdir(root, { withFileTypes: true })
+    entries = await readdir(resolvedRoot, { withFileTypes: true })
   } catch {
     return []
   }
-  const dirs = entries.filter(e => e.isDirectory()).slice(0, 1500)
-  return (await mapLimit(dirs, 8, entry => readWallpaperProject(join(root, entry.name), source))).filter(Boolean)
+  const hiddenSet = await readVisibilityHiddenSet(resolvedRoot)
+  const dirs = entries
+    .filter(e => e.isDirectory() && !hiddenSet.has(e.name.toLowerCase()))
+    .slice(0, 1500)
+  return (await mapLimit(dirs, 8, entry =>
+    readWallpaperProject(join(resolvedRoot, entry.name), source, { ...opts, libraryRoot: resolvedRoot })
+  )).filter(Boolean)
 }
 
 async function readSteamPathFromRegistry() {
-  if (process.platform !== 'win32') return null
-  try {
-    const { stdout } = await exec('reg', ['query', 'HKCU\\Software\\Valve\\Steam', '/v', 'SteamPath'], {
-      encoding: 'utf8', timeout: 1500, windowsHide: true
-    })
-    const match = stdout.match(/SteamPath\s+REG_SZ\s+(.+)/i)
-    if (match?.[1]) return match[1].trim().replace(/\//g, '\\')
-  } catch {}
-  return null
+  if (process.platform !== 'win32') return []
+  const found = []
+  const queries = [
+    ['HKCU\\Software\\Valve\\Steam', 'SteamPath'],
+    ['HKLM\\SOFTWARE\\WOW6432Node\\Valve\\Steam', 'InstallPath']
+  ]
+  for (const [key, val] of queries) {
+    try {
+      const { stdout } = await exec('reg', ['query', key, '/v', val], {
+        encoding: 'utf8', timeout: 1500, windowsHide: true
+      })
+      const match = stdout.match(new RegExp(`${val}\\s+REG_SZ\\s+(.+)`, 'i'))
+      if (match?.[1]) found.push(match[1].trim().replace(/\//g, '\\'))
+    } catch {}
+  }
+  return found
+}
+
+export function computeContainersSignature(containers, extraDirs = []) {
+  const hash = createHash('sha1')
+  hash.update('agy-we-scan-v2\0')
+  const list = Array.isArray(containers) ? containers : []
+  for (const entry of list) {
+    const dir = Array.isArray(entry) ? entry[0] : entry
+    if (!dir) continue
+    let dirStamp = 'missing'
+    let visStamp = 'missing'
+    try {
+      const st = statSync(dir)
+      dirStamp = `${Math.round(st.mtimeMs)}:${st.size}`
+    } catch {}
+    try {
+      const vst = statSync(join(dir, 'visibility.json'))
+      visStamp = `${Math.round(vst.mtimeMs)}:${vst.size}`
+    } catch {}
+    hash.update(`${dir}\0${dirStamp}\0${visStamp}\0`)
+  }
+  for (const extra of (Array.isArray(extraDirs) ? extraDirs : [])) {
+    if (!extra) continue
+    let stamp = 'missing'
+    try {
+      const st = statSync(extra)
+      stamp = `${Math.round(st.mtimeMs)}:${st.size}`
+    } catch {}
+    hash.update(`extra:${extra}\0${stamp}\0`)
+  }
+  return hash.digest('hex')
 }
 
 export async function scanWallpaperEngine({ manualRoots = [], env = process.env, fileUrl = null } = {}) {
   const probes = []
-  const regSteam = await readSteamPathFromRegistry()
-  if (regSteam) probes.push(regSteam)
+  for (const envVar of [env.AGY_WE_STEAM_ROOT, env.DSH_WE_STEAM_ROOT]) {
+    if (typeof envVar === 'string' && envVar.trim()) {
+      for (const seg of envVar.split(/[,;]/)) {
+        const clean = seg.trim()
+        if (clean) probes.push(clean)
+      }
+    }
+  }
+  for (const regPath of await readSteamPathFromRegistry()) {
+    probes.push(regPath)
+  }
 
+  const standaloneWeDirs = []
   if (process.platform === 'win32') {
-    for (const drive of ['C', 'D', 'E', 'F', 'G', 'H']) {
-      for (const suffix of ['Program Files (x86)\\Steam', 'Program Files\\Steam', 'Steam', 'SteamLibrary']) {
-        probes.push(`${drive}:\\${suffix}`)
+    for (let code = 67; code <= 90; code++) {
+      const drive = String.fromCharCode(code)
+      const driveRoot = `${drive}:\\`
+      if (!existsSync(driveRoot)) continue
+      for (const suffix of [
+        'Program Files (x86)\\Steam',
+        'Program Files\\Steam',
+        'Steam',
+        'SteamLibrary',
+        'Games\\Steam',
+        'Games\\SteamLibrary'
+      ]) {
+        probes.push(`${driveRoot}${suffix}`)
+      }
+      for (const weSuffix of [
+        'Program Files (x86)\\Wallpaper Engine',
+        'Program Files\\Wallpaper Engine',
+        'Wallpaper Engine'
+      ]) {
+        const p = `${driveRoot}${weSuffix}`
+        if (existsSync(p)) standaloneWeDirs.push(resolve(p))
       }
     }
   } else {
@@ -353,14 +573,34 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
     if (existsSync(join(candidate, 'steamapps'))) addLib(candidate)
   }
   for (const root of [...libraries.values()]) {
-    const vdfPath = join(root, 'steamapps', 'libraryfolders.vdf')
-    if (!existsSync(vdfPath)) continue
-    try {
-      const vdf = await readFile(vdfPath, 'utf8')
-      for (const lib of parseSteamLibraryFolders(vdf)) {
-        if (existsSync(join(lib, 'steamapps'))) addLib(lib)
-      }
-    } catch {}
+    for (const vdfPath of [
+      join(root, 'steamapps', 'libraryfolders.vdf'),
+      join(root, 'config', 'libraryfolders.vdf')
+    ]) {
+      if (!existsSync(vdfPath)) continue
+      try {
+        const vdf = await readFile(vdfPath, 'utf8')
+        for (const lib of parseSteamLibraryFolders(vdf)) {
+          if (existsSync(join(lib, 'steamapps'))) addLib(lib)
+        }
+      } catch {}
+    }
+  }
+
+  const weConfigCandidates = []
+  for (const root of libraries.values()) {
+    weConfigCandidates.push(join(root, 'steamapps', 'common', 'wallpaper_engine', 'config.json'))
+  }
+  for (const dir of standaloneWeDirs) {
+    weConfigCandidates.push(join(dir, 'config.json'))
+  }
+  for (const root of validManual) {
+    weConfigCandidates.push(join(root, 'config.json'))
+    weConfigCandidates.push(join(root, 'common', 'wallpaper_engine', 'config.json'))
+  }
+  const weMeta = readWeConfigMeta(weConfigCandidates)
+  for (const hintDir of weMeta.installDirs) {
+    if (existsSync(hintDir)) standaloneWeDirs.push(resolve(hintDir))
   }
 
   const containers = []
@@ -369,6 +609,10 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
     const projects = join(root, 'steamapps', 'common', 'wallpaper_engine', 'projects')
     containers.push([join(projects, 'myprojects'), 'local'])
     containers.push([join(projects, 'defaultprojects'), 'built-in'])
+  }
+  for (const dir of standaloneWeDirs) {
+    containers.push([join(dir, 'projects', 'myprojects'), 'local'])
+    containers.push([join(dir, 'projects', 'defaultprojects'), 'built-in'])
   }
   for (const root of validManual) {
     containers.push([root, 'manual'])
@@ -383,7 +627,9 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
   }
 
   const uniqueContainers = [...new Map(containers.map(([p, src]) => [resolve(p).toLowerCase(), [resolve(p), src]])).values()]
-  const scanned = await mapLimit(uniqueContainers, 4, ([p, src]) => scanContainer(p, src))
+  const scanned = await mapLimit(uniqueContainers, 4, ([p, src]) =>
+    scanContainer(p, src, { wpropsMap: weMeta.wpropertiesMap })
+  )
   const items = [...new Map(scanned.flat().map(item => [item.id, item])).values()]
     .map(item => ({
       ...item,
@@ -391,5 +637,7 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
     }))
     .sort((a, b) => (b.mtimeMs || 0) - (a.mtimeMs || 0))
 
-  return { items, libraries: [...libraries.values()], error: null }
+  const containerDirs = uniqueContainers.map(([p]) => p)
+  const signature = computeContainersSignature(containerDirs)
+  return { items, libraries: [...libraries.values()], containers: containerDirs, signature, error: null }
 }

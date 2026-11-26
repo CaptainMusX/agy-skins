@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readWallpaperProject, scanWallpaperEngine } from '../sidecars/wallpaper_engine/we_scanner.mjs'
+import { readWallpaperProject, readWeConfigMeta, scanWallpaperEngine } from '../sidecars/wallpaper_engine/we_scanner.mjs'
 
 function makeMinimalPng(width, height) {
   const buf = Buffer.alloc(24)
@@ -42,6 +42,7 @@ test('readWallpaperProject parses scene and video projects with preview PNG dime
     const item = await readWallpaperProject(sceneDir, 'workshop')
     assert.ok(item)
     assert.equal(item.kind, 'scene')
+    assert.equal(item.contentrating, 'everyone')
     assert.equal(item.width, 1920)
     assert.equal(item.height, 1080)
     const visible = item.properties.filter(p => !p.hidden)
@@ -49,8 +50,93 @@ test('readWallpaperProject parses scene and video projects with preview PNG dime
     assert.equal(visible[0].name, 'schemecolor')
     assert.equal(visible[1].text, '速度')
     assert.equal(item.workshopId, '1001')
+
+    writeFileSync(join(sceneDir, 'project.json'), JSON.stringify({
+      title: 'Questionable Clip',
+      type: 'scene',
+      file: 'scene.json',
+      contentrating: 'Questionable'
+    }))
+    assert.equal((await readWallpaperProject(sceneDir, 'workshop')).contentrating, 'pg13')
+
+    writeFileSync(join(sceneDir, 'project.json'), JSON.stringify({
+      title: 'Mature Clip',
+      type: 'scene',
+      file: 'scene.json',
+      contentrating: 'Mature'
+    }))
+    assert.equal((await readWallpaperProject(sceneDir, 'workshop')).contentrating, 'mature')
+
+    writeFileSync(join(sceneDir, 'project.json'), JSON.stringify({
+      title: 'Unrated Clip',
+      type: 'scene',
+      file: 'scene.json'
+    }))
+    assert.equal((await readWallpaperProject(sceneDir, 'workshop')).contentrating, 'unrated')
   } finally {
     rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('scanWallpaperEngine excludes projects hidden in visibility.json and imports Monitor0 wproperties overrides', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'agy-scan-vis-'))
+  try {
+    const fakeSteam = join(root, 'Steam')
+    const defaultProj = join(fakeSteam, 'steamapps', 'common', 'wallpaper_engine', 'projects', 'defaultprojects')
+    const sheepDir = join(defaultProj, 'sheep')
+    const keepDir = join(defaultProj, 'dino_run')
+    const wsDir = join(fakeSteam, 'steamapps', 'workshop', 'content', '431960', '9001')
+    mkdirSync(sheepDir, { recursive: true })
+    mkdirSync(keepDir, { recursive: true })
+    mkdirSync(wsDir, { recursive: true })
+
+    writeFileSync(join(sheepDir, 'bg.png'), makeMinimalPng(800, 600))
+    writeFileSync(join(sheepDir, 'project.json'), JSON.stringify({ title: 'Sheep', type: 'image', file: 'bg.png' }))
+
+    writeFileSync(join(keepDir, 'bg.png'), makeMinimalPng(800, 600))
+    writeFileSync(join(keepDir, 'project.json'), JSON.stringify({ title: 'Dino Run', type: 'image', file: 'bg.png', contentrating: 'Everyone' }))
+
+    writeFileSync(join(defaultProj, 'visibility.json'), JSON.stringify({ sheep: false, dino_run: true }))
+
+    writeFileSync(join(wsDir, 'scene.pkg'), Buffer.from('PKG0'))
+    writeFileSync(join(wsDir, 'project.json'), JSON.stringify({
+      title: 'Elaina',
+      type: 'scene',
+      file: 'scene.json',
+      contentrating: 'Questionable',
+      general: {
+        properties: {
+          speed: { type: 'slider', text: 'Speed', value: 1.0, min: 0, max: 5, order: 1 }
+        }
+      }
+    }))
+
+    const weCfgPath = join(fakeSteam, 'steamapps', 'common', 'wallpaper_engine', 'config.json')
+    writeFileSync(weCfgPath, JSON.stringify({
+      UserA: {
+        wproperties: {
+          [join(wsDir, 'scene.pkg').replace(/\\/g, '/')]: {
+            Monitor0: { speed: 2.5 },
+            Monitor1: { speed: 4.0 }
+          }
+        }
+      }
+    }))
+
+    const meta = readWeConfigMeta([weCfgPath])
+    assert.ok(meta.wpropertiesMap.size > 0)
+
+    const res = await scanWallpaperEngine({ manualRoots: [fakeSteam], env: { HOME: root, USERPROFILE: root } })
+    assert.equal(res.items.some(i => i.title === 'Sheep'), false)
+    assert.equal(res.items.some(i => i.title === 'Dino Run'), true)
+    const wsItem = res.items.find(i => i.title === 'Elaina')
+    assert.ok(wsItem)
+    assert.equal(wsItem.contentrating, 'pg13')
+    const speedProp = wsItem.properties.find(p => p.name === 'speed')
+    assert.equal(speedProp.default, 1)
+    assert.equal(speedProp.value, 2.5)
+  } finally {
+    rmSync(root, { recursive: true, force: true })
   }
 })
 

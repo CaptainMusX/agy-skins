@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createSettingsStore } from './settings_store.mjs'
 import { createMediaServer } from './media_server.mjs'
-import { scanWallpaperEngine, readWallpaperProject } from './we_scanner.mjs'
+import { scanWallpaperEngine, readWallpaperProject, computeContainersSignature } from './we_scanner.mjs'
 import {
   clearCacheDir,
   directorySize,
@@ -171,6 +171,9 @@ export async function startRuntime(options = {}) {
   let rotation = null
   let nowPlayingCache = null
   let discoveredSlots = []
+  let lastScanContainers = []
+  let lastScanSignature = ''
+  let scanInFlight = null
 
   async function applyLibraryItem(item) {
     if (!item || typeof item !== 'object') throw new Error('Invalid wallpaper item')
@@ -247,18 +250,29 @@ export async function startRuntime(options = {}) {
   }
 
   async function refreshLibrary() {
-    const cfg = store.getConfig()
-    const [scan, uploads] = await Promise.all([
-      scanWallpaperEngine({ manualRoots: cfg.weRoots, env, fileUrl: p => mediaServer.fileUrl(p) }),
-      Promise.resolve(listUploads(store.uploadsDir, p => mediaServer.fileUrl(p)))
-    ])
-    const items = hydrateWeItems([...uploads, ...(scan.items || [])])
-    store.setWeItems(items)
-    return {
-      ok: true,
-      items,
-      libraries: scan.libraries || [],
-      error: scan.error || null
+    if (scanInFlight) return await scanInFlight
+    scanInFlight = (async () => {
+      const cfg = store.getConfig()
+      const [scan, uploads] = await Promise.all([
+        scanWallpaperEngine({ manualRoots: cfg.weRoots, env, fileUrl: p => mediaServer.fileUrl(p) }),
+        Promise.resolve(listUploads(store.uploadsDir, p => mediaServer.fileUrl(p)))
+      ])
+      const items = hydrateWeItems([...uploads, ...(scan.items || [])])
+      store.setWeItems(items)
+      lastScanContainers = Array.isArray(scan.containers) ? scan.containers : []
+      lastScanSignature = computeContainersSignature(lastScanContainers, [store.uploadsDir])
+      void injector?.pushImmediate({ isPreview: true })
+      return {
+        ok: true,
+        items,
+        libraries: scan.libraries || [],
+        error: scan.error || null
+      }
+    })()
+    try {
+      return await scanInFlight
+    } finally {
+      scanInFlight = null
     }
   }
 
@@ -303,17 +317,27 @@ export async function startRuntime(options = {}) {
   let nextPushPreview = false
 
   const handlers = {
-    'get-state': async () => ({
-      ok: true,
-      config: store.getConfig(),
-      weItems: hydrateWeItems(store.getWeItems()),
-      cdp: {
-        ...cdpNotice.info(injector?.status?.() ?? 'unknown'),
-        ...(injector?.details?.() ?? {})
-      },
-      mediaOrigin: mediaServer.origin,
-      systemLocale
-    }),
+    'get-state': async () => {
+      if (scanInFlight) {
+        await scanInFlight
+      } else {
+        const curSig = computeContainersSignature(lastScanContainers, [store.uploadsDir])
+        if (!lastScanSignature || curSig !== lastScanSignature) {
+          await refreshLibrary()
+        }
+      }
+      return {
+        ok: true,
+        config: store.getConfig(),
+        weItems: hydrateWeItems(store.getWeItems()),
+        cdp: {
+          ...cdpNotice.info(injector?.status?.() ?? 'unknown'),
+          ...(injector?.details?.() ?? {})
+        },
+        mediaOrigin: mediaServer.origin,
+        systemLocale
+      }
+    },
     'update-config': async body => {
       const defer = body?.defer === true
       const patch = body?.patch && typeof body.patch === 'object' ? body.patch : {}
@@ -392,6 +416,7 @@ export async function startRuntime(options = {}) {
   })
 
   await mediaServer.start(0)
+  void refreshLibrary().catch(() => {})
 
   rotation = new WallpaperRotation({
     store,

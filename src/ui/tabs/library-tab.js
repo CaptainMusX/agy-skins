@@ -2,10 +2,16 @@
  * Library tab + in-page drill-down wallpaper browser (.we-picker__modal),
  * inspired by elysia395/dsh-wallpaper-engine.
  */
-import { WALLPAPER_TYPES, CONTENT_RATINGS, ORIENTATION_FILTERS, ROTATION_INTERVAL_MIN, ROTATION_INTERVAL_MAX } from '../../shared/config.js'
+import {
+  WALLPAPER_TYPES, CONTENT_RATINGS, ORIENTATION_FILTERS, ROTATION_INTERVAL_MIN, ROTATION_INTERVAL_MAX, normalizeContentRating
+} from '../../shared/config.js'
 import {
   el, moduleResetButton, sectionHead, switchRow, configSlider, SliderRow, segRow, selectRow, renderConfirmRow
 } from '../panel-api.js'
+
+function ratingOfItem(item) {
+  return normalizeContentRating(item?.contentrating, { isUpload: isUploadItem(item) })
+}
 
 function isUploadItem(item) {
   if (!item) return false
@@ -146,7 +152,7 @@ function renderPickerModal(store) {
   const isDraft = Boolean(store.state.pickerDraft && store.state.editingGroup)
   const hiddenSet = new Set(config.hiddenWallpaperIds || [])
   const typeSet = new Set(config.typeFilter || WALLPAPER_TYPES)
-  const ratingSet = new Set(config.contentRatingFilter || ['everyone'])
+  const ratingSet = new Set(config.contentRatingFilter || CONTENT_RATINGS)
   const showHidden = store.state.modalView === 'hidden'
   const draftSet = isDraft ? new Set(store.state.editingGroup.wallpaperIds || []) : null
   if (!store.state.openMenus) store.state.openMenus = { rating: false, type: false }
@@ -170,7 +176,7 @@ function renderPickerModal(store) {
   const filterItems = () => {
     const curCfg = store.state.config || config
     return weItems
-      .filter(item => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(item.contentrating || 'everyone'))
+      .filter(item => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(ratingOfItem(item)))
       .sort((a, b) => curCfg.sortOrder === 'title'
         ? String(a.title || '').localeCompare(String(b.title || ''), undefined, { sensitivity: 'base' })
         : (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0))
@@ -179,8 +185,8 @@ function renderPickerModal(store) {
   const ratingCounts = {}
   const typeCounts = {}
   for (const item of weItems) {
-    if (!baseMatchesSearchAndList(item)) continue
-    const r = item.contentrating || 'everyone'
+    if (showHidden !== hiddenSet.has(item.id)) continue
+    const r = ratingOfItem(item)
     ratingCounts[r] = (ratingCounts[r] || 0) + 1
     typeCounts[item.kind] = (typeCounts[item.kind] || 0) + 1
   }

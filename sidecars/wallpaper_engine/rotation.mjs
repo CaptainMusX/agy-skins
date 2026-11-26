@@ -1,3 +1,5 @@
+import { normalizeContentRating } from '../../src/shared/config.js'
+
 export function activeRotationGroup(config) {
   const groups = Array.isArray(config?.rotationGroups) ? config.rotationGroups : []
   return groups.find(group => group.id === config?.rotationGroupId) || null
@@ -11,11 +13,18 @@ export function groupWallpapers(items, group, hiddenIds = []) {
     .filter(item => item && item.id && item.dir && item.mediaPath && !hidden.has(item.id))
 }
 
-export function rotationCandidates(items, hiddenIds = [], group = null) {
+export function rotationCandidates(items, hiddenIds = [], group = null, ratingFilter = null) {
   const hidden = new Set(hiddenIds)
+  const ratingSet = Array.isArray(ratingFilter) && ratingFilter.length ? new Set(ratingFilter) : null
   const pool = group ? groupWallpapers(items, group, hiddenIds) : (Array.isArray(items) ? items : [])
-  return pool.filter(item =>
-    item && typeof item.id === 'string' && item.dir && item.mediaPath && !hidden.has(item.id))
+  return pool.filter(item => {
+    if (!item || typeof item.id !== 'string' || !item.dir || !item.mediaPath || hidden.has(item.id)) return false
+    if (ratingSet) {
+      const isUpload = ['upload', 'uploads', 'url', 'bing'].includes(item.source) || item.id.startsWith('upload:')
+      if (!ratingSet.has(normalizeContentRating(item.contentrating, { isUpload }))) return false
+    }
+    return true
+  })
 }
 
 export class WallpaperRotation {
@@ -37,7 +46,12 @@ export class WallpaperRotation {
   }
 
   candidates(config = this.store.getConfig()) {
-    return rotationCandidates(this.store.getWeItems(), config.hiddenWallpaperIds, this.currentGroup(config))
+    return rotationCandidates(
+      this.store.getWeItems(),
+      config.hiddenWallpaperIds,
+      this.currentGroup(config),
+      config.contentRatingFilter
+    )
   }
 
   async advance(force = false, { manual = false } = {}) {

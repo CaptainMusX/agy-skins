@@ -297,6 +297,14 @@ var ROTATION_INTERVAL_MIN = 1;
 var ROTATION_INTERVAL_MAX = 1440;
 var WALLPAPER_TYPES = ["video", "web", "image", "scene"];
 var CONTENT_RATINGS = ["everyone", "pg13", "mature", "unrated"];
+function normalizeContentRating(raw, { isUpload = false } = {}) {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s) return isUpload ? "everyone" : "unrated";
+  if (/^(everyone|general|g)$/i.test(s)) return "everyone";
+  if (/^(pg13|pg-13|pg ?13|questionable)$/i.test(s)) return "pg13";
+  if (/^(mature|adult|adultonly|18\+|r18)$/i.test(s)) return "mature";
+  return "unrated";
+}
 var ORIENTATION_FILTERS = ["all", "landscape", "portrait"];
 var FX_CLICK_STYLES = ["ripple", "spark", "both"];
 var FX_TRAIL_STYLES = ["comet", "dust"];
@@ -333,7 +341,7 @@ var COMPONENT_FONT_TARGETS = [
   { id: "table", label: "表格", labelEn: "Tables" }
 ];
 var DEFAULT_CONFIG = {
-  schemaVersion: 9,
+  schemaVersion: 10,
   wallpaperEnabled: false,
   wallpaperPaused: false,
   startPaused: false,
@@ -366,7 +374,7 @@ var DEFAULT_CONFIG = {
   pictureSlideSeconds: 0,
   hiddenWallpaperIds: [],
   userProps: {},
-  contentRatingFilter: ["everyone"],
+  contentRatingFilter: [...CONTENT_RATINGS],
   typeFilter: [...WALLPAPER_TYPES],
   folderFilter: "all",
   orientationFilter: "all",
@@ -2823,6 +2831,9 @@ function renderTabReset(store, tabId) {
 }
 
 // src/ui/tabs/library-tab.js
+function ratingOfItem(item) {
+  return normalizeContentRating(item?.contentrating, { isUpload: isUploadItem(item) });
+}
 function isUploadItem(item) {
   if (!item) return false;
   return item.source === "upload" || item.source === "uploads" || item.isUploaded === true || item.isUpload === true || String(item.id || "").startsWith("upload") || /[/\\]\.agy-skins[/\\]uploads[/\\]/i.test(String(item.mediaPath || item.filePath || ""));
@@ -2955,7 +2966,7 @@ function renderPickerModal(store) {
   const isDraft = Boolean(store.state.pickerDraft && store.state.editingGroup);
   const hiddenSet = new Set(config.hiddenWallpaperIds || []);
   const typeSet = new Set(config.typeFilter || WALLPAPER_TYPES);
-  const ratingSet = new Set(config.contentRatingFilter || ["everyone"]);
+  const ratingSet = new Set(config.contentRatingFilter || CONTENT_RATINGS);
   const showHidden = store.state.modalView === "hidden";
   const draftSet = isDraft ? new Set(store.state.editingGroup.wallpaperIds || []) : null;
   if (!store.state.openMenus) store.state.openMenus = { rating: false, type: false };
@@ -2976,13 +2987,13 @@ function renderPickerModal(store) {
   };
   const filterItems = () => {
     const curCfg = store.state.config || config;
-    return weItems.filter((item) => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(item.contentrating || "everyone")).sort((a, b) => curCfg.sortOrder === "title" ? String(a.title || "").localeCompare(String(b.title || ""), void 0, { sensitivity: "base" }) : (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0));
+    return weItems.filter((item) => baseMatchesSearchAndList(item) && typeSet.has(item.kind) && ratingSet.has(ratingOfItem(item))).sort((a, b) => curCfg.sortOrder === "title" ? String(a.title || "").localeCompare(String(b.title || ""), void 0, { sensitivity: "base" }) : (Number(b.mtimeMs) || 0) - (Number(a.mtimeMs) || 0));
   };
   const ratingCounts = {};
   const typeCounts = {};
   for (const item of weItems) {
-    if (!baseMatchesSearchAndList(item)) continue;
-    const r = item.contentrating || "everyone";
+    if (showHidden !== hiddenSet.has(item.id)) continue;
+    const r = ratingOfItem(item);
     ratingCounts[r] = (ratingCounts[r] || 0) + 1;
     typeCounts[item.kind] = (typeCounts[item.kind] || 0) + 1;
   }
@@ -5443,7 +5454,7 @@ function renderAboutTab(store) {
     el(
       "p",
       { className: "we-about__p" },
-      isZh ? "Wallpaper Engine (agy-skins) v2.1.0 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.1.0 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
+      isZh ? "Wallpaper Engine (agy-skins) v2.1.1 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.1.1 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
     ),
     el(
       "p",

@@ -9,6 +9,15 @@ export const TRANSITION_DIRECTIONS = ['left', 'right', 'up', 'down']
 export const TRANSITION_SPEEDS = ['fast', 'normal', 'slow']
 export const WALLPAPER_TYPES = ['video', 'web', 'image', 'scene']
 export const CONTENT_RATINGS = ['everyone', 'pg13', 'mature', 'unrated']
+
+export function normalizeContentRating(raw, { isUpload = false } = {}) {
+  const s = typeof raw === 'string' ? raw.trim() : ''
+  if (!s) return isUpload ? 'everyone' : 'unrated'
+  if (/^(everyone|general|g)$/i.test(s)) return 'everyone'
+  if (/^(pg13|pg-13|pg ?13|questionable)$/i.test(s)) return 'pg13'
+  if (/^(mature|adult|adultonly|18\+|r18)$/i.test(s)) return 'mature'
+  return 'unrated'
+}
 export const ORIENTATION_FILTERS = ['all', 'landscape', 'portrait']
 export const PICKER_LAYOUTS = ['classic', 'fixed']
 export const SORT_MODES = ['newest', 'title']
@@ -38,7 +47,7 @@ export const COMPONENT_FONT_TARGETS = [
 ]
 
 export const DEFAULT_CONFIG = {
-  schemaVersion: 9,
+  schemaVersion: 10,
 
   wallpaperEnabled: false,
   wallpaperPaused: false,
@@ -74,7 +83,7 @@ export const DEFAULT_CONFIG = {
 
   hiddenWallpaperIds: [],
   userProps: {},
-  contentRatingFilter: ['everyone'],
+  contentRatingFilter: [...CONTENT_RATINGS],
   typeFilter: [...WALLPAPER_TYPES],
   folderFilter: 'all',
   orientationFilter: 'all',
@@ -514,9 +523,10 @@ export function normalizeConfig(value) {
   const hasRawKeys = Object.keys(raw).length > 0
   const fromPreV8 = rawSchemaNum > 0 && rawSchemaNum < 8
   const fromPreV9 = rawSchemaNum > 0 && rawSchemaNum < 9
+  const fromPreV10 = !Number.isFinite(Number(raw.schemaVersion)) || rawSchemaNum < 10
   const untouchedV7Glass = fromPreV8 && raw.panelGlass === 65 && raw.surfaceFrost === 8 && raw.composerFrost === 10
 
-  const schemaVersion = Math.max(9, rawSchemaNum)
+  const schemaVersion = Math.max(10, rawSchemaNum)
   const rotationGroups = normalizeRotationGroups(raw.rotationGroups)
   const rotationGroupId = rotationGroups.some(group => group.id === raw.rotationGroupId)
     ? raw.rotationGroupId : ''
@@ -602,6 +612,23 @@ export function normalizeConfig(value) {
         dark: hex(rawGlassColor?.dark, DEFAULT_CONFIG.glassColor.dark)
       }
 
+  const rawRatings = Array.isArray(raw.contentRatingFilter)
+    ? raw.contentRatingFilter.map(item => {
+        if (typeof item === 'string' && CONTENT_RATINGS.includes(item.trim().toLowerCase())) {
+          return item.trim().toLowerCase()
+        }
+        return normalizeContentRating(item)
+      })
+    : null
+  const contentRatingFilter = (
+    fromPreV10 &&
+    Array.isArray(raw.contentRatingFilter) &&
+    raw.contentRatingFilter.length === 1 &&
+    String(raw.contentRatingFilter[0] || '').trim().toLowerCase() === 'everyone'
+  )
+    ? [...CONTENT_RATINGS]
+    : enumArray(rawRatings, CONTENT_RATINGS, DEFAULT_CONFIG.contentRatingFilter)
+
   return {
     schemaVersion,
 
@@ -644,7 +671,7 @@ export function normalizeConfig(value) {
 
     hiddenWallpaperIds: uniqueStrings(raw.hiddenWallpaperIds),
     userProps: sanitizeUserProps(raw.userProps),
-    contentRatingFilter: enumArray(raw.contentRatingFilter, CONTENT_RATINGS, ['everyone']),
+    contentRatingFilter,
     typeFilter,
     folderFilter: text(raw.folderFilter, 200) || 'all',
     orientationFilter: ORIENTATION_FILTERS.includes(raw.orientationFilter)

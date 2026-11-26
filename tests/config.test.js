@@ -1,10 +1,21 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { DEFAULT_CONFIG, normalizeConfig, paramInRange, PARAM_RANGES } from '../src/shared/config.js'
+import { CONTENT_RATINGS, DEFAULT_CONFIG, normalizeConfig, normalizeContentRating, paramInRange, PARAM_RANGES } from '../src/shared/config.js'
 
-test('normalizeConfig returns schema v9 defaults with readable wallpaper opacity', () => {
+test('normalizeContentRating maps WE strings to canonical buckets and respects upload fallback', () => {
+  assert.equal(normalizeContentRating('Everyone'), 'everyone')
+  assert.equal(normalizeContentRating('Questionable'), 'pg13')
+  assert.equal(normalizeContentRating('PG13'), 'pg13')
+  assert.equal(normalizeContentRating('Mature'), 'mature')
+  assert.equal(normalizeContentRating('18+'), 'mature')
+  assert.equal(normalizeContentRating(null), 'unrated')
+  assert.equal(normalizeContentRating('', { isUpload: true }), 'everyone')
+})
+
+test('normalizeConfig returns schema v10 defaults with all ratings enabled', () => {
   const cfg = normalizeConfig({})
-  assert.equal(cfg.schemaVersion, 9)
+  assert.equal(cfg.schemaVersion, 10)
+  assert.deepEqual(cfg.contentRatingFilter, [...CONTENT_RATINGS])
   assert.equal(cfg.wallpaperEnabled, false)
   assert.equal(cfg.wallpaperOpacity, 38)
   assert.equal(cfg.maskOcclusion, 24)
@@ -20,7 +31,7 @@ test('normalizeConfig returns schema v9 defaults with readable wallpaper opacity
   assert.equal(cfg.bubbleOpacity, DEFAULT_CONFIG.bubbleOpacity)
 })
 
-test('normalizeConfig clamps ranges, migrates pre-v9 unreadable defaults, transitions, fontFamily & dsh preset keys', () => {
+test('normalizeConfig clamps ranges, migrates pre-v10 defaults & ratings, transitions, fontFamily & dsh preset keys', () => {
   const cfg = normalizeConfig({
     schemaVersion: 3,
     bubbleOpacity: 100,
@@ -30,6 +41,7 @@ test('normalizeConfig clamps ranges, migrates pre-v9 unreadable defaults, transi
     wallpaperOpacity: 100,
     maskOcclusion: 12,
     titlebarGlass: false,
+    contentRatingFilter: ['everyone'],
     fontFamily: 'Fira Code',
     fxTrailStyle: 'sparkle',
     thinkingNative: true,
@@ -38,7 +50,8 @@ test('normalizeConfig clamps ranges, migrates pre-v9 unreadable defaults, transi
     flip: true,
     weRoots: ['C:\\Steam\\workshop', 'relative/bad', 'C:\\Steam\\workshop']
   })
-  assert.equal(cfg.schemaVersion, 9)
+  assert.equal(cfg.schemaVersion, 10)
+  assert.deepEqual(cfg.contentRatingFilter, [...CONTENT_RATINGS])
   assert.equal(cfg.bubbleOpacity, 65)
   assert.equal(cfg.wallpaperOpacity, 38)
   assert.equal(cfg.maskOcclusion, 24)
@@ -60,11 +73,19 @@ test('normalizeConfig clamps ranges, migrates pre-v9 unreadable defaults, transi
     maskOcclusion: 30,
     scrim: 0.25,
     glassAlpha: 55,
-    thinkingGlass: false
+    thinkingGlass: false,
+    contentRatingFilter: ['Everyone', 'Questionable', 'Mature']
   })
   assert.equal(cfgCustomOpacity.wallpaperOpacity, 70)
   assert.equal(cfgCustomOpacity.panelGlass, 55)
   assert.equal(cfgCustomOpacity.thinkingMode, 'off')
+  assert.deepEqual(cfgCustomOpacity.contentRatingFilter, ['everyone', 'pg13', 'mature'])
+
+  const v10Restricted = normalizeConfig({
+    schemaVersion: 10,
+    contentRatingFilter: ['everyone']
+  })
+  assert.deepEqual(v10Restricted.contentRatingFilter, ['everyone'])
 })
 
 test('normalizeConfig preserves rotationGroups, fontSets, userPresets (max 8, blocks factory-*), and web weSelection.file', () => {

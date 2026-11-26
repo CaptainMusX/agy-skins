@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync, chmodSy
 import { randomBytes } from 'node:crypto'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
-import { DEFAULT_CONFIG, normalizeConfig } from '../../src/shared/config.js'
+import { DEFAULT_CONFIG, normalizeConfig, normalizeContentRating } from '../../src/shared/config.js'
 
 export function resolveDataDir(env = process.env) {
   if (env.AGY_SKINS_DATA_DIR?.trim()) return env.AGY_SKINS_DATA_DIR.trim()
@@ -34,7 +34,9 @@ export function sanitizeWeCacheItem(item) {
     title: item.title.slice(0, 120),
     kind: String(item.kind || '').slice(0, 20),
     source: String(item.source || '').slice(0, 20),
-    contentrating: typeof item.contentrating === 'string' ? item.contentrating.slice(0, 20) : null,
+    contentrating: normalizeContentRating(item.contentrating, {
+      isUpload: ['upload', 'uploads', 'url', 'bing'].includes(String(item.source || '')) || String(item.id || '').startsWith('upload:')
+    }),
     dir: item.dir.slice(0, 1024),
     mediaPath: item.mediaPath.slice(0, 1024),
     mediaType: String(item.mediaType || '').slice(0, 20),
@@ -79,7 +81,11 @@ export function createSettingsStore(options = {}) {
   const uploadsDir = join(dataDir, 'uploads')
   const sceneCacheDir = join(dataDir, 'scene-cache')
 
-  let current = normalizeConfig(readJson(configPath, DEFAULT_CONFIG))
+  const rawLoaded = readJson(configPath, null)
+  let current = normalizeConfig(rawLoaded || DEFAULT_CONFIG)
+  if (rawLoaded && typeof rawLoaded === 'object' && !Array.isArray(rawLoaded) && rawLoaded.schemaVersion !== current.schemaVersion) {
+    try { writeJsonAtomic(configPath, current) } catch {}
+  }
   let weCache = (Array.isArray(readJson(weCachePath, [])) ? readJson(weCachePath, []) : [])
     .map(sanitizeWeCacheItem)
     .filter(Boolean)
