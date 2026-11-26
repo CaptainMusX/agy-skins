@@ -23,7 +23,7 @@ foreach ($f in $files) {
     if ([string]$l.Arguments -notmatch $pattern) { $missing++ }
   }
 }
-if ($missing -gt 0) { 'missing' } elseif ($listingErrors.Count) { 'incomplete' } elseif ($total -eq 0) { 'unknown' } else { 'ok' }
+if ($missing -gt 0) { 'missing' } elseif ($total -gt 0) { 'ok' } elseif ($listingErrors.Count) { 'incomplete' } else { 'unknown' }
 `
 
 const SHORTCUT_FIX_PS = `
@@ -81,6 +81,7 @@ export function createCdpNoticeManager(options = {}) {
   const execFileImpl = options.execFileImpl || execFile
   const now = options.now || Date.now
   const shortcutRetryMs = options.shortcutRetryMs ?? 60_000
+  const autoFixOnMissing = options.autoFixOnMissing ?? true
 
   let shortcutState = 'unknown'
   let shortcutChecked = false
@@ -88,6 +89,7 @@ export function createCdpNoticeManager(options = {}) {
   let shortcutPromise = null
   let fixPromise = null
   let shortcutRevision = 0
+  let autoFixAttempted = false
   let lastStatus = 'unknown'
 
   function runShortcutScript(script) {
@@ -134,7 +136,12 @@ ${script}`
     lastStatus = cdpState
     if ((cdpState === 'missing' || cdpState === 'unreachable') &&
         platform === 'win32' && !shortcutChecked && now() >= shortcutNextRetryAt) {
-      void checkShortcuts()
+      void checkShortcuts().then(st => {
+        if (st === 'missing' && autoFixOnMissing && !autoFixAttempted) {
+          autoFixAttempted = true
+          void fixShortcuts()
+        }
+      })
     }
   }
 

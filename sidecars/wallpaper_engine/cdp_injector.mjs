@@ -4,7 +4,8 @@ import { homedir } from 'node:os'
 import { createHash } from 'node:crypto'
 import { defaultPortFiles } from './cdp_notice.mjs'
 
-const TICK_MS = 1500
+const FAST_TICK_MS = 250
+const STEADY_TICK_MS = 1500
 const LIST_CACHE_MS = 3000
 
 function isValidWorkbenchTarget(target, expectedOrigin, wsOrigin) {
@@ -32,7 +33,7 @@ export function createComposerOriginResolver(productRoots = [], env = process.en
       if (hub?.httpPort !== +match[2] || !Number.isInteger(hub.httpsPort) || hub.httpsPort < 1 || hub.httpsPort > 65535) continue
       const origin = new URL(`https://127.0.0.1:${hub.httpsPort}`).origin
       if (!session || session.address !== address || session.token !== token || session.origin !== origin || session.pid !== hub.pid) {
-        session = { address, token, origin, pid: hub.pid, verified: false, retryAt: 0, delay: 4000 }
+        session = { address, token, origin, pid: hub.pid, verified: false, retryAt: 0, delay: 300 }
       }
       if (session.verified) return origin
       if (now() < session.retryAt) return null
@@ -145,6 +146,11 @@ export function startCdpInjector({
           if (ctx?.auxData?.isDefault && ctx.auxData.frameId === entry.frameId) {
             entry.context = ctx.origin === entry.origin ? ctx.uniqueId : null
             entry.lastPayload = ''
+            if (entry.context) {
+              queueMicrotask(() => {
+                if (!stopped) void pushImmediate({ isPreview: false })
+              })
+            }
           }
         } else if (msg.method === 'Runtime.executionContextsCleared' ||
           (msg.method === 'Runtime.executionContextDestroyed' && msg.params.executionContextUniqueId === entry.context)) {
@@ -182,11 +188,12 @@ export function startCdpInjector({
       const expectedOrigin = standalone ? null : await composerOrigin()
       if (!standalone && !expectedOrigin) {
         cdpState = 'unverified'
+        lastListAt = 0
         return []
       }
       const wsOrigin = new URL(`ws://127.0.0.1:${Number(port)}`).origin
       cachedPages = (Array.isArray(targets) ? targets : []).filter(t => isValidWorkbenchTarget(t, expectedOrigin, wsOrigin))
-      lastListAt = Date.now()
+      lastListAt = cachedPages.length > 0 ? Date.now() : 0
       activePort = Number(port)
       cdpState = 'ok'
       consecutiveFailures = 0
@@ -224,6 +231,9 @@ export function startCdpInjector({
       }
       entry.lastPayload = ''
       entry.lastWasPreview = false
+    } else if (state.mounted === false) {
+      entry.lastPayload = ''
+      entry.lastWasPreview = false
     }
     const payload = getPayloadState()
     const payloadJson = JSON.stringify(payload)
@@ -234,11 +244,15 @@ export function startCdpInjector({
         onRuntimeClosed?.('superseded by newer instance')
         return false
       }
-      if (ok) {
+      if (ok && typeof ok === 'object' && ok.ok === true) {
         entry.lastPayload = payloadJson
         entry.lastWasPreview = Boolean(isPreview)
         hasEverAttached = true
+        return true
       }
+      entry.lastPayload = ''
+      entry.lastWasPreview = false
+      return false
     }
     return true
   }
@@ -270,6 +284,16 @@ export function startCdpInjector({
     }
   }
 
+  let timer = null
+
+  const nextTickDelay = () => {
+    if (sockets.size === 0) return FAST_TICK_MS
+    for (const entry of sockets.values()) {
+      if (!entry.lastPayload) return FAST_TICK_MS
+    }
+    return STEADY_TICK_MS
+  }
+
   const tick = async () => {
     if (busy || stopped) return
     busy = true
@@ -292,13 +316,19 @@ export function startCdpInjector({
       }
     } finally {
       busy = false
+      if (!stopped) {
+        clearTimeout(timer)
+        timer = setTimeout(() => void tick(), nextTickDelay())
+        timer.unref?.()
+      }
     }
   }
 
   const stop = async () => {
     if (stopped) return
     stopped = true
-    clearInterval(timer)
+    clearTimeout(timer)
+    timer = null
     await Promise.all([...sockets].map(async ([id, entry]) => {
       try {
         await evaluate(entry, entry.context, `globalThis.__agySkinsRuntime?.owner === ${instanceTs} && globalThis.__agySkinsRuntime.dispose()`)
@@ -308,7 +338,6 @@ export function startCdpInjector({
     }))
   }
 
-  const timer = setInterval(() => void tick(), TICK_MS)
   void tick()
 
   return {

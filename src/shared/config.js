@@ -78,7 +78,7 @@ export const DEFAULT_CONFIG = {
   sceneAutoQuality: true,
   sceneRenderDpr: 0,
   sceneVideoTexScale: 0,
-  liveBootDelay: 3,
+  liveBootDelay: 0,
   pictureSlideSeconds: 0,
 
   hiddenWallpaperIds: [],

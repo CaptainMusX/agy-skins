@@ -26,7 +26,7 @@ On Windows you can also double-click `install.bat`, or run `node scripts/install
 
 | Component | Path | Purpose |
 | --- | --- | --- |
-| Antigravity Plugin Manifest | [`plugin.json`](./plugin.json) | Registers **`Wallpaper`** (`agy-skins`) v2.1.3 metadata |
+| Antigravity Plugin Manifest | [`plugin.json`](./plugin.json) | Registers **`Wallpaper`** (`agy-skins`) v2.1.4 metadata |
 | Sidecar & Standalone Daemon | [`sidecars/wallpaper_engine/server.mjs`](./sidecars/wallpaper_engine/server.mjs) | Hosts `sidecar_sdk` Aux UI, Studio API, CDP injector, rotation & media server |
 | Signed Media Origin | [`sidecars/wallpaper_engine/media_server.mjs`](./sidecars/wallpaper_engine/media_server.mjs) | HMAC-SHA256 range streaming + token-authenticated loopback `/studio-api/*` CORS |
 | Workshop Scanner | [`sidecars/wallpaper_engine/we_scanner.mjs`](./sidecars/wallpaper_engine/we_scanner.mjs) | Async Steam/Workshop discovery + `.pkg` / PNG / JPEG / GIF parsing |

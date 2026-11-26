@@ -1,4 +1,4 @@
-# Installing & Running `agy-skins` (v2.1.3)
+# Installing & Running `agy-skins` (v2.1.4)
 
 ## 1. Local Plugin Installation
 

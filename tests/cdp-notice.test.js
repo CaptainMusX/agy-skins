@@ -83,3 +83,32 @@ test('defaultProductRoots resolves sidecar_data parent for composer hub verifica
     rmSync(tmp, { recursive: true, force: true })
   }
 })
+
+test('observe(missing) triggers checkShortcuts and auto-runs fixShortcuts once when missing', async () => {
+  let scanCount = 0
+  let fixCount = 0
+  const mgr = createCdpNoticeManager({
+    platform: 'win32',
+    shortcutDirectories: ['C:\\FakeStartMenu'],
+    execFileImpl: (_file, args, _opts, cb) => {
+      const cmd = String(args?.[args.length - 1] || '')
+      if (cmd.includes('$updated = 0')) {
+        fixCount++
+        cb(null, 'ok,1,0,1\n')
+      } else {
+        scanCount++
+        cb(null, 'missing\n')
+      }
+    }
+  })
+
+  mgr.observe('missing')
+  await new Promise(r => setTimeout(r, 25))
+  mgr.observe('missing')
+  await new Promise(r => setTimeout(r, 25))
+
+  assert.equal(scanCount, 1)
+  assert.equal(fixCount, 1)
+  assert.equal(mgr.info('missing').shortcutState, 'ok')
+  assert.equal(mgr.info('missing').canFixShortcut, false)
+})

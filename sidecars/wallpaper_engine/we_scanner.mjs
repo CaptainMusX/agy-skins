@@ -580,7 +580,7 @@ export function computeContainersSignature(containers, extraDirs = []) {
   return hash.digest('hex')
 }
 
-export async function scanWallpaperEngine({ manualRoots = [], env = process.env, fileUrl = null } = {}) {
+function collectSyncSteamHints({ manualRoots = [], env = process.env, extraSteamProbes = [] } = {}) {
   const probes = []
   for (const envVar of [env.AGY_WE_STEAM_ROOT, env.DSH_WE_STEAM_ROOT]) {
     if (typeof envVar === 'string' && envVar.trim()) {
@@ -590,8 +590,8 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
       }
     }
   }
-  for (const regPath of await readSteamPathFromRegistry()) {
-    probes.push(regPath)
+  for (const extra of extraSteamProbes) {
+    if (extra) probes.push(extra)
   }
 
   const standaloneWeDirs = []
@@ -649,7 +649,7 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
     ]) {
       if (!existsSync(vdfPath)) continue
       try {
-        const vdf = await readFile(vdfPath, 'utf8')
+        const vdf = readFileSync(vdfPath, 'utf8')
         for (const lib of parseSteamLibraryFolders(vdf)) {
           if (existsSync(join(lib, 'steamapps'))) addLib(lib)
         }
@@ -677,6 +677,48 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
   for (const v of [env.AGY_WE_ASSETS_DIR, env.DSH_WE_ASSETS_DIR]) {
     if (typeof v === 'string' && v.trim()) assetsCandidates.push(v.trim())
   }
+  for (const root of libraries.values()) {
+    assetsCandidates.push(join(root, 'steamapps', 'common', 'wallpaper_engine', 'assets'))
+  }
+  for (const dir of standaloneWeDirs) {
+    assetsCandidates.push(join(dir, 'assets'))
+  }
+  for (const root of validManual) {
+    assetsCandidates.push(join(root, 'assets'))
+    assetsCandidates.push(join(root, 'wallpaper_engine', 'assets'))
+    assetsCandidates.push(join(root, 'common', 'wallpaper_engine', 'assets'))
+  }
+
+  return { libraries, validManual, standaloneWeDirs, weMeta, assetsCandidates }
+}
+
+function firstValidAssetsDir(candidates) {
+  for (const cand of candidates) {
+    try {
+      const resolvedCand = resolve(cand)
+      if (statSync(join(resolvedCand, 'materials')).isDirectory()) return resolvedCand
+    } catch {}
+  }
+  return null
+}
+
+/**
+ * Synchronously locate Wallpaper Engine's official `assets` directory (with `materials/`)
+ * so cold startup can immediately include `weAssetsAvailable: true` without an initial rebuild.
+ */
+export function detectWeAssetsDirSync({ manualRoots = [], env = process.env } = {}) {
+  const { assetsCandidates } = collectSyncSteamHints({ manualRoots, env })
+  return firstValidAssetsDir(assetsCandidates)
+}
+
+export async function scanWallpaperEngine({ manualRoots = [], env = process.env, fileUrl = null } = {}) {
+  const regPaths = await readSteamPathFromRegistry()
+  const { libraries, validManual, standaloneWeDirs, weMeta, assetsCandidates } = collectSyncSteamHints({
+    manualRoots,
+    env,
+    extraSteamProbes: regPaths
+  })
+
   const workshopDirs = []
   const containers = []
   for (const root of libraries.values()) {
@@ -684,13 +726,11 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
     if (existsSync(wsDir)) workshopDirs.push(wsDir)
     containers.push([wsDir, 'workshop'])
     const weBase = join(root, 'steamapps', 'common', 'wallpaper_engine')
-    assetsCandidates.push(join(weBase, 'assets'))
     const projects = join(weBase, 'projects')
     containers.push([join(projects, 'myprojects'), 'local'])
     containers.push([join(projects, 'defaultprojects'), 'built-in'])
   }
   for (const dir of standaloneWeDirs) {
-    assetsCandidates.push(join(dir, 'assets'))
     containers.push([join(dir, 'projects', 'myprojects'), 'local'])
     containers.push([join(dir, 'projects', 'defaultprojects'), 'built-in'])
   }
@@ -706,16 +746,7 @@ export async function scanWallpaperEngine({ manualRoots = [], env = process.env,
     containers.push([join(root, 'common', 'wallpaper_engine', 'projects', 'defaultprojects'), 'manual'])
   }
 
-  let weAssetsDir = null
-  for (const cand of assetsCandidates) {
-    try {
-      const resolvedCand = resolve(cand)
-      if (statSync(join(resolvedCand, 'materials')).isDirectory()) {
-        weAssetsDir = resolvedCand
-        break
-      }
-    } catch {}
-  }
+  const weAssetsDir = firstValidAssetsDir(assetsCandidates)
 
   const uniqueContainers = [...new Map(containers.map(([p, src]) => [resolve(p).toLowerCase(), [resolve(p), src]])).values()]
   const scanned = await mapLimit(uniqueContainers, 4, ([p, src]) =>

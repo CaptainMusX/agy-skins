@@ -10,8 +10,8 @@ export function renderAboutTab(store) {
   return el('div', { className: 'we-tabpanel we-about__lead' },
     el('p', { className: 'we-about__p' },
       isZh
-        ? 'Wallpaper Engine (agy-skins) v2.1.3 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。'
-        : 'Wallpaper Engine (agy-skins) v2.1.3 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0.'
+        ? 'Wallpaper Engine (agy-skins) v2.1.4 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。'
+        : 'Wallpaper Engine (agy-skins) v2.1.4 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0.'
     ),
     el('p', { className: 'we-about__p' },
       isZh

@@ -1,4 +1,4 @@
-# Google Antigravity 壁纸引擎插件（`agy-skins` v2.1.3）
+# Google Antigravity 壁纸引擎插件（`agy-skins` v2.1.4）
 
 > 将 Wallpaper Engine（`Scene` / `Web` / `视频` / `图片`）、统一两段式可读性 **iOS 液态玻璃**、全局排版字体、光标特效与 3D 视差原生带入 **Google Antigravity** —— 无缝融合、不修改任何主程序二进制文件。
 

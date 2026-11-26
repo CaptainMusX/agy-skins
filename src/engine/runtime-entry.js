@@ -97,6 +97,15 @@ function createRuntime() {
 
   let lastCoreVisualKey = ''
   let lastVisualWasPreview = false
+  let bodyReadyListener = null
+
+  const clearBodyReadyListener = () => {
+    if (!bodyReadyListener || typeof document === 'undefined') return
+    document.removeEventListener('DOMContentLoaded', bodyReadyListener)
+    document.removeEventListener('readystatechange', bodyReadyListener)
+    if (typeof window !== 'undefined') window.removeEventListener('load', bodyReadyListener)
+    bodyReadyListener = null
+  }
 
   const buildFlatSceneProps = cfg => {
     const out = {}
@@ -119,6 +128,7 @@ function createRuntime() {
   }
 
   const applyVisuals = (cfg, res, nowPlaying = null, { isPreview = false } = {}) => {
+    if (typeof document === 'undefined' || !document.body) return false
     const isDark = detectIsDark()
     currentIsDark = isDark
     const coreKey = JSON.stringify({
@@ -131,7 +141,7 @@ function createRuntime() {
       np: nowPlaying?.title || ''
     })
     if (coreKey === lastCoreVisualKey && (isPreview || !lastVisualWasPreview)) {
-      return
+      return true
     }
     const active = cfg.wallpaperEnabled === true && Boolean(res.resolvedSrc)
     const sceneProps = buildFlatSceneProps(cfg)
@@ -242,17 +252,38 @@ function createRuntime() {
     titlebar.update({ enabled: active, isDark })
     lastCoreVisualKey = coreKey
     lastVisualWasPreview = isPreview
+    return true
   }
 
   let previewRaf = 0
   let pendingPreviewCfg = null
 
+  const scheduleWhenBodyReady = () => {
+    if (typeof document === 'undefined' || document.body || bodyReadyListener) return
+    bodyReadyListener = () => {
+      if (!document.body) return
+      clearBodyReadyListener()
+      watcher.start()
+      hostEntries.start()
+      if (lastPayload) applyAll(lastPayload)
+    }
+    document.addEventListener('DOMContentLoaded', bodyReadyListener)
+    document.addEventListener('readystatechange', bodyReadyListener)
+    if (typeof window !== 'undefined') window.addEventListener('load', bodyReadyListener)
+  }
+
   const applyAll = (payload, { isPreview = false } = {}) => {
-    if (!payload || typeof payload !== 'object') return
+    if (!payload || typeof payload !== 'object') return false
     lastPayload = payload
+    if (typeof document === 'undefined' || !document.body) {
+      scheduleWhenBodyReady()
+      return false
+    }
+    clearBodyReadyListener()
+    watcher.start()
     const cfg = payload.config || {}
     const res = payload.resolved || {}
-    applyVisuals(cfg, res, payload.nowPlaying || null, { isPreview: Boolean(isPreview) })
+    const visualApplied = applyVisuals(cfg, res, payload.nowPlaying || null, { isPreview: Boolean(isPreview) })
     hostEntries.update({
       studioUrl: payload.studioUrl,
       runtimeOrigin: payload.runtimeOrigin,
@@ -281,6 +312,7 @@ function createRuntime() {
         }).catch(() => {})
       }
     }
+    return visualApplied
   }
 
   const watcher = new ThemeWatcher(isDark => {
@@ -288,7 +320,8 @@ function createRuntime() {
     currentIsDark = isDark
     if (lastPayload) applyAll(lastPayload)
   })
-  watcher.start()
+  if (typeof document !== 'undefined' && document.body) watcher.start()
+  else scheduleWhenBodyReady()
   hostEntries.start()
 
   const api = {
@@ -296,12 +329,23 @@ function createRuntime() {
     hash: HASH,
     readState(callerOwner) {
       if (typeof callerOwner === 'number' && callerOwner < OWNER) return 'superseded'
-      return { ok: true, owner: OWNER, hash: HASH, active: Boolean(lastPayload) }
+      const cfg = lastPayload?.config || {}
+      const res = lastPayload?.resolved || {}
+      const backdropExpected = cfg.wallpaperEnabled === true && Boolean(res.resolvedSrc)
+      const glassExpected = backdropExpected || cfg.glassEnabled !== false
+      const mounted = Boolean(
+        lastPayload &&
+        typeof document !== 'undefined' &&
+        document.body &&
+        (!glassExpected || document.body.getAttribute('data-agy-skins-active') === 'true') &&
+        (!backdropExpected || document.getElementById('agy-skins-backdrop-root'))
+      )
+      return { ok: true, owner: OWNER, hash: HASH, active: Boolean(lastPayload), mounted }
     },
     apply(payload, callerOwner, isPreview = false) {
       if (typeof callerOwner === 'number' && callerOwner < OWNER) return 'superseded'
-      applyAll(payload, { isPreview: Boolean(isPreview) })
-      return { ok: true, owner: OWNER }
+      const applied = applyAll(payload, { isPreview: Boolean(isPreview) })
+      return applied ? { ok: true, owner: OWNER } : false
     },
     previewConfig(nextCfg) {
       if (!lastPayload || !nextCfg || typeof nextCfg !== 'object') return false
@@ -318,6 +362,7 @@ function createRuntime() {
       return true
     },
     dispose() {
+      clearBodyReadyListener()
       if (previewRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(previewRaf)
       previewRaf = 0
       watcher.destroy()

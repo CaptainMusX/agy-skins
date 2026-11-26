@@ -4,7 +4,7 @@ import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { createSettingsStore } from './settings_store.mjs'
 import { createMediaServer } from './media_server.mjs'
-import { scanWallpaperEngine, readWallpaperProject, computeContainersSignature } from './we_scanner.mjs'
+import { scanWallpaperEngine, readWallpaperProject, computeContainersSignature, detectWeAssetsDirSync } from './we_scanner.mjs'
 import {
   clearCacheDir,
   directorySize,
@@ -170,7 +170,7 @@ export async function startRuntime(options = {}) {
   let rotation = null
   let nowPlayingCache = null
   let discoveredSlots = []
-  let weAssetsDir = null
+  let weAssetsDir = detectWeAssetsDirSync({ manualRoots: store.getConfig().weRoots, env })
   let lastScanContainers = []
   let lastScanSignature = ''
   let scanInFlight = null
@@ -260,7 +260,7 @@ export async function startRuntime(options = {}) {
         Promise.resolve(listUploads(store.uploadsDir, p => mediaServer.fileUrl(p)))
       ])
       const items = hydrateWeItems([...uploads, ...(scan.items || [])])
-      weAssetsDir = scan.weAssetsDir || null
+      weAssetsDir = scan.weAssetsDir || weAssetsDir
       store.setWeItems(items)
       lastScanContainers = Array.isArray(scan.containers) ? scan.containers : []
       lastScanSignature = computeContainersSignature(lastScanContainers, [store.uploadsDir])

@@ -3586,7 +3586,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     sceneAutoQuality: true,
     sceneRenderDpr: 0,
     sceneVideoTexScale: 0,
-    liveBootDelay: 3,
+    liveBootDelay: 0,
     pictureSlideSeconds: 0,
     hiddenWallpaperIds: [],
     userProps: {},
@@ -8213,7 +8213,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       el(
         "p",
         { className: "we-about__p" },
-        isZh ? "Wallpaper Engine (agy-skins) v2.1.3 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.1.3 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
+        isZh ? "Wallpaper Engine (agy-skins) v2.1.4 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.1.4 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
       ),
       el(
         "p",
@@ -8940,6 +8940,14 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
     });
     let lastCoreVisualKey = "";
     let lastVisualWasPreview = false;
+    let bodyReadyListener = null;
+    const clearBodyReadyListener = () => {
+      if (!bodyReadyListener || typeof document === "undefined") return;
+      document.removeEventListener("DOMContentLoaded", bodyReadyListener);
+      document.removeEventListener("readystatechange", bodyReadyListener);
+      if (typeof window !== "undefined") window.removeEventListener("load", bodyReadyListener);
+      bodyReadyListener = null;
+    };
     const buildFlatSceneProps = (cfg) => {
       const out = {};
       const props = cfg?.weSelection?.properties;
@@ -8960,6 +8968,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       return out;
     };
     const applyVisuals = (cfg, res, nowPlaying = null, { isPreview = false } = {}) => {
+      if (typeof document === "undefined" || !document.body) return false;
       const isDark = detectIsDark();
       currentIsDark = isDark;
       const coreKey = JSON.stringify({
@@ -8972,7 +8981,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         np: nowPlaying?.title || ""
       });
       if (coreKey === lastCoreVisualKey && (isPreview || !lastVisualWasPreview)) {
-        return;
+        return true;
       }
       const active = cfg.wallpaperEnabled === true && Boolean(res.resolvedSrc);
       const sceneProps = buildFlatSceneProps(cfg);
@@ -9080,15 +9089,35 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       titlebar.update({ enabled: active, isDark });
       lastCoreVisualKey = coreKey;
       lastVisualWasPreview = isPreview;
+      return true;
     };
     let previewRaf = 0;
     let pendingPreviewCfg = null;
+    const scheduleWhenBodyReady = () => {
+      if (typeof document === "undefined" || document.body || bodyReadyListener) return;
+      bodyReadyListener = () => {
+        if (!document.body) return;
+        clearBodyReadyListener();
+        watcher.start();
+        hostEntries.start();
+        if (lastPayload) applyAll(lastPayload);
+      };
+      document.addEventListener("DOMContentLoaded", bodyReadyListener);
+      document.addEventListener("readystatechange", bodyReadyListener);
+      if (typeof window !== "undefined") window.addEventListener("load", bodyReadyListener);
+    };
     const applyAll = (payload, { isPreview = false } = {}) => {
-      if (!payload || typeof payload !== "object") return;
+      if (!payload || typeof payload !== "object") return false;
       lastPayload = payload;
+      if (typeof document === "undefined" || !document.body) {
+        scheduleWhenBodyReady();
+        return false;
+      }
+      clearBodyReadyListener();
+      watcher.start();
       const cfg = payload.config || {};
       const res = payload.resolved || {};
-      applyVisuals(cfg, res, payload.nowPlaying || null, { isPreview: Boolean(isPreview) });
+      const visualApplied = applyVisuals(cfg, res, payload.nowPlaying || null, { isPreview: Boolean(isPreview) });
       hostEntries.update({
         studioUrl: payload.studioUrl,
         runtimeOrigin: payload.runtimeOrigin,
@@ -9115,25 +9144,34 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
           });
         }
       }
+      return visualApplied;
     };
     const watcher = new ThemeWatcher((isDark) => {
       if (isDark === currentIsDark) return;
       currentIsDark = isDark;
       if (lastPayload) applyAll(lastPayload);
     });
-    watcher.start();
+    if (typeof document !== "undefined" && document.body) watcher.start();
+    else scheduleWhenBodyReady();
     hostEntries.start();
     const api = {
       owner: OWNER,
       hash: HASH,
       readState(callerOwner) {
         if (typeof callerOwner === "number" && callerOwner < OWNER) return "superseded";
-        return { ok: true, owner: OWNER, hash: HASH, active: Boolean(lastPayload) };
+        const cfg = lastPayload?.config || {};
+        const res = lastPayload?.resolved || {};
+        const backdropExpected = cfg.wallpaperEnabled === true && Boolean(res.resolvedSrc);
+        const glassExpected = backdropExpected || cfg.glassEnabled !== false;
+        const mounted = Boolean(
+          lastPayload && typeof document !== "undefined" && document.body && (!glassExpected || document.body.getAttribute("data-agy-skins-active") === "true") && (!backdropExpected || document.getElementById("agy-skins-backdrop-root"))
+        );
+        return { ok: true, owner: OWNER, hash: HASH, active: Boolean(lastPayload), mounted };
       },
       apply(payload, callerOwner, isPreview = false) {
         if (typeof callerOwner === "number" && callerOwner < OWNER) return "superseded";
-        applyAll(payload, { isPreview: Boolean(isPreview) });
-        return { ok: true, owner: OWNER };
+        const applied = applyAll(payload, { isPreview: Boolean(isPreview) });
+        return applied ? { ok: true, owner: OWNER } : false;
       },
       previewConfig(nextCfg) {
         if (!lastPayload || !nextCfg || typeof nextCfg !== "object") return false;
@@ -9150,6 +9188,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
         return true;
       },
       dispose() {
+        clearBodyReadyListener();
         if (previewRaf && typeof cancelAnimationFrame === "function") cancelAnimationFrame(previewRaf);
         previewRaf = 0;
         watcher.destroy();

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { readWallpaperProject, readWeConfigMeta, scanWallpaperEngine } from '../sidecars/wallpaper_engine/we_scanner.mjs'
+import { readWallpaperProject, readWeConfigMeta, scanWallpaperEngine, detectWeAssetsDirSync } from '../sidecars/wallpaper_engine/we_scanner.mjs'
 
 function makeMinimalPng(width, height) {
   const buf = Buffer.alloc(24)
@@ -225,6 +225,23 @@ test('scanWallpaperEngine discovers projects under manualRoots cleanly', async (
     const found = res.items.find(i => i.title === 'Neon Rain')
     assert.ok(found)
     assert.equal(found.kind, 'video')
+  } finally {
+    rmSync(root, { recursive: true, force: true })
+  }
+})
+
+test('detectWeAssetsDirSync resolves Wallpaper Engine assets synchronously via env', () => {
+  const root = mkdtempSync(join(tmpdir(), 'agy-assets-sync-'))
+  try {
+    const fakeSteam = join(root, 'Steam')
+    const assetsDir = join(fakeSteam, 'steamapps', 'common', 'wallpaper_engine', 'assets')
+    mkdirSync(join(assetsDir, 'materials'), { recursive: true })
+
+    const resolvedSteam = detectWeAssetsDirSync({ env: { AGY_WE_STEAM_ROOT: fakeSteam } })
+    assert.equal(resolvedSteam, assetsDir)
+
+    const resolvedDirect = detectWeAssetsDirSync({ env: { AGY_WE_ASSETS_DIR: assetsDir } })
+    assert.equal(resolvedDirect, assetsDir)
   } finally {
     rmSync(root, { recursive: true, force: true })
   }
