@@ -6,6 +6,7 @@ import * as esbuild from 'esbuild'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const ROOT = resolve(__dirname, '..')
 export const DIST_DIR = join(ROOT, 'sidecars', 'wallpaper_engine', 'dist')
+export const LICENSE_BANNER = '/*! SPDX-License-Identifier: MIT | agy-skins Copyright (c) 2026 CaptainMusX | Adapted from elysia395/dsh-wallpaper-engine, Copyright (c) 2026 elysia395 (MIT) */'
 
 export async function buildAll() {
   mkdirSync(DIST_DIR, { recursive: true })
@@ -18,6 +19,7 @@ export async function buildAll() {
     platform: 'browser',
     target: ['chrome120'],
     charset: 'utf8',
+    banner: { js: LICENSE_BANNER },
     logLevel: 'silent'
   })
 
@@ -29,12 +31,13 @@ export async function buildAll() {
     platform: 'browser',
     target: ['chrome120'],
     charset: 'utf8',
+    banner: { js: LICENSE_BANNER },
     logLevel: 'silent'
   })
 
   const cssSrc = join(ROOT, 'src', 'ui', 'panel.css')
   const cssDst = join(DIST_DIR, 'panel.css')
-  copyFileSync(cssSrc, cssDst)
+  writeFileSync(cssDst, `${LICENSE_BANNER}\n${readFileSync(cssSrc, 'utf8')}`, 'utf8')
 
   // Verify outputs are non-empty
   for (const name of ['runtime.js', 'panel.js', 'panel.css']) {

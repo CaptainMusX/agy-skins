@@ -7,10 +7,10 @@ import { SETTINGS_SIDEBAR_LABEL } from '../src/shared/i18n.js'
 
 const ROOT = resolve(import.meta.dirname, '..')
 
-test('plugin.json registers English iconless Wallpaper v2.1.4 nav/displayName', () => {
+test('plugin.json registers English iconless Wallpaper v2.2.0 nav/displayName', () => {
   const manifest = JSON.parse(readFileSync(join(ROOT, 'plugin.json'), 'utf8'))
   assert.equal(manifest.displayName, 'Wallpaper')
-  assert.equal(manifest.version, '2.1.4')
+  assert.equal(manifest.version, '2.2.0')
   assert.equal(SETTINGS_SIDEBAR_LABEL, 'Wallpaper')
 })
 

@@ -124,7 +124,29 @@ test('GlassController syncs html + body attrs, --color-card, unified side panel 
     assert.match(styleEl.textContent, /--we-inner-1:/)
     assert.match(styleEl.textContent, /\[data-side-panel-focus-scope\]/)
     assert.match(styleEl.textContent, /\[data-testid="overview-panel-host-gutter"\]/)
+    assert.match(styleEl.textContent, /\[data-testid="overview-panel-host-overlay"\]/)
+    assert.match(styleEl.textContent, /\.agy-overlay/)
+    assert.match(styleEl.textContent, /\[data-testid="context-menu-popup"\]/)
+    assert.match(styleEl.textContent, /\[role="tooltip"\]/)
+    assert.match(styleEl.textContent, /\.surface-opaque/)
+    assert.doesNotMatch(styleEl.textContent, /\[role="tooltip"\]\s*\{\s*backdrop-filter:\s*none/)
     assert.match(styleEl.textContent, /\.settings-modal-container/)
+
+    const solidFloatingBg = mockRules[13].style.getPropertyValue('background-color')
+    gc.update({
+      enabled: true,
+      wallpaperEnabled: true,
+      glassEnabled: true,
+      isPreview: true,
+      floaterSolidBase: false,
+      glassTransparency: 30,
+      bubbleOpacity: 60,
+      surfaceFrost: 12,
+      thinkingMode: 'off',
+      isDark: true
+    })
+    const clearFloatingBg = mockRules[13].style.getPropertyValue('background-color')
+    assert.notEqual(clearFloatingBg, solidFloatingBg)
 
     const initialCss = styleEl.textContent
     ruleCalls.length = 0

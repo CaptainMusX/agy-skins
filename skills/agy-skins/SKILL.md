@@ -3,7 +3,7 @@ name: agy-skins
 description: Install, verify, configure, and troubleshoot the agy-skins Wallpaper Engine, two-stage readability liquid glass, typography, click/trail FX, and 3D parallax plugin for Google Antigravity.
 ---
 
-# agy-skins Wallpaper Engine Plugin (v2.1.4)
+# agy-skins Wallpaper Engine Plugin (v2.2.0)
 
 `agy-skins` brings full Wallpaper Engine (`Scene` `.pkg`, `Web`, `Video`, `Picture`), unified two-stage readability iOS **Liquid Glass**, typography customization, cursor FX, and 3D parallax to **Google Antigravity 2.0** without modifying Antigravity installation binaries or using `BypassCSP`.
 

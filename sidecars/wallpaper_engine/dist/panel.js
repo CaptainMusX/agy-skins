@@ -1,3 +1,5 @@
+/*! SPDX-License-Identifier: MIT | agy-skins Copyright (c) 2026 CaptainMusX | Adapted from elysia395/dsh-wallpaper-engine, Copyright (c) 2026 elysia395 (MIT) */
+
 // src/shared/glass-presets.js
 var GLASS_COLOR_PRESETS = [
   "#ffffff",
@@ -5446,6 +5448,7 @@ function renderExtensionsTab(store) {
 
 // src/ui/tabs/about-tab.js
 var REPO_URL = "https://github.com/CaptainMusX/agy-skins";
+var UPSTREAM_DSH_URL = "https://github.com/elysia395/dsh-wallpaper-engine";
 function renderAboutTab(store) {
   const isZh = store.isZh();
   return el(
@@ -5454,12 +5457,12 @@ function renderAboutTab(store) {
     el(
       "p",
       { className: "we-about__p" },
-      isZh ? "Wallpaper Engine (agy-skins) v2.1.4 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.1.4 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
+      isZh ? "Wallpaper Engine (agy-skins) v2.2.0 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与全组件统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.2.0 — Wallpaper Engine & full-surface unified iOS Liquid Glass skin system for Google Antigravity 2.0."
     ),
     el(
       "p",
       { className: "we-about__p" },
-      isZh ? "架构特点：WebWallGL 3.0.1 实时 Scene/Web 渲染、HMAC-SHA256 签名本地回环 HTTP 206 流媒体、零 BypassCSP、整窗两段式可读性玻璃色板，以及直挂宿主 DOM 的无缝设置面板（无 iframe 嵌套）。" : "Architecture: WebWallGL 3.0.1 live Scene/Web runtime, HMAC-signed loopback HTTP 206 streaming, zero BypassCSP, two-stage readability Liquid Glass, and native host-DOM mounted settings."
+      isZh ? "架构特点：WebWallGL 3.0.1 实时 Scene/Web 渲染、HMAC-SHA256 签名本地回环 HTTP 206 流媒体、零 BypassCSP、整窗与右键/浮层/Tooltip 一体化两段可读性玻璃，以及直挂宿主 DOM 的无缝设置面板（无 iframe 嵌套）。" : "Architecture: WebWallGL 3.0.1 live Scene/Web runtime, HMAC-signed loopback HTTP 206 streaming, zero BypassCSP, full-surface two-stage readability Liquid Glass (including context menus, tooltips & popovers), and native host-DOM mounted settings."
     ),
     el(
       "div",
@@ -5482,16 +5485,29 @@ function renderAboutTab(store) {
     el(
       "div",
       { className: "we-picker__section" },
-      el("span", { className: "we-picker__ctl-label" }, isZh ? "开源致谢与设计灵感" : "Attributions & Design Credits"),
+      el("span", { className: "we-picker__ctl-label" }, isZh ? "开源致谢与版权归属（MIT License）" : "Open-Source Attributions & Licenses (MIT)"),
       el(
         "p",
         { className: "we-about__p" },
-        isZh ? "• 界面交互范式与两段可读性液态玻璃色板深度借鉴自 elysia395/dsh-wallpaper-engine (MIT)。" : "• UI interaction model & two-stage readability glass system modeled on elysia395/dsh-wallpaper-engine (MIT)."
+        isZh ? "• 本项目基于 elysia395/dsh-wallpaper-engine（MIT License · Copyright © 2026 elysia395）改写适配，界面组件与两段可读性液态玻璃色板均保留上游完整 MIT 授权与署名。" : "• Adapted from elysia395/dsh-wallpaper-engine (MIT License · Copyright © 2026 elysia395), retaining full upstream copyright and MIT permission notices."
+      ),
+      el(
+        "div",
+        { className: "we-picker__row" },
+        el("span", { className: "we-about__url", style: { flex: "1" } }, UPSTREAM_DSH_URL),
+        el("button", {
+          type: "button",
+          className: "we-picker__btn",
+          onClick: () => {
+            void navigator.clipboard?.writeText(UPSTREAM_DSH_URL);
+            store.showToast(isZh ? "已复制上游项目地址" : "Upstream URL copied");
+          }
+        }, isZh ? "复制上游" : "Copy")
       ),
       el(
         "p",
         { className: "we-about__p" },
-        isZh ? "• Wallpaper Engine .pkg 场景解析与 WebGL 2 渲染由 WebWallGL 3.0.1 驱动。" : "• Scene (.pkg) parsing & WebGL 2 runtime powered by WebWallGL 3.0.1."
+        isZh ? "• Wallpaper Engine .pkg 场景解析与 WebGL 2 渲染采用 oneincase/webwallgl v3.0.1（MIT License · Copyright © 2026 oneincase）。" : "• Scene (.pkg) parsing & WebGL 2 runtime powered by oneincase/webwallgl v3.0.1 (MIT License · Copyright © 2026 oneincase)."
       )
     )
   );

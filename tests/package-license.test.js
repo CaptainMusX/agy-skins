@@ -28,11 +28,27 @@ test('license, third-party notices, and built dist assets exist', () => {
     'LICENSE',
     'LICENSING.md',
     'THIRD-PARTY-NOTICES.md',
+    'third_party/dsh-wallpaper-engine/LICENSE',
+    'third_party/webwallgl/LICENSE',
     'sidecars/wallpaper_engine/dist/runtime.js',
     'sidecars/wallpaper_engine/dist/panel.js',
     'sidecars/wallpaper_engine/dist/panel.css',
     'sidecars/wallpaper_engine/webwallgl/engine/webwallgl.global.min.js'
   ]) {
     assert.ok(existsSync(join(ROOT, rel)), `Missing required file: ${rel}`)
+  }
+
+  const rootLicense = readFileSync(join(ROOT, 'LICENSE'), 'utf8')
+  assert.match(rootLicense, /Copyright \(c\) 2026 CaptainMusX/)
+  assert.match(rootLicense, /Copyright \(c\) 2026 elysia395/)
+  assert.match(rootLicense, /Copyright \(c\) 2026 oneincase/)
+
+  for (const bundleRel of [
+    'sidecars/wallpaper_engine/dist/runtime.js',
+    'sidecars/wallpaper_engine/dist/panel.js',
+    'sidecars/wallpaper_engine/dist/panel.css'
+  ]) {
+    const content = readFileSync(join(ROOT, bundleRel), 'utf8')
+    assert.ok(content.startsWith('/*! SPDX-License-Identifier: MIT'), `Missing MIT banner in ${bundleRel}`)
   }
 })

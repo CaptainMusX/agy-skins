@@ -245,6 +245,7 @@ export class GlassController {
     const gBlur = Math.min(60, Math.max(0, pct(surfaceFrost, 20)))
     const cBlur = Math.min(60, Math.max(0, pct(composerFrost, 22)))
     const sBlur = Math.min(60, Math.max(0, pct(pick('settingsWindow', settingsWindowBlur, gBlur), gBlur)))
+    const fBlur = glassOn ? Math.min(60, Math.max(20, gBlur)) : 0
     const saturate = Math.min(220, Math.max(100, Number.isFinite(Number(saturation)) ? Number(saturation) : 175))
 
     const surfaceFrostCss = glassOn && gBlur > 0
@@ -255,6 +256,9 @@ export class GlassController {
       : 'none'
     const settingsFrostCss = glassOn && sBlur > 0
       ? `blur(${sBlur}px) saturate(${saturate}%) brightness(${isDark ? 1.04 : 1.01}) contrast(1.01)`
+      : 'none'
+    const floatingFrostCss = glassOn && fBlur > 0
+      ? `blur(${fBlur}px) saturate(${Math.max(saturate, 175)}%) brightness(${isDark ? 1.05 : 1.02}) contrast(1.01)`
       : 'none'
 
     const borderRgb = isDark ? '255, 255, 255' : '15, 23, 42'
@@ -272,7 +276,10 @@ export class GlassController {
     const layer2Tint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha, floor)
     const layer3Tint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 1.15, floor)
     const elevatedTint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 1.24, Math.max(floor, isDark ? 0.62 : 0.56))
-    const floatingTint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 1.25, Math.max(floor, isDark ? 0.72 : 0.68))
+    const floaterFloor = floaterSolidBase !== false
+      ? floor * (isDark ? 0.90 : 0.70)
+      : floor * (isDark ? 0.60 : 0.44)
+    const floatingTint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 1.1, floaterFloor)
 
     const inputMajorTint = mixFormula(clampedChat.hex, clampedChat.rgb, glassAlpha, chatFloor)
     const bubbleTint = mixFormula(clampedChat.hex, clampedChat.rgb, bubbleAlpha, chatFloor)
@@ -281,7 +288,7 @@ export class GlassController {
 
     const sTrans = pct(pick('settingsWindow', settingsWindowTransparency, transPct), 18)
     const sAlpha = glassOn ? Math.max(0.10, 1 - sTrans / 100) * (isDark ? 0.72 : 0.84) : 0.96
-    const settingsFloor = Math.max(floor, isDark ? 0.70 : 0.74)
+    const settingsFloor = Math.max(floor * 0.85, isDark ? 0.54 : 0.44)
     const settingsTint = mixFormula(clampedSettings.hex, clampedSettings.rgb, sAlpha, settingsFloor)
     const maskNum = pct(settingsMaskStrength, 55) / 100
     const maskStrength = maskNum.toFixed(2)
@@ -344,7 +351,7 @@ export class GlassController {
       inner1, inner2, inner3,
       inputMajorTint, bubbleTint, codeBlockTint, capsuleTint,
       settingsTint, sBlur, maskStrength, modalBackdrop,
-      surfaceFrostCss, composerFrostCss, settingsFrostCss,
+      surfaceFrostCss, composerFrostCss, settingsFrostCss, floatingFrostCss,
       leftSidebarTint, leftSidebarFrost, leftSidebarSheen, lsActive,
       titlebarTint, titlebarFrost, titlebarSheen, tbActive,
       rightSidebarTint, rightSidebarFrost, rsActive,
@@ -405,6 +412,7 @@ export class GlassController {
 
       '--we-surface-frost': surfaceFrostCss,
       '--we-composer-frost': composerFrostCss,
+      '--we-floating-frost': floatingFrostCss,
 
       '--we-sidebar-tint': leftSidebarTint,
       '--we-sidebar-frost': leftSidebarFrost,
@@ -455,6 +463,15 @@ export class GlassController {
       '--color-border': borderColorCss,
       '--card-border': borderColorCss,
       '--glass-border': borderColorCss,
+      '--menu-border': borderColorCss,
+      '--color-menu-border': borderColorCss,
+      '--color-overlay-default': floatingTint,
+      '--rt-color-white': floatingTint,
+      '--rt-color-dark': floatingTint,
+      '--rt-opacity': '1',
+      '--sdk-toolbar-bg': floatingTint,
+      '--sdk-scrollbar-popover-bg': floatingTint,
+      '--sdk-comment-card-bg': layer2Tint,
       '--glass-highlight': `rgba(255, 255, 255, ${highlightAlpha.toFixed(3)})`
     }
 
@@ -464,6 +481,10 @@ export class GlassController {
     const bubbleShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}`
     const settingsSheen = `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.025) 38%, rgba(255, 255, 255, 0.04))`
     const settingsShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}, 0 24px 80px rgba(0, 7, 18, 0.28)`
+    const floatingSheen = glassOn
+      ? `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.03) 42%, rgba(255, 255, 255, 0.01))`
+      : 'none'
+    const floatingShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}, 0 16px 42px -10px rgba(0, 0, 0, ${(shadowAlpha * 1.15).toFixed(3)}), 0 4px 12px -2px rgba(0, 0, 0, ${(shadowAlpha * 0.6).toFixed(3)})`
     const selectedBorderColor = `color-mix(in srgb, ${validAccent} 24%, ${borderColorCss})`
     const selectedRowShadow = `inset 0 1px 0 rgba(255, 255, 255, ${(highlightAlpha * 0.6).toFixed(3)}), inset 0 0 0 1px ${selectedBorderColor}`
 
@@ -521,9 +542,11 @@ export class GlassController {
       setRuleProp(this.rules.settingsModal, 'box-shadow', settingsShadow)
 
       setRuleProp(this.rules.floaters, 'background-color', floatingTint)
-      setRuleProp(this.rules.floaters, 'backdrop-filter', surfaceFrostCss)
-      setRuleProp(this.rules.floaters, '-webkit-backdrop-filter', surfaceFrostCss)
+      setRuleProp(this.rules.floaters, 'background-image', floatingSheen)
+      setRuleProp(this.rules.floaters, 'backdrop-filter', floatingFrostCss)
+      setRuleProp(this.rules.floaters, '-webkit-backdrop-filter', floatingFrostCss)
       setRuleProp(this.rules.floaters, 'border-color', borderColorCss)
+      setRuleProp(this.rules.floaters, 'box-shadow', floatingShadow)
 
       const pickerKey = `${inner1}|${inner2}|${inner3}|${borderRgb}|${borderAlpha}|${validAccent}|${accentInk}|${clampedGlobal.hex}`
       if (this.lastPickerKey !== pickerKey && this.rules.pickerVars) {
@@ -664,9 +687,13 @@ body[data-agy-skins-active="true"] .settings-modal-backdrop,
 }
 
 /* 12. Settings modal & Alt+Shift+W frosted sheet */
-body[data-agy-skins-active="true"] .settings-modal-container,
-body[data-agy-skins-active="true"] #agy-skins-studio-dialog,
-body[data-agy-skins-active="true"] [role="dialog"]:not(#agy-skins-studio-dialog) {
+body[data-agy-skins-active="true"] :is(
+  .settings-modal-container,
+  #agy-skins-studio-dialog,
+  .agy-dialog:not([data-testid^="overview-panel"]),
+  [role="alertdialog"],
+  [role="dialog"]:not(#agy-skins-studio-dialog):not([data-testid^="overview-panel"]):not(.agy-overlay):not(.surface-glass)
+) {
   background-color: ${settingsTint} !important;
   background-image: ${settingsSheen} !important;
   backdrop-filter: ${settingsFrostCss} !important;
@@ -675,22 +702,49 @@ body[data-agy-skins-active="true"] [role="dialog"]:not(#agy-skins-studio-dialog)
   box-shadow: ${settingsShadow} !important;
 }
 
-/* 13. Floating menus, overview gutters, fastpick & portals */
+/* 13. Floating menus, context menus, tooltips, overview panels, toasts & portals */
 body[data-agy-skins-active="true"] :is(
-  .surface-glass,
-  .agy-fastpick,
+  .agy-overlay,
   .agy-popover,
+  .agy-fastpick,
+  .agy-toast,
+  .agy-tip-card,
+  .agy-selection-pill,
+  .agy-scroll-bottom,
+  .compact-tooltip,
   .quick-input-widget,
+  .toast-root,
+  .aux-drawer-popup,
+  .toolbar-overflow-dropdown,
+  .scrollbar-markers-popover,
+  .floating-comment-card,
+  .reactTooltipComponenttooltip,
+  .reactTooltipComponentlight,
+  .reactTooltipComponentdark,
+  .surface-glass:not(.surface-composer-card):not(.agy-user-bubble),
+  .surface-opaque:not([data-browser-hole]):not([data-has-browser-hole="true"]),
+  [data-select-popup],
+  [data-testid="context-menu-popup"],
+  [data-testid="context-menu-submenu-popup"],
+  [data-testid="overview-panel-host-overlay"],
   [data-testid="overview-panel-host-gutter"],
+  [data-testid="overview-panel-host-sibling"],
+  [data-testid="in-tab-sidebar-overlay"],
+  [data-testid="dictation-languages-popover"],
+  [data-testid="side-panel-popover"],
   [data-radix-popper-content-wrapper] > *,
-  [data-base-ui-portal] :is([role="listbox"], [role="menu"], [role="dialog"]),
+  [data-base-ui-portal] :is([role="listbox"], [role="menu"], [role="tooltip"], .agy-overlay, .surface-glass, [data-select-popup]),
   [role="menu"],
-  [role="listbox"]
+  [role="menubar"],
+  [role="listbox"],
+  [role="tooltip"]
 ) {
   background-color: ${floatingTint} !important;
-  backdrop-filter: ${surfaceFrostCss} !important;
-  -webkit-backdrop-filter: ${surfaceFrostCss} !important;
+  background-image: ${floatingSheen} !important;
+  backdrop-filter: ${floatingFrostCss} !important;
+  -webkit-backdrop-filter: ${floatingFrostCss} !important;
   border-color: ${borderColorCss} !important;
+  box-shadow: ${floatingShadow} !important;
 }
 
 /* Static structural clears */
@@ -783,8 +837,8 @@ body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-c
   background-image: none !important;
 }
 
-body[data-agy-skins-active="true"] [data-testid="sidebar-split"] .bg-sidebar,
-body[data-agy-skins-active="true"] .agy-shell > .shrink-0 .bg-sidebar,
+body[data-agy-skins-active="true"] [data-testid="sidebar-split"] .bg-sidebar:not(.surface-opaque):not(.agy-overlay):not([data-browser-occluder="true"]),
+body[data-agy-skins-active="true"] .agy-shell > .shrink-0 .bg-sidebar:not(.surface-opaque):not(.agy-overlay):not([data-browser-occluder="true"]),
 body[data-agy-skins-active="true"] [data-testid="conversation-list-sidebar"],
 body[data-agy-skins-active="true"] [data-testid="sidebar-navigation-items"],
 body[data-agy-skins-active="true"] .agy-sidebar-row .agy-row-actions,
@@ -830,9 +884,36 @@ body[data-agy-skins-active="true"] .settings-modal-container .bg-card {
   background-color: var(--we-inner-1) !important;
   border-color: var(--border) !important;
 }
-body[data-agy-skins-active="true"] [role="tooltip"] {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+body[data-agy-skins-active="true"] .reactTooltipComponentcontent {
+  background: transparent !important;
+  color: var(--foreground) !important;
+}
+body[data-agy-skins-active="true"] .reactTooltipCorearrow {
+  background-color: var(--we-floating-tint) !important;
+}
+body[data-agy-skins-active="true"] .agy-takeover-card {
+  background-color: var(--we-input-major) !important;
+  backdrop-filter: var(--we-composer-frost) !important;
+  -webkit-backdrop-filter: var(--we-composer-frost) !important;
+  border-color: var(--border) !important;
+}
+body[data-agy-skins-active="true"] :is(.agy-card, .artifact-card, .agy-spotlight-card, .agy-callout:not([role="alert"])) {
+  background-color: var(--we-inner-1) !important;
+  border-color: var(--border) !important;
+}
+body[data-agy-skins-active="true"] :is([data-testid="modal-backdrop"], .aux-drawer-backdrop, [data-testid="in-tab-sidebar-scrim"]) {
+  background-color: var(--we-modal-backdrop) !important;
+}
+body[data-agy-skins-active="true"] :is(
+  .agy-overlay-item:is(:hover, :focus-visible, [data-highlighted], [data-popup-open], [aria-expanded="true"]),
+  [role="menuitem"]:is(:hover, :focus-visible, [data-highlighted], [data-popup-open]),
+  [role="menuitemcheckbox"]:is(:hover, :focus-visible, [data-highlighted]),
+  [role="menuitemradio"]:is(:hover, :focus-visible, [data-highlighted]),
+  [role="option"]:is(:hover, :focus-visible, [data-highlighted], [aria-selected="true"]),
+  [data-testid="title-menu-bar-option"]:is(:hover, :focus-visible),
+  [data-testid^="overview-panel-row-"]:is(:hover, :focus-visible)
+) {
+  background-color: color-mix(in srgb, var(--we-accent) 14%, var(--we-inner-2)) !important;
 }
 body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   background-color: transparent !important;

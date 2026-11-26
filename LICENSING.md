@@ -14,4 +14,4 @@ Original `agy-skins` code and original SVG artwork (`assets/logo.svg`) are licen
 
 - Steam Workshop wallpapers, images, videos, and fonts are **never** bundled or redistributed in this repository.
 - Workshop directories are accessed strictly **read-only** via HMAC-SHA256 signed local loopback endpoints; `project.json` and Wallpaper Engine global settings are never modified.
-- No Antigravity application binaries or shortcuts are forcibly restarted or modified without explicit user action.
+- No Antigravity application binaries are ever modified, and running Antigravity windows are never forcibly killed or restarted.

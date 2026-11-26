@@ -1,3 +1,4 @@
+/*! SPDX-License-Identifier: MIT | agy-skins Copyright (c) 2026 CaptainMusX | Adapted from elysia395/dsh-wallpaper-engine, Copyright (c) 2026 elysia395 (MIT) */
 (() => {
   // src/engine/backdrop-manager.js
   var ROOT_ID = "agy-skins-backdrop-root";
@@ -1515,10 +1516,12 @@
       const gBlur = Math.min(60, Math.max(0, pct(surfaceFrost, 20)));
       const cBlur = Math.min(60, Math.max(0, pct(composerFrost, 22)));
       const sBlur = Math.min(60, Math.max(0, pct(pick("settingsWindow", settingsWindowBlur, gBlur), gBlur)));
+      const fBlur = glassOn ? Math.min(60, Math.max(20, gBlur)) : 0;
       const saturate = Math.min(220, Math.max(100, Number.isFinite(Number(saturation)) ? Number(saturation) : 175));
       const surfaceFrostCss = glassOn && gBlur > 0 ? `blur(${gBlur}px) saturate(${saturate}%) brightness(${isDark ? 1.04 : 1.01}) contrast(1.01)` : "none";
       const composerFrostCss = glassOn && cBlur > 0 ? `blur(${cBlur}px) saturate(${saturate}%) brightness(${isDark ? 1.04 : 1.01}) contrast(1.01)` : "none";
       const settingsFrostCss = glassOn && sBlur > 0 ? `blur(${sBlur}px) saturate(${saturate}%) brightness(${isDark ? 1.04 : 1.01}) contrast(1.01)` : "none";
+      const floatingFrostCss = glassOn && fBlur > 0 ? `blur(${fBlur}px) saturate(${Math.max(saturate, 175)}%) brightness(${isDark ? 1.05 : 1.02}) contrast(1.01)` : "none";
       const borderRgb = isDark ? "255, 255, 255" : "15, 23, 42";
       const rawBorder = Math.min(0.9, Math.max(0, pct(border, 32) / 100));
       const borderAlpha = isDark ? rawBorder * 0.42 : rawBorder * 0.24;
@@ -1531,14 +1534,15 @@
       const layer2Tint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha, floor);
       const layer3Tint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 1.15, floor);
       const elevatedTint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 1.24, Math.max(floor, isDark ? 0.62 : 0.56));
-      const floatingTint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 1.25, Math.max(floor, isDark ? 0.72 : 0.68));
+      const floaterFloor = floaterSolidBase !== false ? floor * (isDark ? 0.9 : 0.7) : floor * (isDark ? 0.6 : 0.44);
+      const floatingTint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 1.1, floaterFloor);
       const inputMajorTint = mixFormula(clampedChat.hex, clampedChat.rgb, glassAlpha, chatFloor);
       const bubbleTint = mixFormula(clampedChat.hex, clampedChat.rgb, bubbleAlpha, chatFloor);
       const codeBlockTint = mixFormula(clampedGlobal.hex, clampedGlobal.rgb, glassAlpha * 0.85, floor);
       const capsuleTint = `rgba(${clampedGlobal.rgb}, ${Math.min(0.45, Math.max(0.08, glassAlpha * 0.45)).toFixed(3)})`;
       const sTrans = pct(pick("settingsWindow", settingsWindowTransparency, transPct), 18);
       const sAlpha = glassOn ? Math.max(0.1, 1 - sTrans / 100) * (isDark ? 0.72 : 0.84) : 0.96;
-      const settingsFloor = Math.max(floor, isDark ? 0.7 : 0.74);
+      const settingsFloor = Math.max(floor * 0.85, isDark ? 0.54 : 0.44);
       const settingsTint = mixFormula(clampedSettings.hex, clampedSettings.rgb, sAlpha, settingsFloor);
       const maskNum = pct(settingsMaskStrength, 55) / 100;
       const maskStrength = maskNum.toFixed(2);
@@ -1597,6 +1601,7 @@
         surfaceFrostCss,
         composerFrostCss,
         settingsFrostCss,
+        floatingFrostCss,
         leftSidebarTint,
         leftSidebarFrost,
         leftSidebarSheen,
@@ -1668,6 +1673,7 @@
         "--we-modal-backdrop": modalBackdrop,
         "--we-surface-frost": surfaceFrostCss,
         "--we-composer-frost": composerFrostCss,
+        "--we-floating-frost": floatingFrostCss,
         "--we-sidebar-tint": leftSidebarTint,
         "--we-sidebar-frost": leftSidebarFrost,
         "--we-sidebar-sheen": leftSidebarSheen,
@@ -1714,6 +1720,15 @@
         "--color-border": borderColorCss,
         "--card-border": borderColorCss,
         "--glass-border": borderColorCss,
+        "--menu-border": borderColorCss,
+        "--color-menu-border": borderColorCss,
+        "--color-overlay-default": floatingTint,
+        "--rt-color-white": floatingTint,
+        "--rt-color-dark": floatingTint,
+        "--rt-opacity": "1",
+        "--sdk-toolbar-bg": floatingTint,
+        "--sdk-scrollbar-popover-bg": floatingTint,
+        "--sdk-comment-card-bg": layer2Tint,
         "--glass-highlight": `rgba(255, 255, 255, ${highlightAlpha.toFixed(3)})`
       };
       const composerSheen = `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.04) 38%, rgba(255, 255, 255, 0.015))`;
@@ -1722,6 +1737,8 @@
       const bubbleShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}`;
       const settingsSheen = `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.025) 38%, rgba(255, 255, 255, 0.04))`;
       const settingsShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}, 0 24px 80px rgba(0, 7, 18, 0.28)`;
+      const floatingSheen = glassOn ? `linear-gradient(180deg, rgba(255, 255, 255, ${sheenTop}), rgba(255, 255, 255, 0.03) 42%, rgba(255, 255, 255, 0.01))` : "none";
+      const floatingShadow = `inset 0 1px 0 rgba(255, 255, 255, ${highlightAlpha.toFixed(3)}), inset 0 0 0 1px ${borderColorCss}, 0 16px 42px -10px rgba(0, 0, 0, ${(shadowAlpha * 1.15).toFixed(3)}), 0 4px 12px -2px rgba(0, 0, 0, ${(shadowAlpha * 0.6).toFixed(3)})`;
       const selectedBorderColor = `color-mix(in srgb, ${validAccent} 24%, ${borderColorCss})`;
       const selectedRowShadow = `inset 0 1px 0 rgba(255, 255, 255, ${(highlightAlpha * 0.6).toFixed(3)}), inset 0 0 0 1px ${selectedBorderColor}`;
       if (this.rules) {
@@ -1767,9 +1784,11 @@
         setRuleProp(this.rules.settingsModal, "border-color", borderColorCss);
         setRuleProp(this.rules.settingsModal, "box-shadow", settingsShadow);
         setRuleProp(this.rules.floaters, "background-color", floatingTint);
-        setRuleProp(this.rules.floaters, "backdrop-filter", surfaceFrostCss);
-        setRuleProp(this.rules.floaters, "-webkit-backdrop-filter", surfaceFrostCss);
+        setRuleProp(this.rules.floaters, "background-image", floatingSheen);
+        setRuleProp(this.rules.floaters, "backdrop-filter", floatingFrostCss);
+        setRuleProp(this.rules.floaters, "-webkit-backdrop-filter", floatingFrostCss);
         setRuleProp(this.rules.floaters, "border-color", borderColorCss);
+        setRuleProp(this.rules.floaters, "box-shadow", floatingShadow);
         const pickerKey = `${inner1}|${inner2}|${inner3}|${borderRgb}|${borderAlpha}|${validAccent}|${accentInk}|${clampedGlobal.hex}`;
         if (this.lastPickerKey !== pickerKey && this.rules.pickerVars) {
           setRuleProp(this.rules.pickerVars, "--we-inner-1", inner1, false);
@@ -1907,9 +1926,13 @@ body[data-agy-skins-active="true"] .settings-modal-backdrop,
 }
 
 /* 12. Settings modal & Alt+Shift+W frosted sheet */
-body[data-agy-skins-active="true"] .settings-modal-container,
-body[data-agy-skins-active="true"] #agy-skins-studio-dialog,
-body[data-agy-skins-active="true"] [role="dialog"]:not(#agy-skins-studio-dialog) {
+body[data-agy-skins-active="true"] :is(
+  .settings-modal-container,
+  #agy-skins-studio-dialog,
+  .agy-dialog:not([data-testid^="overview-panel"]),
+  [role="alertdialog"],
+  [role="dialog"]:not(#agy-skins-studio-dialog):not([data-testid^="overview-panel"]):not(.agy-overlay):not(.surface-glass)
+) {
   background-color: ${settingsTint} !important;
   background-image: ${settingsSheen} !important;
   backdrop-filter: ${settingsFrostCss} !important;
@@ -1918,22 +1941,49 @@ body[data-agy-skins-active="true"] [role="dialog"]:not(#agy-skins-studio-dialog)
   box-shadow: ${settingsShadow} !important;
 }
 
-/* 13. Floating menus, overview gutters, fastpick & portals */
+/* 13. Floating menus, context menus, tooltips, overview panels, toasts & portals */
 body[data-agy-skins-active="true"] :is(
-  .surface-glass,
-  .agy-fastpick,
+  .agy-overlay,
   .agy-popover,
+  .agy-fastpick,
+  .agy-toast,
+  .agy-tip-card,
+  .agy-selection-pill,
+  .agy-scroll-bottom,
+  .compact-tooltip,
   .quick-input-widget,
+  .toast-root,
+  .aux-drawer-popup,
+  .toolbar-overflow-dropdown,
+  .scrollbar-markers-popover,
+  .floating-comment-card,
+  .reactTooltipComponenttooltip,
+  .reactTooltipComponentlight,
+  .reactTooltipComponentdark,
+  .surface-glass:not(.surface-composer-card):not(.agy-user-bubble),
+  .surface-opaque:not([data-browser-hole]):not([data-has-browser-hole="true"]),
+  [data-select-popup],
+  [data-testid="context-menu-popup"],
+  [data-testid="context-menu-submenu-popup"],
+  [data-testid="overview-panel-host-overlay"],
   [data-testid="overview-panel-host-gutter"],
+  [data-testid="overview-panel-host-sibling"],
+  [data-testid="in-tab-sidebar-overlay"],
+  [data-testid="dictation-languages-popover"],
+  [data-testid="side-panel-popover"],
   [data-radix-popper-content-wrapper] > *,
-  [data-base-ui-portal] :is([role="listbox"], [role="menu"], [role="dialog"]),
+  [data-base-ui-portal] :is([role="listbox"], [role="menu"], [role="tooltip"], .agy-overlay, .surface-glass, [data-select-popup]),
   [role="menu"],
-  [role="listbox"]
+  [role="menubar"],
+  [role="listbox"],
+  [role="tooltip"]
 ) {
   background-color: ${floatingTint} !important;
-  backdrop-filter: ${surfaceFrostCss} !important;
-  -webkit-backdrop-filter: ${surfaceFrostCss} !important;
+  background-image: ${floatingSheen} !important;
+  backdrop-filter: ${floatingFrostCss} !important;
+  -webkit-backdrop-filter: ${floatingFrostCss} !important;
   border-color: ${borderColorCss} !important;
+  box-shadow: ${floatingShadow} !important;
 }
 
 /* Static structural clears */
@@ -2026,8 +2076,8 @@ body[data-agy-skins-active="true"][data-agy-skins-wallpaper="true"] [data-main-c
   background-image: none !important;
 }
 
-body[data-agy-skins-active="true"] [data-testid="sidebar-split"] .bg-sidebar,
-body[data-agy-skins-active="true"] .agy-shell > .shrink-0 .bg-sidebar,
+body[data-agy-skins-active="true"] [data-testid="sidebar-split"] .bg-sidebar:not(.surface-opaque):not(.agy-overlay):not([data-browser-occluder="true"]),
+body[data-agy-skins-active="true"] .agy-shell > .shrink-0 .bg-sidebar:not(.surface-opaque):not(.agy-overlay):not([data-browser-occluder="true"]),
 body[data-agy-skins-active="true"] [data-testid="conversation-list-sidebar"],
 body[data-agy-skins-active="true"] [data-testid="sidebar-navigation-items"],
 body[data-agy-skins-active="true"] .agy-sidebar-row .agy-row-actions,
@@ -2073,9 +2123,36 @@ body[data-agy-skins-active="true"] .settings-modal-container .bg-card {
   background-color: var(--we-inner-1) !important;
   border-color: var(--border) !important;
 }
-body[data-agy-skins-active="true"] [role="tooltip"] {
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
+body[data-agy-skins-active="true"] .reactTooltipComponentcontent {
+  background: transparent !important;
+  color: var(--foreground) !important;
+}
+body[data-agy-skins-active="true"] .reactTooltipCorearrow {
+  background-color: var(--we-floating-tint) !important;
+}
+body[data-agy-skins-active="true"] .agy-takeover-card {
+  background-color: var(--we-input-major) !important;
+  backdrop-filter: var(--we-composer-frost) !important;
+  -webkit-backdrop-filter: var(--we-composer-frost) !important;
+  border-color: var(--border) !important;
+}
+body[data-agy-skins-active="true"] :is(.agy-card, .artifact-card, .agy-spotlight-card, .agy-callout:not([role="alert"])) {
+  background-color: var(--we-inner-1) !important;
+  border-color: var(--border) !important;
+}
+body[data-agy-skins-active="true"] :is([data-testid="modal-backdrop"], .aux-drawer-backdrop, [data-testid="in-tab-sidebar-scrim"]) {
+  background-color: var(--we-modal-backdrop) !important;
+}
+body[data-agy-skins-active="true"] :is(
+  .agy-overlay-item:is(:hover, :focus-visible, [data-highlighted], [data-popup-open], [aria-expanded="true"]),
+  [role="menuitem"]:is(:hover, :focus-visible, [data-highlighted], [data-popup-open]),
+  [role="menuitemcheckbox"]:is(:hover, :focus-visible, [data-highlighted]),
+  [role="menuitemradio"]:is(:hover, :focus-visible, [data-highlighted]),
+  [role="option"]:is(:hover, :focus-visible, [data-highlighted], [aria-selected="true"]),
+  [data-testid="title-menu-bar-option"]:is(:hover, :focus-visible),
+  [data-testid^="overview-panel-row-"]:is(:hover, :focus-visible)
+) {
+  background-color: color-mix(in srgb, var(--we-accent) 14%, var(--we-inner-2)) !important;
 }
 body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   background-color: transparent !important;
@@ -8205,6 +8282,7 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
 
   // src/ui/tabs/about-tab.js
   var REPO_URL = "https://github.com/CaptainMusX/agy-skins";
+  var UPSTREAM_DSH_URL = "https://github.com/elysia395/dsh-wallpaper-engine";
   function renderAboutTab(store) {
     const isZh = store.isZh();
     return el(
@@ -8213,12 +8291,12 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       el(
         "p",
         { className: "we-about__p" },
-        isZh ? "Wallpaper Engine (agy-skins) v2.1.4 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.1.4 — Wallpaper Engine & unified iOS Liquid Glass skin system for Google Antigravity 2.0."
+        isZh ? "Wallpaper Engine (agy-skins) v2.2.0 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与全组件统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.2.0 — Wallpaper Engine & full-surface unified iOS Liquid Glass skin system for Google Antigravity 2.0."
       ),
       el(
         "p",
         { className: "we-about__p" },
-        isZh ? "架构特点：WebWallGL 3.0.1 实时 Scene/Web 渲染、HMAC-SHA256 签名本地回环 HTTP 206 流媒体、零 BypassCSP、整窗两段式可读性玻璃色板，以及直挂宿主 DOM 的无缝设置面板（无 iframe 嵌套）。" : "Architecture: WebWallGL 3.0.1 live Scene/Web runtime, HMAC-signed loopback HTTP 206 streaming, zero BypassCSP, two-stage readability Liquid Glass, and native host-DOM mounted settings."
+        isZh ? "架构特点：WebWallGL 3.0.1 实时 Scene/Web 渲染、HMAC-SHA256 签名本地回环 HTTP 206 流媒体、零 BypassCSP、整窗与右键/浮层/Tooltip 一体化两段可读性玻璃，以及直挂宿主 DOM 的无缝设置面板（无 iframe 嵌套）。" : "Architecture: WebWallGL 3.0.1 live Scene/Web runtime, HMAC-signed loopback HTTP 206 streaming, zero BypassCSP, full-surface two-stage readability Liquid Glass (including context menus, tooltips & popovers), and native host-DOM mounted settings."
       ),
       el(
         "div",
@@ -8241,16 +8319,29 @@ body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
       el(
         "div",
         { className: "we-picker__section" },
-        el("span", { className: "we-picker__ctl-label" }, isZh ? "开源致谢与设计灵感" : "Attributions & Design Credits"),
+        el("span", { className: "we-picker__ctl-label" }, isZh ? "开源致谢与版权归属（MIT License）" : "Open-Source Attributions & Licenses (MIT)"),
         el(
           "p",
           { className: "we-about__p" },
-          isZh ? "• 界面交互范式与两段可读性液态玻璃色板深度借鉴自 elysia395/dsh-wallpaper-engine (MIT)。" : "• UI interaction model & two-stage readability glass system modeled on elysia395/dsh-wallpaper-engine (MIT)."
+          isZh ? "• 本项目基于 elysia395/dsh-wallpaper-engine（MIT License · Copyright © 2026 elysia395）改写适配，界面组件与两段可读性液态玻璃色板均保留上游完整 MIT 授权与署名。" : "• Adapted from elysia395/dsh-wallpaper-engine (MIT License · Copyright © 2026 elysia395), retaining full upstream copyright and MIT permission notices."
+        ),
+        el(
+          "div",
+          { className: "we-picker__row" },
+          el("span", { className: "we-about__url", style: { flex: "1" } }, UPSTREAM_DSH_URL),
+          el("button", {
+            type: "button",
+            className: "we-picker__btn",
+            onClick: () => {
+              void navigator.clipboard?.writeText(UPSTREAM_DSH_URL);
+              store.showToast(isZh ? "已复制上游项目地址" : "Upstream URL copied");
+            }
+          }, isZh ? "复制上游" : "Copy")
         ),
         el(
           "p",
           { className: "we-about__p" },
-          isZh ? "• Wallpaper Engine .pkg 场景解析与 WebGL 2 渲染由 WebWallGL 3.0.1 驱动。" : "• Scene (.pkg) parsing & WebGL 2 runtime powered by WebWallGL 3.0.1."
+          isZh ? "• Wallpaper Engine .pkg 场景解析与 WebGL 2 渲染采用 oneincase/webwallgl v3.0.1（MIT License · Copyright © 2026 oneincase）。" : "• Scene (.pkg) parsing & WebGL 2 runtime powered by oneincase/webwallgl v3.0.1 (MIT License · Copyright © 2026 oneincase)."
         )
       )
     );
