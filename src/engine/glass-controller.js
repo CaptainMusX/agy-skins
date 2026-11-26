@@ -723,6 +723,10 @@ body[data-agy-skins-active="true"] :is(
   .reactTooltipComponentdark,
   .surface-glass:not(.surface-composer-card):not(.agy-user-bubble),
   .surface-opaque:not([data-browser-hole]):not([data-has-browser-hole="true"]),
+  .agy-skins-context-menu,
+  .agy-skins-context-submenu,
+  .monaco-menu,
+  .context-view .monaco-menu-container,
   [data-select-popup],
   [data-testid="context-menu-popup"],
   [data-testid="context-menu-submenu-popup"],
@@ -906,6 +910,7 @@ body[data-agy-skins-active="true"] :is([data-testid="modal-backdrop"], .aux-draw
 }
 body[data-agy-skins-active="true"] :is(
   .agy-overlay-item:is(:hover, :focus-visible, [data-highlighted], [data-popup-open], [aria-expanded="true"]),
+  .agy-skins-ctx-item:is(:hover, :focus-visible, [data-highlighted="true"], [data-submenu-open="true"]),
   [role="menuitem"]:is(:hover, :focus-visible, [data-highlighted], [data-popup-open]),
   [role="menuitemcheckbox"]:is(:hover, :focus-visible, [data-highlighted]),
   [role="menuitemradio"]:is(:hover, :focus-visible, [data-highlighted]),
@@ -917,6 +922,118 @@ body[data-agy-skins-active="true"] :is(
 }
 body[data-agy-skins-active="true"] :is(.xterm, .xterm-screen, .xterm-viewport) {
   background-color: transparent !important;
+}
+
+@keyframes agySkinsCtxIn {
+  from {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.agy-skins-context-menu {
+  position: fixed !important;
+  z-index: 2147483000 !important;
+  box-sizing: border-box !important;
+  min-width: 176px !important;
+  max-width: 320px !important;
+  padding: 4px !important;
+  border-radius: 11px !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 1px !important;
+  color: var(--foreground, inherit) !important;
+  font-family: var(--agy-skins-font-family, inherit) !important;
+  font-size: 13px !important;
+  line-height: 1.35 !important;
+  outline: none !important;
+  user-select: none !important;
+  transform-origin: top left !important;
+  animation: agySkinsCtxIn 120ms cubic-bezier(0.2, 0.9, 0.25, 1) !important;
+}
+
+.agy-skins-ctx-item {
+  width: 100% !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 5px 8px !important;
+  margin: 0 !important;
+  border: none !important;
+  border-radius: 7px !important;
+  background: transparent !important;
+  color: inherit !important;
+  font-family: inherit !important;
+  font-size: 13px !important;
+  font-weight: 450 !important;
+  line-height: 1.35 !important;
+  text-align: left !important;
+  cursor: pointer !important;
+  outline: none !important;
+  transition: background-color 110ms ease, color 110ms ease !important;
+}
+
+.agy-skins-ctx-item[disabled],
+.agy-skins-ctx-item[data-disabled="true"] {
+  opacity: 0.42 !important;
+  cursor: not-allowed !important;
+}
+
+.agy-skins-ctx-item[data-destructive="true"] {
+  color: var(--destructive, #ef4444) !important;
+}
+
+.agy-skins-ctx-item[data-destructive="true"]:is(:hover, :focus-visible, [data-highlighted="true"]) {
+  background-color: color-mix(in srgb, var(--destructive, #ef4444) 14%, transparent) !important;
+}
+
+.agy-skins-ctx-icon {
+  width: 16px !important;
+  height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-shrink: 0 !important;
+  opacity: 0.86 !important;
+}
+
+.agy-skins-ctx-label {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.agy-skins-ctx-shortcut {
+  margin-left: auto !important;
+  padding-left: 16px !important;
+  flex-shrink: 0 !important;
+  font-size: 11.5px !important;
+  opacity: 0.65 !important;
+}
+
+.agy-skins-ctx-arrow {
+  margin-left: auto !important;
+  padding-left: 8px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  flex-shrink: 0 !important;
+  opacity: 0.7 !important;
+}
+
+.agy-skins-ctx-sep {
+  height: 1px !important;
+  margin: 4px 6px !important;
+  background-color: var(--border, rgba(128, 136, 152, 0.25)) !important;
+  opacity: 0.85 !important;
 }
 `
     this.styleEl.textContent = css

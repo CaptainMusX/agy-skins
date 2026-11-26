@@ -5457,7 +5457,7 @@ function renderAboutTab(store) {
     el(
       "p",
       { className: "we-about__p" },
-      isZh ? "Wallpaper Engine (agy-skins) v2.2.0 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与全组件统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.2.0 — Wallpaper Engine & full-surface unified iOS Liquid Glass skin system for Google Antigravity 2.0."
+      isZh ? "Wallpaper Engine (agy-skins) v2.2.1 —— 专为 Google Antigravity 2.0 打造的纯净动态壁纸与全组件统一 iOS 液态玻璃 UI 插件。" : "Wallpaper Engine (agy-skins) v2.2.1 — Wallpaper Engine & full-surface unified iOS Liquid Glass skin system for Google Antigravity 2.0."
     ),
     el(
       "p",

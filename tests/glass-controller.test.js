@@ -126,11 +126,13 @@ test('GlassController syncs html + body attrs, --color-card, unified side panel 
     assert.match(styleEl.textContent, /\[data-testid="overview-panel-host-gutter"\]/)
     assert.match(styleEl.textContent, /\[data-testid="overview-panel-host-overlay"\]/)
     assert.match(styleEl.textContent, /\.agy-overlay/)
+    assert.match(styleEl.textContent, /\.agy-skins-context-menu/)
     assert.match(styleEl.textContent, /\[data-testid="context-menu-popup"\]/)
     assert.match(styleEl.textContent, /\[role="tooltip"\]/)
     assert.match(styleEl.textContent, /\.surface-opaque/)
     assert.doesNotMatch(styleEl.textContent, /\[role="tooltip"\]\s*\{\s*backdrop-filter:\s*none/)
     assert.match(styleEl.textContent, /\.settings-modal-container/)
+    assert.equal(gc.rules.floaters, mockRules[13].style)
 
     const solidFloatingBg = mockRules[13].style.getPropertyValue('background-color')
     gc.update({

@@ -5,7 +5,7 @@ import { homedir, tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildAll, ROOT } from './build.mjs'
-import { defaultPortFiles } from '../sidecars/wallpaper_engine/cdp_notice.mjs'
+import { createCdpNoticeManager, defaultPortFiles } from '../sidecars/wallpaper_engine/cdp_notice.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const PLUGIN_ID = 'agy-skins'
@@ -140,6 +140,19 @@ export async function installLocal(options = {}) {
 
   const manifest = JSON.parse(readFileSync(join(targetDir, 'plugin.json'), 'utf8'))
   console.log(`[agy-skins] installed v${manifest.version} -> ${targetDir}`)
+
+  if (process.platform === 'win32' && !options.targetDir && !options.skipShortcutFix && !process.argv.includes('--no-shortcut-fix')) {
+    try {
+      const cdpNotice = createCdpNoticeManager({ platform: process.platform, autoFixOnMissing: false })
+      const st = await cdpNotice.checkShortcuts()
+      if (st === 'missing') {
+        const fixed = await cdpNotice.fixShortcuts()
+        if (fixed.updated > 0) {
+          console.log(`[agy-skins] patched ${fixed.updated} Windows Antigravity shortcut(s) with --remote-debugging-port=0`)
+        }
+      }
+    } catch {}
+  }
 
   if (!noLaunch) {
     let expectedHash = ''

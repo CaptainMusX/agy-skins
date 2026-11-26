@@ -8,6 +8,7 @@ import { ThemeFollowController } from './theme-follow-controller.js'
 import { ThemeWatcher, detectIsDark } from './theme-watcher.js'
 import { TitlebarController } from './titlebar-controller.js'
 import { HostEntries } from './host-entries.js'
+import { ContextMenuController } from './context-menu-controller.js'
 
 const OWNER = typeof __AGY_SKINS_OWNER__ === 'number' ? __AGY_SKINS_OWNER__ : Date.now()
 const HASH = typeof __AGY_SKINS_HASH__ === 'string' ? __AGY_SKINS_HASH__ : 'dev'
@@ -78,6 +79,7 @@ function createRuntime() {
   const themeFollow = new ThemeFollowController()
   const titlebar = new TitlebarController()
   const hostEntries = new HostEntries()
+  const contextMenu = new ContextMenuController({ enabled: false })
 
   const backdrop = new BackdropManager({
     onMediaEnd: () => {
@@ -250,6 +252,7 @@ function createRuntime() {
       isDark
     })
     titlebar.update({ enabled: active, isDark })
+    contextMenu.update({ enabled: Boolean(active || cfg.glassEnabled !== false), isDark })
     lastCoreVisualKey = coreKey
     lastVisualWasPreview = isPreview
     return true
@@ -366,6 +369,7 @@ function createRuntime() {
       if (previewRaf && typeof cancelAnimationFrame === 'function') cancelAnimationFrame(previewRaf)
       previewRaf = 0
       watcher.destroy()
+      contextMenu.destroy()
       hostEntries.destroy()
       titlebar.destroy()
       themeFollow.destroy()
