@@ -1,4 +1,4 @@
-# Installing & Running `agy-skins` (v2.1.0)
+# Installing & Running `agy-skins` (v2.1.3)
 
 ## 1. Local Plugin Installation
 
@@ -12,7 +12,7 @@ This bundles `sidecars/wallpaper_engine/dist/{runtime.js,panel.js,panel.css}` an
 - **Windows**: `%USERPROFILE%\.gemini\config\plugins\agy-skins`
 - **macOS / Linux**: `~/.gemini/config/plugins/agy-skins`
 
-Pass `node scripts/install.mjs --no-launch` when letting Antigravity's built-in plugin host manage the sidecar lifecycle.
+Pass `node scripts/install.mjs --no-launch` to build and stage only, or enable `agy-skins` in Antigravity so its native `wallpaper_engine` sidecar (`restart_policy: "always"`) starts automatically whenever Antigravity launches with `--remote-debugging-port=0`.
 
 ## 2. Opening **Wallpaper Engine**
 
@@ -34,4 +34,4 @@ If Antigravity was started without `--remote-debugging-port=0`:
 npm run uninstall:agy
 ```
 
-Add `--purge-data` to also remove `~/.agy-skins` (`config.json`, `uploads`, `we_cache.json`).
+Add `--purge-data` to also remove `~/.gemini/config/agy-skins` (`config.json`, `uploads`, `we_cache.json`).

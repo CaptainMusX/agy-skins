@@ -1,5 +1,5 @@
 import { readFileSync, existsSync } from 'node:fs'
-import { join, dirname } from 'node:path'
+import { join, dirname, basename, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { createHash } from 'node:crypto'
 import { defaultPortFiles } from './cdp_notice.mjs'
@@ -57,10 +57,15 @@ export function createComposerOriginResolver(productRoots = [], env = process.en
 }
 
 export function defaultProductRoots(env = process.env) {
-  if (env.ANTIGRAVITY_EXECUTABLE_DATA_DIR) {
-    return [dirname(dirname(env.ANTIGRAVITY_EXECUTABLE_DATA_DIR))]
+  const stdRoots = ['antigravity', 'antigravity-ide', 'antigravity-cli'].map(p => join(homedir(), '.gemini', p))
+  if (!env.ANTIGRAVITY_EXECUTABLE_DATA_DIR) return stdRoots
+  const root = resolve(env.ANTIGRAVITY_EXECUTABLE_DATA_DIR)
+  for (let dir = root, parent = dirname(dir); parent !== dir; dir = parent, parent = dirname(dir)) {
+    if (basename(dir) === 'sidecar_data') {
+      return [...new Set([parent, ...stdRoots])]
+    }
   }
-  return ['antigravity', 'antigravity-ide', 'antigravity-cli'].map(p => join(homedir(), '.gemini', p))
+  return [...new Set([dirname(dirname(root)), ...stdRoots])]
 }
 
 export function startCdpInjector({

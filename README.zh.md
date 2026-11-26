@@ -1,4 +1,4 @@
-# Google Antigravity 壁纸引擎插件（`agy-skins` v2.1.0）
+# Google Antigravity 壁纸引擎插件（`agy-skins` v2.1.3）
 
 > 将 Wallpaper Engine（`Scene` / `Web` / `视频` / `图片`）、统一两段式可读性 **iOS 液态玻璃**、全局排版字体、光标特效与 3D 视差原生带入 **Google Antigravity** —— 无缝融合、不修改任何主程序二进制文件。
 
@@ -24,7 +24,7 @@ npm install
 npm run install:agy
 ```
 
-Windows 下也可直接双击 `install.bat`（若只构建部署不单独启动守护进程可运行 `node scripts/install.mjs --no-launch`）。
+Windows 下也可直接双击 `install.bat`；在 Antigravity 插件中心启用后，只要 Antigravity 携带 `--remote-debugging-port=0` 启动，内置 `wallpaper_engine` Sidecar（`restart_policy: "always"`）即会随主程序自动拉起并启用 UI 美化，无需额外后台守护进程（`node scripts/install.mjs --no-launch` 仅构建部署）。
 
 ## 许可与致谢
 

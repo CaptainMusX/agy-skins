@@ -1,9 +1,11 @@
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { spawn } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import { homedir, tmpdir } from 'node:os'
 import { basename, dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { buildAll, ROOT } from './build.mjs'
+import { defaultPortFiles } from '../sidecars/wallpaper_engine/cdp_notice.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 export const PLUGIN_ID = 'agy-skins'
@@ -24,9 +26,74 @@ function purgeStaleStagingDirs(pluginsDir) {
   } catch {}
 }
 
+async function evaluateCdpHash(wsUrl) {
+  const ws = new WebSocket(wsUrl)
+  await new Promise((res, rej) => {
+    const t = setTimeout(() => rej(new Error('ws connect timeout')), 1500)
+    ws.onopen = () => { clearTimeout(t); res() }
+    ws.onerror = () => { clearTimeout(t); rej(new Error('ws error')) }
+  })
+  try {
+    const res = await new Promise((res, rej) => {
+      const t = setTimeout(() => rej(new Error('cdp eval timeout')), 1500)
+      ws.onmessage = ev => {
+        try {
+          const msg = JSON.parse(String(ev.data))
+          if (msg.id === 1) {
+            clearTimeout(t)
+            res(msg.result)
+          }
+        } catch {}
+      }
+      ws.send(JSON.stringify({
+        id: 1,
+        method: 'Runtime.evaluate',
+        params: { expression: 'globalThis.__agySkinsRuntime?.hash ?? null', returnByValue: true }
+      }))
+    })
+    return res?.result?.value || null
+  } finally {
+    try { ws.close() } catch {}
+  }
+}
+
+async function readMountedRuntimeHash(env, expectedHash) {
+  const portFile = defaultPortFiles(env).find(p => existsSync(p))
+  if (!portFile) return { cdpOpen: false, matched: false, hash: null }
+  let targets
+  try {
+    const port = readFileSync(portFile, 'utf8').split(/\r?\n/)[0].trim()
+    if (!/^\d{1,5}$/.test(port) || Number(port) < 1 || Number(port) > 65535) {
+      return { cdpOpen: false, matched: false, hash: null }
+    }
+    const res = await fetch(`http://127.0.0.1:${port}/json/list`, { signal: AbortSignal.timeout(1500), redirect: 'error' })
+    if (!res.ok) return { cdpOpen: false, matched: false, hash: null }
+    targets = await res.json()
+  } catch {
+    return { cdpOpen: false, matched: false, hash: null }
+  }
+
+  const pages = (Array.isArray(targets) ? targets : [])
+    .filter(t => t?.type === 'page' && /^https?:\/\/(127\.0\.0\.1|localhost)/.test(t.url || '') && t.webSocketDebuggerUrl)
+  if (!pages.length) return { cdpOpen: false, matched: false, hash: null }
+
+  let firstHash = null
+  for (const page of pages) {
+    try {
+      const hash = await evaluateCdpHash(page.webSocketDebuggerUrl)
+      if (!firstHash && hash) firstHash = hash
+      if (expectedHash && hash === expectedHash) {
+        return { cdpOpen: true, matched: true, hash }
+      }
+    } catch {}
+  }
+  return { cdpOpen: true, matched: false, hash: firstHash }
+}
+
 export async function installLocal(options = {}) {
   const env = options.env || process.env
   const noLaunch = options.noLaunch ?? process.argv.includes('--no-launch')
+  const forceStandalone = options.launchStandalone ?? process.argv.includes('--standalone')
   await buildAll()
 
   const targetDir = options.targetDir || resolveInstallDir(env)
@@ -75,15 +142,41 @@ export async function installLocal(options = {}) {
   console.log(`[agy-skins] installed v${manifest.version} -> ${targetDir}`)
 
   if (!noLaunch) {
-    const serverEntry = join(targetDir, 'sidecars', 'wallpaper_engine', 'server.mjs')
-    const child = spawn(process.execPath, [serverEntry, '--standalone'], {
-      cwd: targetDir,
-      detached: true,
-      stdio: 'ignore',
-      windowsHide: true
-    })
-    child.unref()
-    console.log(`[agy-skins] started standalone sidecar daemon (pid=${child.pid})`)
+    let expectedHash = ''
+    try {
+      const bundlePath = join(targetDir, 'sidecars', 'wallpaper_engine', 'dist', 'runtime.js')
+      expectedHash = createHash('sha256').update(readFileSync(bundlePath, 'utf8')).digest('hex').slice(0, 16)
+    } catch {}
+
+    let shouldSpawnStandalone = forceStandalone
+    if (!forceStandalone) {
+      let probe = await readMountedRuntimeHash(env, expectedHash)
+      if (probe.cdpOpen && !probe.matched) {
+        const deadline = Date.now() + 4500
+        while (Date.now() < deadline) {
+          await new Promise(r => setTimeout(r, 400))
+          probe = await readMountedRuntimeHash(env, expectedHash)
+          if (!probe.cdpOpen || probe.matched) break
+        }
+      }
+      if (!probe.cdpOpen || probe.matched) {
+        console.log('[agy-skins] native Antigravity sidecar ready (no standalone daemon needed)')
+      } else {
+        shouldSpawnStandalone = true
+      }
+    }
+
+    if (shouldSpawnStandalone) {
+      const serverEntry = join(targetDir, 'sidecars', 'wallpaper_engine', 'server.mjs')
+      const child = spawn(process.execPath, [serverEntry, '--standalone'], {
+        cwd: targetDir,
+        detached: true,
+        stdio: 'ignore',
+        windowsHide: true
+      })
+      child.unref()
+      console.log(`[agy-skins] started standalone sidecar daemon (pid=${child.pid})`)
+    }
   }
 
   return { targetDir, version: manifest.version }

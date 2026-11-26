@@ -1,6 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { createServer } from 'node:http'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { createCdpNoticeManager, defaultPortFiles } from '../sidecars/wallpaper_engine/cdp_notice.mjs'
+import { defaultProductRoots, createComposerOriginResolver } from '../sidecars/wallpaper_engine/cdp_injector.mjs'
 
 test('defaultPortFiles resolves overridden AGY_PORT_FILE and APPDATA paths', () => {
   const overrideList = defaultPortFiles({
@@ -35,4 +40,46 @@ test('createCdpNoticeManager tracks shortcut fix state transitions', async () =>
   assert.equal(fixed.ok, true)
   assert.equal(fixed.updated, 1)
   assert.equal(mgr.info('ok').canFixShortcut, false)
+})
+
+test('defaultProductRoots resolves sidecar_data parent for composer hub verification', async () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'agy-skins-roots-'))
+  let seenToken = ''
+  const server = createServer((req, res) => {
+    seenToken = String(req.headers['x-codeium-csrf-token'] || '')
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end('{}')
+  })
+
+  try {
+    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+    const { port } = server.address()
+    const productRoot = join(tmp, 'antigravity')
+    const dataDir = join(productRoot, 'sidecar_data', 'agy-skins', 'wallpaper_engine', 'data')
+    const daemonDir = join(productRoot, 'daemon')
+    mkdirSync(dataDir, { recursive: true })
+    mkdirSync(daemonDir, { recursive: true })
+    writeFileSync(
+      join(daemonDir, `hub_${port}.json`),
+      JSON.stringify({ httpPort: port, httpsPort: 4370, pid: process.pid }),
+      'utf8'
+    )
+
+    const env = {
+      ANTIGRAVITY_EXECUTABLE_DATA_DIR: dataDir,
+      ANTIGRAVITY_LS_ADDRESS: `127.0.0.1:${port}`,
+      ANTIGRAVITY_CSRF_TOKEN: 'csrf-test-token'
+    }
+
+    const roots = defaultProductRoots(env)
+    assert.equal(roots[0], productRoot)
+
+    const resolveOrigin = createComposerOriginResolver(roots, env)
+    const origin = await resolveOrigin()
+    assert.equal(origin, 'https://127.0.0.1:4370')
+    assert.equal(seenToken, 'csrf-test-token')
+  } finally {
+    await new Promise(resolve => server.close(resolve))
+    rmSync(tmp, { recursive: true, force: true })
+  }
 })

@@ -10,7 +10,7 @@ export function uninstallLocal(options = {}) {
   const targetDir = options.targetDir || resolveInstallDir(env)
   const dataDir = env.AGY_SKINS_DATA_DIR?.trim()
     ? resolve(env.AGY_SKINS_DATA_DIR.trim())
-    : join(homedir(), '.agy-skins')
+    : join(homedir(), '.gemini', 'config', 'agy-skins')
 
   let removedPlugin = false
   if (existsSync(targetDir)) {

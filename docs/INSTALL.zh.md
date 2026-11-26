@@ -1,4 +1,4 @@
-# `agy-skins` v2.0.0 安装与使用指南
+# `agy-skins` v2.1.3 安装与使用指南
 
 ## 1. 构建与安装
 
@@ -11,7 +11,7 @@ npm run install:agy
 - **Windows**：`%USERPROFILE%\.gemini\config\plugins\agy-skins`
 - **macOS / Linux**：`~/.gemini/config/plugins/agy-skins`
 
-所有个人配置（`config.json`）、HMAC 密钥（`we-media.key`）及本地导入素材均安全存储在 `~/.agy-skins/`，覆盖升级不会丢失原有配置或壁纸库。
+所有个人配置（`config.json`）、HMAC 密钥（`we-media.key`）及本地导入素材均安全存储在 `~/.gemini/config/agy-skins/`，覆盖升级不会丢失原有配置或壁纸库。在 Antigravity 中启用 `agy-skins` 后，只要快捷方式带有 `--remote-debugging-port=0`，原生 `wallpaper_engine` Sidecar（`restart_policy: "always"`）会在 Antigravity 启动时自动拉起并生效。
 
 ## 2. 打开壁纸引擎控制面板的方式
 
@@ -32,4 +32,4 @@ npm run install:agy
 npm run uninstall:agy
 ```
 
-如需同时清除 `~/.agy-skins` 中的个人配置和已导入图片/视频，可附加 `--purge-data`。
+如需同时清除 `~/.gemini/config/agy-skins` 中的个人配置和已导入图片/视频，可附加 `--purge-data`。
